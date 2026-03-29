@@ -1,4 +1,4 @@
-﻿
+
 Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio Version 17
 VisualStudioVersion = 17.14.36109.1
@@ -9,7 +9,7 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "frontend", "frontend", "{F1
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "HMS.Api", "backend\HMS.Api\HMS.Api.csproj", "{51D04204-176F-4875-AFEA-CF24ACF61F68}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "HMS.Persistance", "backend\HMS.Presistance\HMS.Persistance.csproj", "{47EF4DE0-328F-4D13-B264-86FD4588F077}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "HMS.Persistence", "backend\HMS.Persistence\HMS.Persistence.csproj", "{47EF4DE0-328F-4D13-B264-86FD4588F077}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "HMS.Shared", "backend\HMS.Shared\HMS.Shared.csproj", "{CF642DE2-3125-4945-97B3-B34E1BA41C0F}"
 EndProject

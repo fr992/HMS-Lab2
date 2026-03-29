@@ -1,7 +1,7 @@
-﻿using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore;
 using Identity.Domain.Entities;
 
-namespace HMS.Persistance; 
+namespace HMS.Persistence; 
 
 public class HmsDbContext : DbContext
 {

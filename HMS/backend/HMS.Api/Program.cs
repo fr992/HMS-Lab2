@@ -1,4 +1,4 @@
-using HMS.Persistance;
+using HMS.Persistence;
 
 var builder = WebApplication.CreateBuilder(args);
 
