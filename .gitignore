@@ -1,0 +1,5 @@
+*.db
+*.db-shm
+*.db-wal
+HMS/.vs/HMS/v17/.suo
+HMS/.vs/HMS/v17/DocumentLayout.json
