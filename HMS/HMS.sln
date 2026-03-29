@@ -1,11 +1,61 @@
 ﻿
 Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio Version 17
-VisualStudioVersion = 17.14.36109.1 d17.14
+VisualStudioVersion = 17.14.36109.1
 MinimumVisualStudioVersion = 10.0.40219.1
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "backend", "backend", "{02EA681E-C7D8-13C7-8484-4AC65E1B71E8}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "frontend", "frontend", "{F165C742-CB9B-4244-A804-63E916047E11}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "HMS.Api", "backend\HMS.Api\HMS.Api.csproj", "{51D04204-176F-4875-AFEA-CF24ACF61F68}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "HMS.Persistance", "backend\HMS.Presistance\HMS.Persistance.csproj", "{47EF4DE0-328F-4D13-B264-86FD4588F077}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "HMS.Shared", "backend\HMS.Shared\HMS.Shared.csproj", "{CF642DE2-3125-4945-97B3-B34E1BA41C0F}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "HMS.Contracts", "backend\HMS.Contracts\HMS.Contracts.csproj", "{7D1D8EAB-3D50-48BE-98F4-85B7B8AFAEF2}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "modules", "modules", "{22D363E0-3DE6-41DE-948B-7E55F4806CF5}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Identity.Domain", "backend\Identity.Domain\Identity.Domain.csproj", "{C8BE5C90-10AC-490B-8D2C-E16280B50834}"
+EndProject
 Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{51D04204-176F-4875-AFEA-CF24ACF61F68}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{51D04204-176F-4875-AFEA-CF24ACF61F68}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{51D04204-176F-4875-AFEA-CF24ACF61F68}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{51D04204-176F-4875-AFEA-CF24ACF61F68}.Release|Any CPU.Build.0 = Release|Any CPU
+		{47EF4DE0-328F-4D13-B264-86FD4588F077}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{47EF4DE0-328F-4D13-B264-86FD4588F077}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{47EF4DE0-328F-4D13-B264-86FD4588F077}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{47EF4DE0-328F-4D13-B264-86FD4588F077}.Release|Any CPU.Build.0 = Release|Any CPU
+		{CF642DE2-3125-4945-97B3-B34E1BA41C0F}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{CF642DE2-3125-4945-97B3-B34E1BA41C0F}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{CF642DE2-3125-4945-97B3-B34E1BA41C0F}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{CF642DE2-3125-4945-97B3-B34E1BA41C0F}.Release|Any CPU.Build.0 = Release|Any CPU
+		{7D1D8EAB-3D50-48BE-98F4-85B7B8AFAEF2}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{7D1D8EAB-3D50-48BE-98F4-85B7B8AFAEF2}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{7D1D8EAB-3D50-48BE-98F4-85B7B8AFAEF2}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{7D1D8EAB-3D50-48BE-98F4-85B7B8AFAEF2}.Release|Any CPU.Build.0 = Release|Any CPU
+		{C8BE5C90-10AC-490B-8D2C-E16280B50834}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{C8BE5C90-10AC-490B-8D2C-E16280B50834}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{C8BE5C90-10AC-490B-8D2C-E16280B50834}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{C8BE5C90-10AC-490B-8D2C-E16280B50834}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(NestedProjects) = preSolution
+		{51D04204-176F-4875-AFEA-CF24ACF61F68} = {02EA681E-C7D8-13C7-8484-4AC65E1B71E8}
+		{47EF4DE0-328F-4D13-B264-86FD4588F077} = {02EA681E-C7D8-13C7-8484-4AC65E1B71E8}
+		{CF642DE2-3125-4945-97B3-B34E1BA41C0F} = {02EA681E-C7D8-13C7-8484-4AC65E1B71E8}
+		{7D1D8EAB-3D50-48BE-98F4-85B7B8AFAEF2} = {02EA681E-C7D8-13C7-8484-4AC65E1B71E8}
+		{22D363E0-3DE6-41DE-948B-7E55F4806CF5} = {02EA681E-C7D8-13C7-8484-4AC65E1B71E8}
+		{C8BE5C90-10AC-490B-8D2C-E16280B50834} = {22D363E0-3DE6-41DE-948B-7E55F4806CF5}
 	EndGlobalSection
 	GlobalSection(ExtensibilityGlobals) = postSolution
 		SolutionGuid = {85AC2862-E2B9-46B8-AE0B-98069D66A738}
