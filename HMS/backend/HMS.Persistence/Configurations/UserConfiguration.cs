@@ -1,8 +1,8 @@
-﻿using Identity.Domain.Entities;
+using Identity.Domain.Entities;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
 
-namespace HMS.Presistance.Configurations;
+namespace HMS.Persistence.Configurations;
 
 public class UserConfiguration : IEntityTypeConfiguration<User>
 {

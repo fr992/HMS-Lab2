@@ -1,9 +1,8 @@
-﻿using HMS.Persistance;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 
-namespace HMS.Persistance;
+namespace HMS.Persistence;
 
 public static class DependencyInjection
 {
