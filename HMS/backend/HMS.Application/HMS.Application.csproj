@@ -1,0 +1,20 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+	<PropertyGroup>
+		<TargetFramework>net8.0</TargetFramework>
+		<ImplicitUsings>enable</ImplicitUsings>
+		<Nullable>enable</Nullable>
+		<RootNamespace>HMS.Application</RootNamespace>
+	</PropertyGroup>
+
+	<ItemGroup>
+		<PackageReference Include="Microsoft.Extensions.DependencyInjection.Abstractions" Version="8.0.0" />
+	</ItemGroup>
+
+	<ItemGroup>
+		<ProjectReference Include="..\HMS.Contracts\HMS.Contracts.csproj" />
+		<ProjectReference Include="..\HMS.Shared\HMS.Shared.csproj" />
+		<ProjectReference Include="..\Identity.Domain\Identity.Domain.csproj" />
+	</ItemGroup>
+
+</Project>
