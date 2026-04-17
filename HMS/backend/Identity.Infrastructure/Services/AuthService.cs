@@ -5,6 +5,9 @@ using Identity.Domain.Entities;
 using Identity.Infrastructure.Jwt;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
+using System.Security.Cryptography; 
+using System.Text;                  
+
 
 namespace Identity.Infrastructure.Services;
 
@@ -13,6 +16,14 @@ public sealed class AuthService : IAuthService
     private readonly HmsDbContext _db;
     private readonly IPasswordHasher<User> _passwordHasher;
     private readonly IJwtTokenGenerator _jwt;
+
+    
+    private string ComputeHash(string token)
+    {
+        using var sha256 = SHA256.Create();
+        var bytes = sha256.ComputeHash(Encoding.UTF8.GetBytes(token));
+        return Convert.ToBase64String(bytes);
+    }
 
     public AuthService(HmsDbContext db, IPasswordHasher<User> passwordHasher, IJwtTokenGenerator jwt)
     {
@@ -46,13 +57,80 @@ public sealed class AuthService : IAuthService
         var roles = user.UserRoles.Select(ur => ur.Role.Name).ToList();
         var (token, expiresIn) = _jwt.CreateAccessToken(user, roles);
 
+       
+        var refreshToken = Convert.ToBase64String(RandomNumberGenerator.GetBytes(64));
+        var tokenHash = ComputeHash(refreshToken);
+
+        var refreshTokenEntity = new RefreshToken
+        {
+            UserId = user.Id,
+            TokenHash = tokenHash,
+            ExpiresAt = DateTime.UtcNow.AddDays(7)
+        };
+
+        _db.RefreshTokens.Add(refreshTokenEntity);
+        await _db.SaveChangesAsync(cancellationToken);
+       
+
         return new AuthResponse
         {
             AccessToken = token,
+            RefreshToken = refreshToken, 
             ExpiresInSeconds = expiresIn,
             UserId = user.Id,
             UserName = user.UserName,
             Roles = roles
         };
     }
+   
+    public async Task<AuthResponse?> RefreshTokenAsync(string refreshToken, CancellationToken cancellationToken = default)
+    {
+        var tokenHash = ComputeHash(refreshToken);
+
+        var tokenEntity = await _db.RefreshTokens
+            .Include(r => r.User)
+            .ThenInclude(u => u.UserRoles)
+            .ThenInclude(ur => ur.Role)
+            .FirstOrDefaultAsync(r => r.TokenHash == tokenHash, cancellationToken);
+
+        if (tokenEntity == null || tokenEntity.RevokedAt != null || tokenEntity.ExpiresAt < DateTime.UtcNow)
+            return null;
+
+        var user = tokenEntity.User;
+
+        if (!user.IsActive)
+            return null;
+
+        var roles = user.UserRoles.Select(r => r.Role.Name).ToList();
+
+        var (newAccessToken, expiresIn) = _jwt.CreateAccessToken(user, roles);
+
+        
+        tokenEntity.RevokedAt = DateTime.UtcNow;
+
+        var newRefreshToken = Convert.ToBase64String(RandomNumberGenerator.GetBytes(64));
+        var newTokenHash = ComputeHash(newRefreshToken);
+
+        var newToken = new RefreshToken
+        {
+            UserId = user.Id,
+            TokenHash = newTokenHash,
+            ExpiresAt = DateTime.UtcNow.AddDays(7)
+        };
+
+        _db.RefreshTokens.Add(newToken);
+
+        await _db.SaveChangesAsync(cancellationToken);
+
+        return new AuthResponse
+        {
+            AccessToken = newAccessToken,
+            RefreshToken = newRefreshToken,
+            ExpiresInSeconds = expiresIn,
+            UserId = user.Id,
+            UserName = user.UserName,
+            Roles = roles
+        };
+    }
+    
 }
