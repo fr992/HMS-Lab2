@@ -14,6 +14,110 @@ public sealed class IdentityDataSeeder
     private readonly SeedSettings _seed;
     private readonly ILogger<IdentityDataSeeder> _logger;
 
+    private static readonly string[] RoleNames =
+    {
+        "Admin",
+        "Doctor",
+        "Nurse",
+        "Patient",
+        "Receptionist",
+        "Laboratorant"
+    };
+
+
+
+    //lejet fillestare
+
+    private static readonly (string Name, string Description)[] PermissionDefinitions =
+    {
+        ("Users.Create", "Krijon përdorues stafi (mjekë, infermierë, recepsionistë, laboratorantë)."),
+        ("Users.Read", "Lexon përdoruesit."),
+        ("Users.Update", "Përditëson përdoruesit."),
+        ("Users.SetActive", "Aktivizon ose çaktivizon përdorues."),
+        ("Roles.Read", "Lexon rolet."),
+        ("Permissions.Read", "Lexon listën e lejeve."),
+        ("RolePermissions.Manage", "Cakton ose heq leje nga rolet."),
+        ("AuditLogs.Read", "Lexon audit log."),
+        ("Settings.Manage", "Menaxhon cilësimet e sistemit."),
+        ("Patients.Register", "Regjistron pacient të ri dhe përdorues portal (recepsion)."),
+        ("Patients.Read", "Lexon të dhënat e pacientit."),
+        ("Patients.Update", "Përditëson të dhënat e pacientit."),
+        ("Appointments.Read", "Sheh terminet dhe oraret."),
+        ("Appointments.Create", "Krijon termin për pacient."),
+        ("Appointments.ManageStatus", "Aprovon, refuzon ose ndryshon statusin e terminit."),
+        ("Invoices.Read", "Sheh faturat."),
+        ("Payments.ConfirmCash", "Konfirmon pagesën në para."),
+        ("LabResults.Read", "Lexon rezultate laboratori (p.sh. recepsion)."),
+        ("Encounters.Create", "Fillon vizitë (Encounter)."),
+        ("Encounters.Read", "Lexon encounter."),
+        ("Encounters.Update", "Përditëson encounter gjatë vizitës."),
+        ("Encounters.Close", "Mbyll vizitën."),
+        ("Diagnoses.Manage", "Menaxhon diagnozat e lidhura me encounter."),
+        ("Prescriptions.Manage", "Menaxhon recetat dhe barnat."),
+        ("LabRequests.Create", "Krijon kërkesë laboratori nga vizita."),
+        ("NurseTasks.Assign", "Cakton detyra infermierit."),
+        ("NurseTasks.Read", "Sheh detyrat e caktuara."),
+        ("NurseTasks.Complete", "Shënon detyrën si të kryer."),
+        ("LabRequests.Read", "Sheh kërkesat laboratorike."),
+        ("LabRequests.UpdateStatus", "Përditëson statusin e kërkesës laboratorike."),
+        ("LabResults.Create", "Plotëson rezultatin laboratorik."),
+        ("LabResults.Publish", "Publikon rezultatin për pacientin."),
+        ("Own.Appointments.View", "Pacienti sheh terminet e veta."),
+        ("Own.Appointments.Request", "Pacienti kërkon termin të ri (pa aprovim vetjak)."),
+        ("Own.MedicalHistory.View", "Pacienti sheh historikun mjekësor."),
+        ("Own.LabResults.View", "Pacienti sheh rezultatet e analizave."),
+        ("Own.LabResults.Download", "Pacienti shkarkon PDF të rezultatit."),
+        ("Own.Invoices.View", "Pacienti sheh faturat."),
+        ("Own.Payments.PayOnline", "Pacienti paguan online."),
+        ("Own.Notifications.View", "Pacienti sheh njoftimet.")
+    };
+
+    //lejet e secilit rol
+
+    private static readonly (string RoleName, string[] PermissionNames)[] RolePermissionMap =
+    {
+        ("Admin", new[]
+        {
+            "Users.Create", "Users.Read", "Users.Update", "Users.SetActive",
+            "Roles.Read", "Permissions.Read", "RolePermissions.Manage",
+            "AuditLogs.Read", "Settings.Manage"
+        }),
+        ("Receptionist", new[]
+        {
+            "Patients.Register", "Patients.Read", "Patients.Update",
+            "Appointments.Read", "Appointments.Create", "Appointments.ManageStatus",
+            "Invoices.Read", "Payments.ConfirmCash",
+            "LabResults.Read"
+        }),
+        ("Doctor", new[]
+        {
+            "Appointments.Read",
+            "Encounters.Create", "Encounters.Read", "Encounters.Update", "Encounters.Close",
+            "Diagnoses.Manage", "Prescriptions.Manage",
+            "LabRequests.Create",
+            "NurseTasks.Assign"
+        }),
+        ("Nurse", new[]
+        {
+            "NurseTasks.Read", "NurseTasks.Complete"
+        }),
+        ("Laboratorant", new[]
+        {
+            "LabRequests.Read", "LabRequests.UpdateStatus",
+            "LabResults.Create", "LabResults.Publish"
+        }),
+        ("Patient", new[]
+        {
+            "Own.Appointments.View", "Own.Appointments.Request",
+            "Own.MedicalHistory.View",
+            "Own.LabResults.View", "Own.LabResults.Download",
+            "Own.Invoices.View", "Own.Payments.PayOnline",
+            "Own.Notifications.View"
+        })
+
+
+    };
+
     public IdentityDataSeeder(
         HmsDbContext db,
         IPasswordHasher<User> passwordHasher,
@@ -29,7 +133,11 @@ public sealed class IdentityDataSeeder
     public async Task SeedAsync(CancellationToken cancellationToken = default)
     {
         if (_seed.EnsureRoles)
+        {
             await EnsureRolesAsync(cancellationToken);
+            await EnsurePermissionsAsync(cancellationToken);
+            await EnsureRolePermissionsAsync(cancellationToken);
+        }
 
         if (_seed.EnsureBootstrapAdmin && !string.IsNullOrWhiteSpace(_seed.AdminPassword))
             await EnsureBootstrapAdminAsync(cancellationToken);
@@ -39,21 +147,89 @@ public sealed class IdentityDataSeeder
 
     private async Task EnsureRolesAsync(CancellationToken cancellationToken)
     {
-        var names = new[] { "Admin", "Doctor", "Nurse", "LabTech", "Staff" };
-        foreach (var name in names)
+        var descriptions = new Dictionary<string, string>(StringComparer.Ordinal)
+        {
+            ["Admin"] = "Menaxhon sistemin, përdoruesit dhe caktimin e lejeve.",
+            ["Doctor"] = "Procesi mjekësor: vizita, diagnozë, terapi, laborator, detyra infermierit.",
+            ["Nurse"] = "Ekzekuton detyrat e caktuara nga mjeku.",
+            ["Patient"] = "Portal: termine, historik, analiza, pagesa, njoftime.",
+            ["Receptionist"] = "Front desk: pacientë, termine, pagesa cash, (ops.) rezultate.",
+            ["Laboratorant"] = "Analiza laboratorike: kërkesa, rezultate, publikim."
+        };        
+        
+        foreach (var name in RoleNames)
         {
             if (await _db.Roles.AnyAsync(r => r.Name == name, cancellationToken))
                 continue;
 
+            descriptions.TryGetValue(name, out var desc);
+
             _db.Roles.Add(new Role
             {
                 Name = name,
-                Description = name,
+                Description = desc ?? name,
                 CreatedAt = DateTime.UtcNow,
                 UpdatedAt = DateTime.UtcNow
             });
         }
 
+        await _db.SaveChangesAsync(cancellationToken);
+    }
+
+    private async Task EnsurePermissionsAsync(CancellationToken cancellationToken)
+{
+    foreach (var (name, description) in PermissionDefinitions)
+    {
+        if (await _db.Permissions.AnyAsync(p => p.Name == name, cancellationToken))
+            continue;
+
+        var now = DateTime.UtcNow;
+        _db.Permissions.Add(new Permission
+        {
+            Name = name,
+            Description = description,
+            CreatedAt = now,
+            UpdatedAt = now
+        });
+    }
+
+    await _db.SaveChangesAsync(cancellationToken);
+}
+
+    private async Task EnsureRolePermissionsAsync(CancellationToken cancellationToken)
+    {
+        var roles = await _db.Roles.AsNoTracking().ToDictionaryAsync(r => r.Name, r => r.Id, cancellationToken);
+        var permissions = await _db.Permissions.AsNoTracking()
+            .ToDictionaryAsync(p => p.Name, p => p.Id, cancellationToken);
+        foreach (var (roleName, permissionNames) in RolePermissionMap)
+        {
+            if (!roles.TryGetValue(roleName, out var roleId))
+            {
+                _logger.LogWarning("Seed: role {RoleName} not found; skipping its permissions.", roleName);
+                continue;
+            }
+            foreach (var permName in permissionNames)
+            {
+                if (!permissions.TryGetValue(permName, out var permissionId))
+                {
+                    _logger.LogWarning("Seed: permission {PermName} not found; skipping link for {RoleName}.", permName, roleName);
+                    continue;
+                }
+                var exists = await _db.RolePermissions.AnyAsync(
+                    rp => rp.RoleId == roleId && rp.PermissionId == permissionId,
+                    cancellationToken);
+                if (exists)
+                    continue;
+                var now = DateTime.UtcNow;
+                _db.RolePermissions.Add(new RolePermission
+                {
+                    RoleId = roleId,
+                    PermissionId = permissionId,
+                    CreatedAt = now,
+                    UpdatedAt = now
+                });
+            }
+        }
         await _db.SaveChangesAsync(cancellationToken);
     }
 
