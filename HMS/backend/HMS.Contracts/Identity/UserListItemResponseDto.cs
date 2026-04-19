@@ -1,6 +1,6 @@
 namespace HMS.Contracts.Identity;
 
-public sealed class UserListItemResponse
+public sealed class UserListItemResponseDto
 {
     public int Id { get; set; }
     public string UserName { get; set; } = string.Empty;

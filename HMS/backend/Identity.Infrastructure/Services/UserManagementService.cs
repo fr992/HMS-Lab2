@@ -1,4 +1,4 @@
-﻿using HMS.Application.Abstractions.Identity;
+using HMS.Application.Abstractions.Identity;
 using HMS.Contracts.Identity;
 using HMS.Persistence;
 using Identity.Domain.Entities;
@@ -18,8 +18,8 @@ public sealed class UserManagementService : IUserManagementService
         _passwordHasher = passwordHasher;
     }
 
-    public async Task<(CreatedUserResponse? user, string? error)> CreateUserAsync(
-        CreateUserRequest request,
+    public async Task<(CreatedUserResponseDto? user, string? error)> CreateUserAsync(
+        CreateUserRequestDto request,
         int? createdByUserId,
         CancellationToken cancellationToken = default)
     {
@@ -89,7 +89,7 @@ public sealed class UserManagementService : IUserManagementService
         await _db.SaveChangesAsync(cancellationToken);
 
         var assignedNames = roles.Select(r => r.Name).ToList();
-        return (new CreatedUserResponse
+        return (new CreatedUserResponseDto
         {
             Id = user.Id,
             UserName = user.UserName,
@@ -98,7 +98,7 @@ public sealed class UserManagementService : IUserManagementService
         }, null);
     }
 
-    public async Task<(IReadOnlyList<UserListItemResponse>? items, string? error)> ListUsersAsync(
+    public async Task<(IReadOnlyList<UserListItemResponseDto>? items, string? error)> ListUsersAsync(
     string? search,
     CancellationToken cancellationToken = default)
 {
@@ -117,7 +117,7 @@ public sealed class UserManagementService : IUserManagementService
     var list = await query
         .OrderBy(u => u.LastName)
         .ThenBy(u => u.FirstName)
-        .Select(u => new UserListItemResponse
+        .Select(u => new UserListItemResponseDto
         {
             Id = u.Id,
             UserName = u.UserName,
@@ -131,7 +131,7 @@ public sealed class UserManagementService : IUserManagementService
     return (list, null);
 }
 
-public async Task<(UserDetailResponse? user, string? error)> GetUserByIdAsync(
+public async Task<(UserDetailResponseDto? user, string? error)> GetUserByIdAsync(
     int id,
     CancellationToken cancellationToken = default)
 {
@@ -143,7 +143,7 @@ public async Task<(UserDetailResponse? user, string? error)> GetUserByIdAsync(
     if (entity is null)
         return (null, "User not found.");
 
-    var dto = new UserDetailResponse
+    var dto = new UserDetailResponseDto
     {
         Id = entity.Id,
         UserName = entity.UserName,
@@ -158,9 +158,9 @@ public async Task<(UserDetailResponse? user, string? error)> GetUserByIdAsync(
     return (dto, null);
 }
 
-public async Task<(UserDetailResponse? user, string? error)> UpdateUserAsync(
+public async Task<(UserDetailResponseDto? user, string? error)> UpdateUserAsync(
     int id,
-    UpdateUserRequest request,
+    UpdateUserRequestDto request,
     CancellationToken cancellationToken = default)
 {
     var entity = await _db.Users
@@ -246,7 +246,7 @@ public async Task<(bool ok, string? error)> SetUserActiveAsync(
     return (true, null);
 }
 
-    private static string? Validate(CreateUserRequest request)
+    private static string? Validate(CreateUserRequestDto request)
     {
         if (string.IsNullOrWhiteSpace(request.UserName))
             return "UserName is required.";

@@ -1,6 +1,6 @@
-﻿namespace HMS.Contracts.Identity;
+namespace HMS.Contracts.Identity;
 
-public sealed class AuthResponse
+public sealed class AuthResponseDto
 {
     public string AccessToken { get; set; } = string.Empty;
     public string TokenType { get; set; } = "Bearer";

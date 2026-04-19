@@ -1,6 +1,6 @@
 namespace HMS.Contracts.Identity;
 
-public class RefreshRequest
+public class RefreshRequestDto
 {
     public string RefreshToken { get; set; }
 }

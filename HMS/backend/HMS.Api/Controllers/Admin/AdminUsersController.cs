@@ -1,4 +1,4 @@
-﻿using System.Security.Claims;
+using System.Security.Claims;
 using HMS.Application.Abstractions.Identity;
 using HMS.Contracts.Identity;
 using Microsoft.AspNetCore.Authorization;
@@ -26,10 +26,10 @@ public sealed class AdminUsersController : ControllerBase
 
     [RequirePermission("Users.Create")]
     [HttpPost]
-    [ProducesResponseType(typeof(CreatedUserResponse), StatusCodes.Status201Created)]
+    [ProducesResponseType(typeof(CreatedUserResponseDto), StatusCodes.Status201Created)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
-    public async Task<ActionResult<CreatedUserResponse>> Create(
-        [FromBody] CreateUserRequest request,
+    public async Task<ActionResult<CreatedUserResponseDto>> Create(
+        [FromBody] CreateUserRequestDto request,
         CancellationToken cancellationToken)
     {
 
@@ -44,7 +44,7 @@ public sealed class AdminUsersController : ControllerBase
 
     [HttpGet]
     [RequirePermission("Users.Read")]
-    public async Task<ActionResult<IReadOnlyList<UserListItemResponse>>> List(
+    public async Task<ActionResult<IReadOnlyList<UserListItemResponseDto>>> List(
         [FromQuery] string? q,
         CancellationToken cancellationToken)
     {
@@ -55,7 +55,7 @@ public sealed class AdminUsersController : ControllerBase
     }
     [HttpGet("{id:int}")]
     [RequirePermission("Users.Read")]
-    public async Task<ActionResult<UserDetailResponse>> GetById(int id, CancellationToken cancellationToken)
+    public async Task<ActionResult<UserDetailResponseDto>> GetById(int id, CancellationToken cancellationToken)
     {
         var (user, error) = await _userManagement.GetUserByIdAsync(id, cancellationToken);
         if (error is not null)
@@ -64,9 +64,9 @@ public sealed class AdminUsersController : ControllerBase
     }
     [HttpPut("{id:int}")]
     [RequirePermission("Users.Update")]
-    public async Task<ActionResult<UserDetailResponse>> Update(
+    public async Task<ActionResult<UserDetailResponseDto>> Update(
         int id,
-        [FromBody] UpdateUserRequest request,
+        [FromBody] UpdateUserRequestDto request,
         CancellationToken cancellationToken)
     {
         var (user, error) = await _userManagement.UpdateUserAsync(id, request, cancellationToken);
@@ -78,7 +78,7 @@ public sealed class AdminUsersController : ControllerBase
     [RequirePermission("Users.SetActive")]
     public async Task<IActionResult> SetActive(
         int id,
-        [FromBody] SetUserActiveRequest request,
+        [FromBody] SetUserActiveRequestDto request,
         CancellationToken cancellationToken)
     {
         var (ok, error) = await _userManagement.SetUserActiveAsync(id, request.IsActive, cancellationToken);

@@ -1,23 +1,23 @@
-﻿using HMS.Contracts.Identity;
+using HMS.Contracts.Identity;
 
 namespace HMS.Application.Abstractions.Identity;
 
 public interface IUserManagementService
 {
-    Task<(CreatedUserResponse? user, string? error)> CreateUserAsync(
-        CreateUserRequest request,
+    Task<(CreatedUserResponseDto? user, string? error)> CreateUserAsync(
+        CreateUserRequestDto request,
         int? createdByUserId,
         CancellationToken cancellationToken = default);
 
-    Task<(IReadOnlyList<UserListItemResponse>? items, string? error)> ListUsersAsync(
+    Task<(IReadOnlyList<UserListItemResponseDto>? items, string? error)> ListUsersAsync(
         string? search,
         CancellationToken cancellationToken = default);
-    Task<(UserDetailResponse? user, string? error)> GetUserByIdAsync(
+    Task<(UserDetailResponseDto? user, string? error)> GetUserByIdAsync(
         int id,
         CancellationToken cancellationToken = default);
-    Task<(UserDetailResponse? user, string? error)> UpdateUserAsync(
+    Task<(UserDetailResponseDto? user, string? error)> UpdateUserAsync(
         int id,
-        UpdateUserRequest request,
+        UpdateUserRequestDto request,
         CancellationToken cancellationToken = default);
     Task<(bool ok, string? error)> SetUserActiveAsync(
         int id,

@@ -1,6 +1,6 @@
 namespace HMS.Contracts.Identity;
 
-public sealed class UpdateUserRequest
+public sealed class UpdateUserRequestDto
 {
     public string? Email { get; set; }
     public string? FirstName { get; set; }
