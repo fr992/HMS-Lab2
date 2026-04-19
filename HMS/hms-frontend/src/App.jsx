@@ -21,7 +21,8 @@ export default function App(){
           {/* Admin Area */}
           <Route path="/admin" 
             element={
-            <ProtectedRoute role="Admin">
+            // <ProtectedRoute role="Admin">
+               <ProtectedRoute allowedRoles={["Admin"]}>
               <AdminLayout />
             </ProtectedRoute>
           } 
@@ -30,7 +31,7 @@ export default function App(){
           <Route path="dashboard" element={<AdminDashboard />} />
           <Route path="users" element={<UsersPage />} />
          </Route>
-        
+           <Route path="/unauthorized" element={<h1>403 - Nuk ke qasje</h1>} />
         </Routes>
 
       </BrowserRouter>
