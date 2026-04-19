@@ -98,6 +98,154 @@ public sealed class UserManagementService : IUserManagementService
         }, null);
     }
 
+    public async Task<(IReadOnlyList<UserListItemResponse>? items, string? error)> ListUsersAsync(
+    string? search,
+    CancellationToken cancellationToken = default)
+{
+    var query = _db.Users.AsNoTracking();
+
+    if (!string.IsNullOrWhiteSpace(search))
+    {
+        var s = search.Trim();
+        query = query.Where(u =>
+            u.UserName.Contains(s)
+            || u.Email.Contains(s)
+            || u.FirstName.Contains(s)
+            || u.LastName.Contains(s));
+    }
+
+    var list = await query
+        .OrderBy(u => u.LastName)
+        .ThenBy(u => u.FirstName)
+        .Select(u => new UserListItemResponse
+        {
+            Id = u.Id,
+            UserName = u.UserName,
+            Email = u.Email,
+            FirstName = u.FirstName,
+            LastName = u.LastName,
+            IsActive = u.IsActive
+        })
+        .ToListAsync(cancellationToken);
+
+    return (list, null);
+}
+
+public async Task<(UserDetailResponse? user, string? error)> GetUserByIdAsync(
+    int id,
+    CancellationToken cancellationToken = default)
+{
+    var entity = await _db.Users.AsNoTracking()
+        .Include(u => u.UserRoles)
+        .ThenInclude(ur => ur.Role)
+        .FirstOrDefaultAsync(u => u.Id == id, cancellationToken);
+
+    if (entity is null)
+        return (null, "User not found.");
+
+    var dto = new UserDetailResponse
+    {
+        Id = entity.Id,
+        UserName = entity.UserName,
+        Email = entity.Email,
+        FirstName = entity.FirstName,
+        LastName = entity.LastName,
+        IsActive = entity.IsActive,
+        PhoneNumber = entity.PhoneNumber,
+        RoleNames = entity.UserRoles.Select(ur => ur.Role.Name).ToList()
+    };
+
+    return (dto, null);
+}
+
+public async Task<(UserDetailResponse? user, string? error)> UpdateUserAsync(
+    int id,
+    UpdateUserRequest request,
+    CancellationToken cancellationToken = default)
+{
+    var entity = await _db.Users
+        .Include(u => u.UserRoles)
+        .ThenInclude(ur => ur.Role)
+        .FirstOrDefaultAsync(u => u.Id == id, cancellationToken);
+
+    if (entity is null)
+        return (null, "User not found.");
+
+    if (!string.IsNullOrWhiteSpace(request.Email))
+    {
+        var email = request.Email.Trim().ToLowerInvariant();
+        if (await _db.Users.AnyAsync(u => u.Email == email && u.Id != id, cancellationToken))
+            return (null, "Email is already registered.");
+        entity.Email = email;
+    }
+
+    if (!string.IsNullOrWhiteSpace(request.FirstName))
+        entity.FirstName = request.FirstName.Trim();
+    if (!string.IsNullOrWhiteSpace(request.LastName))
+        entity.LastName = request.LastName.Trim();
+    if (request.PhoneNumber is not null)
+        entity.PhoneNumber = string.IsNullOrWhiteSpace(request.PhoneNumber)
+            ? null
+            : request.PhoneNumber.Trim();
+
+    entity.UpdatedAt = DateTime.UtcNow;
+
+    if (request.RoleNames is not null && request.RoleNames.Count > 0)
+    {
+        var roleNames = request.RoleNames
+            .Select(r => r.Trim())
+            .Where(r => r.Length > 0)
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToList();
+
+        var dbRoles = await _db.Roles.ToListAsync(cancellationToken);
+        var roles = new List<Role>();
+        foreach (var name in roleNames)
+        {
+            var match = dbRoles.FirstOrDefault(r => r.Name.Equals(name, StringComparison.OrdinalIgnoreCase));
+            if (match is null)
+                return (null, $"Unknown role: {name}");
+            if (roles.All(r => r.Id != match.Id))
+                roles.Add(match);
+        }
+
+        var existingLinks = await _db.UserRoles.Where(ur => ur.UserId == id).ToListAsync(cancellationToken);
+        _db.UserRoles.RemoveRange(existingLinks);
+
+        foreach (var role in roles)
+        {
+            _db.UserRoles.Add(new UserRole
+            {
+                UserId = entity.Id,
+                RoleId = role.Id,
+                AssignedAt = DateTime.UtcNow,
+                CreatedAt = DateTime.UtcNow,
+                UpdatedAt = DateTime.UtcNow
+            });
+        }
+    }
+
+    await _db.SaveChangesAsync(cancellationToken);
+
+    return await GetUserByIdAsync(id, cancellationToken);
+}
+
+public async Task<(bool ok, string? error)> SetUserActiveAsync(
+    int id,
+    bool isActive,
+    CancellationToken cancellationToken = default)
+{
+    var entity = await _db.Users.FirstOrDefaultAsync(u => u.Id == id, cancellationToken);
+    if (entity is null)
+        return (false, "User not found.");
+
+    entity.IsActive = isActive;
+    entity.UpdatedAt = DateTime.UtcNow;
+
+    await _db.SaveChangesAsync(cancellationToken);
+    return (true, null);
+}
+
     private static string? Validate(CreateUserRequest request)
     {
         if (string.IsNullOrWhiteSpace(request.UserName))

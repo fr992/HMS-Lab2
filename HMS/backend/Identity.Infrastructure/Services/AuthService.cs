@@ -55,7 +55,10 @@ public sealed class AuthService : IAuthService
             return null;
 
         var roles = user.UserRoles.Select(ur => ur.Role.Name).ToList();
-        var (token, expiresIn) = _jwt.CreateAccessToken(user, roles);
+        var roleIds = user.UserRoles.Select(ur => ur.RoleId).ToList();
+        var permissions = await GetDistinctPermissionNamesForRolesAsync(roleIds, cancellationToken);
+
+        var (token, expiresIn) = _jwt.CreateAccessToken(user, roles, permissions);
 
        
         var refreshToken = Convert.ToBase64String(RandomNumberGenerator.GetBytes(64));
@@ -102,8 +105,10 @@ public sealed class AuthService : IAuthService
             return null;
 
         var roles = user.UserRoles.Select(r => r.Role.Name).ToList();
+                var roleIds = user.UserRoles.Select(ur => ur.RoleId).ToList();
+        var permissions = await GetDistinctPermissionNamesForRolesAsync(roleIds, cancellationToken);
 
-        var (newAccessToken, expiresIn) = _jwt.CreateAccessToken(user, roles);
+        var (newAccessToken, expiresIn) = _jwt.CreateAccessToken(user, roles, permissions);
 
         
         tokenEntity.RevokedAt = DateTime.UtcNow;
@@ -132,5 +137,19 @@ public sealed class AuthService : IAuthService
             Roles = roles
         };
     }
+
+    private async Task<List<string>> GetDistinctPermissionNamesForRolesAsync(
+    IReadOnlyCollection<int> roleIds,
+    CancellationToken cancellationToken)
+{
+    if (roleIds.Count == 0)
+        return [];
+
+    return await _db.RolePermissions.AsNoTracking()
+        .Where(rp => roleIds.Contains(rp.RoleId))
+        .Select(rp => rp.Permission.Name)
+        .Distinct()
+        .ToListAsync(cancellationToken);
+}
     
 }

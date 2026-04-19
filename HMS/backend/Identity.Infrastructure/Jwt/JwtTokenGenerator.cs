@@ -11,12 +11,17 @@ public sealed class JwtTokenGenerator : IJwtTokenGenerator
 {
     private readonly JwtSettings _settings;
 
+    public const string PermissionClaimType = "permission";
+
     public JwtTokenGenerator(IOptions<JwtSettings> options)
     {
         _settings = options.Value;
     }
 
-    public (string Token, int ExpiresInSeconds) CreateAccessToken(User user, IReadOnlyList<string> roleNames)
+    public (string Token, int ExpiresInSeconds) CreateAccessToken(
+        User user, 
+        IReadOnlyList<string> roleNames,
+        IReadOnlyList<string> permissionNames)
     {
         if (string.IsNullOrWhiteSpace(_settings.Key) || _settings.Key.Length < 32)
             throw new InvalidOperationException("Jwt:Key must be at least 32 characters.");
@@ -27,6 +32,7 @@ public sealed class JwtTokenGenerator : IJwtTokenGenerator
         var claims = new List<Claim>
         {
             new(JwtRegisteredClaimNames.Sub, user.Id.ToString()),
+            new(ClaimTypes.NameIdentifier, user.Id.ToString()),
             new(JwtRegisteredClaimNames.UniqueName, user.UserName),
             new(JwtRegisteredClaimNames.Email, user.Email),
             new(JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString())
@@ -34,6 +40,9 @@ public sealed class JwtTokenGenerator : IJwtTokenGenerator
 
         foreach (var role in roleNames)
             claims.Add(new Claim(ClaimTypes.Role, role));
+
+        foreach (var p in permissionNames)
+            claims.Add(new Claim(PermissionClaimType, p));
 
         var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(_settings.Key));
         var creds = new SigningCredentials(key, SecurityAlgorithms.HmacSha256);

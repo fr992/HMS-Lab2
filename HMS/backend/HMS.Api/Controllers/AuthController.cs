@@ -1,4 +1,5 @@
 ﻿using HMS.Application.Abstractions.Identity;
+using System.Security.Claims;
 using HMS.Contracts.Identity;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;

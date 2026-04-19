@@ -1,0 +1,89 @@
+﻿using System.Security.Claims;
+using HMS.Application.Abstractions.Identity;
+using HMS.Contracts.Identity;
+using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Mvc;
+using HMS.Api.Authorization;
+
+namespace HMS.Api.Controllers.Admin;
+
+[ApiController]
+[Route("api/admin/users")]
+public sealed class AdminUsersController : ControllerBase
+{
+    private readonly IUserManagementService _userManagement;
+
+    public AdminUsersController(IUserManagementService userManagement)
+    {
+        _userManagement = userManagement;
+    }
+
+     private int? CurrentUserId()
+    {
+        var sub = User.FindFirstValue(ClaimTypes.NameIdentifier);
+        return int.TryParse(sub, out var id) ? id : null;
+    }
+
+    [RequirePermission("Users.Create")]
+    [HttpPost]
+    [ProducesResponseType(typeof(CreatedUserResponse), StatusCodes.Status201Created)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    public async Task<ActionResult<CreatedUserResponse>> Create(
+        [FromBody] CreateUserRequest request,
+        CancellationToken cancellationToken)
+    {
+
+        var createdBy = CurrentUserId();
+
+        var (user, error) = await _userManagement.CreateUserAsync(request, createdBy, cancellationToken);
+        if (error is not null)
+            return BadRequest(new { error });
+
+        return Created($"/api/admin/users/{user!.Id}", user);
+    }
+
+    [HttpGet]
+    [RequirePermission("Users.Read")]
+    public async Task<ActionResult<IReadOnlyList<UserListItemResponse>>> List(
+        [FromQuery] string? q,
+        CancellationToken cancellationToken)
+    {
+        var (items, error) = await _userManagement.ListUsersAsync(q, cancellationToken);
+        if (error is not null)
+            return BadRequest(new { error });
+        return Ok(items);
+    }
+    [HttpGet("{id:int}")]
+    [RequirePermission("Users.Read")]
+    public async Task<ActionResult<UserDetailResponse>> GetById(int id, CancellationToken cancellationToken)
+    {
+        var (user, error) = await _userManagement.GetUserByIdAsync(id, cancellationToken);
+        if (error is not null)
+            return NotFound(new { error });
+        return Ok(user);
+    }
+    [HttpPut("{id:int}")]
+    [RequirePermission("Users.Update")]
+    public async Task<ActionResult<UserDetailResponse>> Update(
+        int id,
+        [FromBody] UpdateUserRequest request,
+        CancellationToken cancellationToken)
+    {
+        var (user, error) = await _userManagement.UpdateUserAsync(id, request, cancellationToken);
+        if (error is not null)
+            return BadRequest(new { error });
+        return Ok(user);
+    }
+    [HttpPatch("{id:int}/active")]
+    [RequirePermission("Users.SetActive")]
+    public async Task<IActionResult> SetActive(
+        int id,
+        [FromBody] SetUserActiveRequest request,
+        CancellationToken cancellationToken)
+    {
+        var (ok, error) = await _userManagement.SetUserActiveAsync(id, request.IsActive, cancellationToken);
+        if (error is not null)
+            return BadRequest(new { error });
+        return ok ? NoContent() : BadRequest();
+    }
+}

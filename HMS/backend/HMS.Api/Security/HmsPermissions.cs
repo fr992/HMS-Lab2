@@ -1,0 +1,48 @@
+namespace HMS.Api.Security;
+
+public static class HmsPermissions
+{
+    public static readonly string[] All =
+    [
+        "Users.Create",
+        "Users.Read",
+        "Users.Update",
+        "Users.SetActive",
+        "Roles.Read",
+        "Permissions.Read",
+        "RolePermissions.Manage",
+        "AuditLogs.Read",
+        "Settings.Manage",
+        "Patients.Register",
+        "Patients.Read",
+        "Patients.Update",
+        "Appointments.Read",
+        "Appointments.Create",
+        "Appointments.ManageStatus",
+        "Invoices.Read",
+        "Payments.ConfirmCash",
+        "LabResults.Read",
+        "Encounters.Create",
+        "Encounters.Read",
+        "Encounters.Update",
+        "Encounters.Close",
+        "Diagnoses.Manage",
+        "Prescriptions.Manage",
+        "LabRequests.Create",
+        "NurseTasks.Assign",
+        "NurseTasks.Read",
+        "NurseTasks.Complete",
+        "LabRequests.Read",
+        "LabRequests.UpdateStatus",
+        "LabResults.Create",
+        "LabResults.Publish",
+        "Own.Appointments.View",
+        "Own.Appointments.Request",
+        "Own.MedicalHistory.View",
+        "Own.LabResults.View",
+        "Own.LabResults.Download",
+        "Own.Invoices.View",
+        "Own.Payments.PayOnline",
+        "Own.Notifications.View"
+    ];
+}

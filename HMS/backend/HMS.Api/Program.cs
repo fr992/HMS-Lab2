@@ -2,12 +2,16 @@ using HMS.Application;
 using HMS.Persistence;
 using Identity.Infrastructure;
 using Identity.Infrastructure.Seed;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.OpenApi.Models;
+using HMS.Api.Security;
+using HMS.Api.Authorization;
 
 var builder = WebApplication.CreateBuilder(args);
 
 builder.Services.AddControllers();
+
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen(c =>
 {
@@ -36,6 +40,17 @@ builder.Services.AddSwaggerGen(c =>
 builder.Services.AddApplication();
 builder.Services.AddPersistence(builder.Configuration);
 builder.Services.AddIdentityInfrastructure(builder.Configuration);
+builder.Services.AddSingleton<IAuthorizationHandler, PermissionAuthorizationHandler>();
+builder.Services.AddAuthorization(options =>
+{
+    options.FallbackPolicy = new AuthorizationPolicyBuilder()
+        .RequireAuthenticatedUser()
+        .Build();
+
+    foreach (var p in HmsPermissions.All)
+        options.AddPolicy(PolicyNames.ForPermission(p), policy =>
+            policy.Requirements.Add(new PermissionRequirement(p)));
+});
 
 var app = builder.Build();
 
