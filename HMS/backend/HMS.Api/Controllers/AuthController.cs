@@ -1,4 +1,4 @@
-﻿using HMS.Application.Abstractions.Identity;
+using HMS.Application.Abstractions.Identity;
 using System.Security.Claims;
 using HMS.Contracts.Identity;
 using Microsoft.AspNetCore.Authorization;
@@ -19,9 +19,9 @@ public sealed class AuthController : ControllerBase
 
     [AllowAnonymous]
     [HttpPost("login")]
-    [ProducesResponseType(typeof(AuthResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(AuthResponseDto), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
-    public async Task<ActionResult<AuthResponse>> Login([FromBody] LoginRequest request, CancellationToken cancellationToken)
+    public async Task<ActionResult<AuthResponseDto>> Login([FromBody] LoginRequestDto request, CancellationToken cancellationToken)
     {
         var result = await _authService.LoginAsync(request, cancellationToken);
         if (result is null)
@@ -31,7 +31,7 @@ public sealed class AuthController : ControllerBase
     
     [AllowAnonymous]
     [HttpPost("refresh")]
-    public async Task<ActionResult<AuthResponse>> Refresh([FromBody] RefreshRequest request, CancellationToken cancellationToken)
+    public async Task<ActionResult<AuthResponseDto>> Refresh([FromBody] RefreshRequestDto request, CancellationToken cancellationToken)
     {
         var result = await _authService.RefreshTokenAsync(request.RefreshToken, cancellationToken);
 

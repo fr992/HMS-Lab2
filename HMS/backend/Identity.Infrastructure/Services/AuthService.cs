@@ -1,4 +1,4 @@
-﻿using HMS.Application.Abstractions.Identity;
+using HMS.Application.Abstractions.Identity;
 using HMS.Contracts.Identity;
 using HMS.Persistence;
 using Identity.Domain.Entities;
@@ -32,7 +32,7 @@ public sealed class AuthService : IAuthService
         _jwt = jwt;
     }
 
-    public async Task<AuthResponse?> LoginAsync(LoginRequest request, CancellationToken cancellationToken = default)
+    public async Task<AuthResponseDto?> LoginAsync(LoginRequestDto request, CancellationToken cancellationToken = default)
     {
         var login = request.UserNameOrEmail.Trim();
         if (string.IsNullOrEmpty(login) || string.IsNullOrEmpty(request.Password))
@@ -75,7 +75,7 @@ public sealed class AuthService : IAuthService
         await _db.SaveChangesAsync(cancellationToken);
        
 
-        return new AuthResponse
+        return new AuthResponseDto
         {
             AccessToken = token,
             RefreshToken = refreshToken, 
@@ -86,7 +86,7 @@ public sealed class AuthService : IAuthService
         };
     }
    
-    public async Task<AuthResponse?> RefreshTokenAsync(string refreshToken, CancellationToken cancellationToken = default)
+    public async Task<AuthResponseDto?> RefreshTokenAsync(string refreshToken, CancellationToken cancellationToken = default)
     {
         var tokenHash = ComputeHash(refreshToken);
 
@@ -127,7 +127,7 @@ public sealed class AuthService : IAuthService
 
         await _db.SaveChangesAsync(cancellationToken);
 
-        return new AuthResponse
+        return new AuthResponseDto
         {
             AccessToken = newAccessToken,
             RefreshToken = newRefreshToken,

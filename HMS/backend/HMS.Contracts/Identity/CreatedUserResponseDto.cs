@@ -1,6 +1,6 @@
-﻿namespace HMS.Contracts.Identity;
+namespace HMS.Contracts.Identity;
 
-public sealed class CreatedUserResponse
+public sealed class CreatedUserResponseDto
 {
     public int Id { get; set; }
     public string UserName { get; set; } = string.Empty;

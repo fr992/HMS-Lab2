@@ -1,6 +1,6 @@
 namespace HMS.Contracts.Identity;
 
-public sealed class SetUserActiveRequest
+public sealed class SetUserActiveRequestDto
 {
     public bool IsActive { get; set; }
 }
