@@ -10,23 +10,6 @@ export function AuthProvider({ children }) {
     const [isAuthenticated, setIsAuthenticated] = useState(hasSession());
 
   const [userRole, setUserRole] = useState(null);
-  //   const [userRole, setUserRole] = useState(() => {
-  //       const token = getAccessToken();
-  //       if (!token) return null;
-
-  //       try {
-  //           const decoded = jwtDecode(token);
-
-  //           return (
-  //               decoded.role ||
-  //               decoded["http://schemas.microsoft.com/ws/2008/06/identity/claims/role"] ||
-  //               null
-  //           );
-  //       } catch {
-  //           return null;
-  //       }
-  //   });
-
   function loginSuccess(token) {
     const decoded = jwtDecode(token);
 

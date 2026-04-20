@@ -12,22 +12,6 @@ export default function LoginPage(){
     const auth = useAuth();
     const navigate = useNavigate();
 
-/*async function handleLogin() {
-  try {
-    const data = await login(username, password);
-
-    auth.loginSuccess(data.accessToken);
-    navigate("/admin/dashboard");
-  } catch (error) {
-    console.error("Login error:", error);
-
-    if (error.response) {
-      alert(`Login failed: ${error.response.status}`);
-    } else {
-      alert("Login failed.");
-    }
-  }
-}*/
     async function handleLogin() {
         try {
             const data = await login(username, password);
