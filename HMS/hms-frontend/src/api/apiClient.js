@@ -2,7 +2,7 @@ import axios from 'axios';
 import { clearSession, getAccessToken } from '../auth/session';
 
 const apiClient = axios.create({
-  baseURL: 'http://localhost:5127/api',
+  baseURL: 'https://localhost:7297/api',
 });
 
 apiClient.interceptors.request.use((config) => {

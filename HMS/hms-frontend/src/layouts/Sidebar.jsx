@@ -29,6 +29,8 @@ export default function Sidebar() {
                     <Link to="/doctor/patients">Patients</Link><br />
                 </>
             )}
+            <button onClick={auth.logout}>Logout</button>
+
         </div>
     );
 }
