@@ -1,5 +1,6 @@
 using HMS.Application.Abstractions.Identity;
 using HMS.Contracts.Identity;
+using HMS.Domain.Entities;
 using HMS.Persistence;
 using Identity.Domain.Entities;
 using Microsoft.AspNetCore.Identity;
@@ -57,9 +58,6 @@ public sealed class UserManagementService : IUserManagementService
         {
             UserName = userName,
             Email = email,
-            FirstName = request.FirstName.Trim(),
-            LastName = request.LastName.Trim(),
-            PhoneNumber = string.IsNullOrWhiteSpace(request.PhoneNumber) ? null : request.PhoneNumber.Trim(),
             IsActive = true,
             CreatedAt = DateTime.UtcNow,
             UpdatedAt = DateTime.UtcNow,
@@ -99,152 +97,135 @@ public sealed class UserManagementService : IUserManagementService
     }
 
     public async Task<(IReadOnlyList<UserListItemResponseDto>? items, string? error)> ListUsersAsync(
-    string? search,
-    CancellationToken cancellationToken = default)
-{
-    var query = _db.Users.AsNoTracking();
-
-    if (!string.IsNullOrWhiteSpace(search))
+        string? search,
+        CancellationToken cancellationToken = default)
     {
-        var s = search.Trim();
-        query = query.Where(u =>
-            u.UserName.Contains(s)
-            || u.Email.Contains(s)
-            || u.FirstName.Contains(s)
-            || u.LastName.Contains(s));
-    }
+        var query = _db.Users.AsNoTracking();
 
-    var list = await query
-        .OrderBy(u => u.LastName)
-        .ThenBy(u => u.FirstName)
-        .Select(u => new UserListItemResponseDto
+        if (!string.IsNullOrWhiteSpace(search))
         {
-            Id = u.Id,
-            UserName = u.UserName,
-            Email = u.Email,
-            FirstName = u.FirstName,
-            LastName = u.LastName,
-            IsActive = u.IsActive
-        })
-        .ToListAsync(cancellationToken);
-
-    return (list, null);
-}
-
-public async Task<(UserDetailResponseDto? user, string? error)> GetUserByIdAsync(
-    int id,
-    CancellationToken cancellationToken = default)
-{
-    var entity = await _db.Users.AsNoTracking()
-        .Include(u => u.UserRoles)
-        .ThenInclude(ur => ur.Role)
-        .FirstOrDefaultAsync(u => u.Id == id, cancellationToken);
-
-    if (entity is null)
-        return (null, "User not found.");
-
-    var dto = new UserDetailResponseDto
-    {
-        Id = entity.Id,
-        UserName = entity.UserName,
-        Email = entity.Email,
-        FirstName = entity.FirstName,
-        LastName = entity.LastName,
-        IsActive = entity.IsActive,
-        PhoneNumber = entity.PhoneNumber,
-        RoleNames = entity.UserRoles.Select(ur => ur.Role.Name).ToList()
-    };
-
-    return (dto, null);
-}
-
-public async Task<(UserDetailResponseDto? user, string? error)> UpdateUserAsync(
-    int id,
-    UpdateUserRequestDto request,
-    CancellationToken cancellationToken = default)
-{
-    var entity = await _db.Users
-        .Include(u => u.UserRoles)
-        .ThenInclude(ur => ur.Role)
-        .FirstOrDefaultAsync(u => u.Id == id, cancellationToken);
-
-    if (entity is null)
-        return (null, "User not found.");
-
-    if (!string.IsNullOrWhiteSpace(request.Email))
-    {
-        var email = request.Email.Trim().ToLowerInvariant();
-        if (await _db.Users.AnyAsync(u => u.Email == email && u.Id != id, cancellationToken))
-            return (null, "Email is already registered.");
-        entity.Email = email;
-    }
-
-    if (!string.IsNullOrWhiteSpace(request.FirstName))
-        entity.FirstName = request.FirstName.Trim();
-    if (!string.IsNullOrWhiteSpace(request.LastName))
-        entity.LastName = request.LastName.Trim();
-    if (request.PhoneNumber is not null)
-        entity.PhoneNumber = string.IsNullOrWhiteSpace(request.PhoneNumber)
-            ? null
-            : request.PhoneNumber.Trim();
-
-    entity.UpdatedAt = DateTime.UtcNow;
-
-    if (request.RoleNames is not null && request.RoleNames.Count > 0)
-    {
-        var roleNames = request.RoleNames
-            .Select(r => r.Trim())
-            .Where(r => r.Length > 0)
-            .Distinct(StringComparer.OrdinalIgnoreCase)
-            .ToList();
-
-        var dbRoles = await _db.Roles.ToListAsync(cancellationToken);
-        var roles = new List<Role>();
-        foreach (var name in roleNames)
-        {
-            var match = dbRoles.FirstOrDefault(r => r.Name.Equals(name, StringComparison.OrdinalIgnoreCase));
-            if (match is null)
-                return (null, $"Unknown role: {name}");
-            if (roles.All(r => r.Id != match.Id))
-                roles.Add(match);
+            var s = search.Trim();
+            query = query.Where(u =>
+                u.UserName.Contains(s)
+                || u.Email.Contains(s));
         }
 
-        var existingLinks = await _db.UserRoles.Where(ur => ur.UserId == id).ToListAsync(cancellationToken);
-        _db.UserRoles.RemoveRange(existingLinks);
-
-        foreach (var role in roles)
-        {
-            _db.UserRoles.Add(new UserRole
+        var list = await query
+            .OrderBy(u => u.UserName)
+            .Select(u => new UserListItemResponseDto
             {
-                UserId = entity.Id,
-                RoleId = role.Id,
-                AssignedAt = DateTime.UtcNow,
-                CreatedAt = DateTime.UtcNow,
-                UpdatedAt = DateTime.UtcNow
-            });
-        }
+                Id = u.Id,
+                UserName = u.UserName,
+                Email = u.Email,
+                IsActive = u.IsActive
+            })
+            .ToListAsync(cancellationToken);
+
+        return (list, null);
     }
 
-    await _db.SaveChangesAsync(cancellationToken);
+    public async Task<(UserDetailResponseDto? user, string? error)> GetUserByIdAsync(
+        int id,
+        CancellationToken cancellationToken = default)
+    {
+        var entity = await _db.Users.AsNoTracking()
+            .Include(u => u.UserRoles)
+            .ThenInclude(ur => ur.Role)
+            .FirstOrDefaultAsync(u => u.Id == id, cancellationToken);
 
-    return await GetUserByIdAsync(id, cancellationToken);
-}
+        if (entity is null)
+            return (null, "User not found.");
 
-public async Task<(bool ok, string? error)> SetUserActiveAsync(
-    int id,
-    bool isActive,
-    CancellationToken cancellationToken = default)
-{
-    var entity = await _db.Users.FirstOrDefaultAsync(u => u.Id == id, cancellationToken);
-    if (entity is null)
-        return (false, "User not found.");
+        var dto = new UserDetailResponseDto
+        {
+            Id = entity.Id,
+            UserName = entity.UserName,
+            Email = entity.Email,
+            IsActive = entity.IsActive,
+            RoleNames = entity.UserRoles.Select(ur => ur.Role.Name).ToList()
+        };
 
-    entity.IsActive = isActive;
-    entity.UpdatedAt = DateTime.UtcNow;
+        return (dto, null);
+    }
 
-    await _db.SaveChangesAsync(cancellationToken);
-    return (true, null);
-}
+    public async Task<(UserDetailResponseDto? user, string? error)> UpdateUserAsync(
+        int id,
+        UpdateUserRequestDto request,
+        CancellationToken cancellationToken = default)
+    {
+        var entity = await _db.Users
+            .Include(u => u.UserRoles)
+            .ThenInclude(ur => ur.Role)
+            .FirstOrDefaultAsync(u => u.Id == id, cancellationToken);
+
+        if (entity is null)
+            return (null, "User not found.");
+
+        if (!string.IsNullOrWhiteSpace(request.Email))
+        {
+            var email = request.Email.Trim().ToLowerInvariant();
+            if (await _db.Users.AnyAsync(u => u.Email == email && u.Id != id, cancellationToken))
+                return (null, "Email is already registered.");
+            entity.Email = email;
+        }
+
+        entity.UpdatedAt = DateTime.UtcNow;
+
+        if (request.RoleNames is not null && request.RoleNames.Count > 0)
+        {
+            var roleNames = request.RoleNames
+                .Select(r => r.Trim())
+                .Where(r => r.Length > 0)
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .ToList();
+
+            var dbRoles = await _db.Roles.ToListAsync(cancellationToken);
+            var roles = new List<Role>();
+            foreach (var name in roleNames)
+            {
+                var match = dbRoles.FirstOrDefault(r => r.Name.Equals(name, StringComparison.OrdinalIgnoreCase));
+                if (match is null)
+                    return (null, $"Unknown role: {name}");
+                if (roles.All(r => r.Id != match.Id))
+                    roles.Add(match);
+            }
+
+            var existingLinks = await _db.UserRoles.Where(ur => ur.UserId == id).ToListAsync(cancellationToken);
+            _db.UserRoles.RemoveRange(existingLinks);
+
+            foreach (var role in roles)
+            {
+                _db.UserRoles.Add(new UserRole
+                {
+                    UserId = entity.Id,
+                    RoleId = role.Id,
+                    AssignedAt = DateTime.UtcNow,
+                    CreatedAt = DateTime.UtcNow,
+                    UpdatedAt = DateTime.UtcNow
+                });
+            }
+        }
+
+        await _db.SaveChangesAsync(cancellationToken);
+
+        return await GetUserByIdAsync(id, cancellationToken);
+    }
+
+    public async Task<(bool ok, string? error)> SetUserActiveAsync(
+        int id,
+        bool isActive,
+        CancellationToken cancellationToken = default)
+    {
+        var entity = await _db.Users.FirstOrDefaultAsync(u => u.Id == id, cancellationToken);
+        if (entity is null)
+            return (false, "User not found.");
+
+        entity.IsActive = isActive;
+        entity.UpdatedAt = DateTime.UtcNow;
+
+        await _db.SaveChangesAsync(cancellationToken);
+        return (true, null);
+    }
 
     private static string? Validate(CreateUserRequestDto request)
     {
@@ -252,10 +233,6 @@ public async Task<(bool ok, string? error)> SetUserActiveAsync(
             return "UserName is required.";
         if (string.IsNullOrWhiteSpace(request.Email))
             return "Email is required.";
-        if (string.IsNullOrWhiteSpace(request.FirstName))
-            return "FirstName is required.";
-        if (string.IsNullOrWhiteSpace(request.LastName))
-            return "LastName is required.";
         if (string.IsNullOrWhiteSpace(request.Password) || request.Password.Length < 8)
             return "Password must be at least 8 characters.";
         if (request.RoleNames is null || request.RoleNames.Count == 0)

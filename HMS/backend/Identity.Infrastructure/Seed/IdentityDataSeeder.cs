@@ -1,5 +1,6 @@
-using Identity.Domain.Entities;
+using HMS.Domain.Entities;
 using HMS.Persistence;
+using Identity.Domain.Entities;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
@@ -23,10 +24,6 @@ public sealed class IdentityDataSeeder
         "Receptionist",
         "Laboratorant"
     };
-
-
-
-    //lejet fillestare
 
     private static readonly (string Name, string Description)[] PermissionDefinitions =
     {
@@ -72,8 +69,6 @@ public sealed class IdentityDataSeeder
         ("Own.Notifications.View", "Pacienti sheh njoftimet.")
     };
 
-    //lejet e secilit rol
-
     private static readonly (string RoleName, string[] PermissionNames)[] RolePermissionMap =
     {
         ("Admin", new[]
@@ -114,8 +109,6 @@ public sealed class IdentityDataSeeder
             "Own.Invoices.View", "Own.Payments.PayOnline",
             "Own.Notifications.View"
         })
-
-
     };
 
     public IdentityDataSeeder(
@@ -162,7 +155,7 @@ public sealed class IdentityDataSeeder
             Entity = "Database",
             EntityId = null,
             OldValue = null,
-            NewValue = "Initial roles and permissions are ready. Replace this row with real audit writes from your services.",
+            NewValue = "Initial roles and permissions are ready.",
             IpAddress = null,
             CreatedAt = now,
             UpdatedAt = now
@@ -198,8 +191,8 @@ public sealed class IdentityDataSeeder
             ["Patient"] = "Portal: termine, historik, analiza, pagesa, njoftime.",
             ["Receptionist"] = "Front desk: pacientë, termine, pagesa cash, (ops.) rezultate.",
             ["Laboratorant"] = "Analiza laboratorike: kërkesa, rezultate, publikim."
-        };        
-        
+        };
+
         foreach (var name in RoleNames)
         {
             if (await _db.Roles.AnyAsync(r => r.Name == name, cancellationToken))
@@ -220,30 +213,32 @@ public sealed class IdentityDataSeeder
     }
 
     private async Task EnsurePermissionsAsync(CancellationToken cancellationToken)
-{
-    foreach (var (name, description) in PermissionDefinitions)
     {
-        if (await _db.Permissions.AnyAsync(p => p.Name == name, cancellationToken))
-            continue;
-
-        var now = DateTime.UtcNow;
-        _db.Permissions.Add(new Permission
+        foreach (var (name, description) in PermissionDefinitions)
         {
-            Name = name,
-            Description = description,
-            CreatedAt = now,
-            UpdatedAt = now
-        });
-    }
+            if (await _db.Permissions.AnyAsync(p => p.Name == name, cancellationToken))
+                continue;
 
-    await _db.SaveChangesAsync(cancellationToken);
-}
+            var now = DateTime.UtcNow;
+            _db.Permissions.Add(new Permission
+            {
+                Name = name,
+                Description = description,
+                CreatedAt = now,
+                UpdatedAt = now
+            });
+        }
+
+        await _db.SaveChangesAsync(cancellationToken);
+    }
 
     private async Task EnsureRolePermissionsAsync(CancellationToken cancellationToken)
     {
-        var roles = await _db.Roles.AsNoTracking().ToDictionaryAsync(r => r.Name, r => r.Id, cancellationToken);
+        var roles = await _db.Roles.AsNoTracking()
+            .ToDictionaryAsync(r => r.Name, r => r.Id, cancellationToken);
         var permissions = await _db.Permissions.AsNoTracking()
             .ToDictionaryAsync(p => p.Name, p => p.Id, cancellationToken);
+
         foreach (var (roleName, permissionNames) in RolePermissionMap)
         {
             if (!roles.TryGetValue(roleName, out var roleId))
@@ -251,6 +246,7 @@ public sealed class IdentityDataSeeder
                 _logger.LogWarning("Seed: role {RoleName} not found; skipping its permissions.", roleName);
                 continue;
             }
+
             foreach (var permName in permissionNames)
             {
                 if (!permissions.TryGetValue(permName, out var permissionId))
@@ -258,11 +254,13 @@ public sealed class IdentityDataSeeder
                     _logger.LogWarning("Seed: permission {PermName} not found; skipping link for {RoleName}.", permName, roleName);
                     continue;
                 }
+
                 var exists = await _db.RolePermissions.AnyAsync(
                     rp => rp.RoleId == roleId && rp.PermissionId == permissionId,
                     cancellationToken);
-                if (exists)
-                    continue;
+
+                if (exists) continue;
+
                 var now = DateTime.UtcNow;
                 _db.RolePermissions.Add(new RolePermission
                 {
@@ -273,6 +271,7 @@ public sealed class IdentityDataSeeder
                 });
             }
         }
+
         await _db.SaveChangesAsync(cancellationToken);
     }
 
@@ -298,12 +297,11 @@ public sealed class IdentityDataSeeder
             return;
         }
 
+        // Step 1 — Create User (auth only)
         var user = new User
         {
             UserName = userName,
             Email = email,
-            FirstName = _seed.AdminFirstName,
-            LastName = _seed.AdminLastName,
             IsActive = true,
             CreatedAt = DateTime.UtcNow,
             UpdatedAt = DateTime.UtcNow
@@ -313,6 +311,19 @@ public sealed class IdentityDataSeeder
         _db.Users.Add(user);
         await _db.SaveChangesAsync(cancellationToken);
 
+        // Step 2 — Create Person linked to User
+        var person = new Person
+        {
+            UserId = user.Id,
+            FirstName = _seed.AdminFirstName,
+            LastName = _seed.AdminLastName,
+            CreatedAt = DateTime.UtcNow,
+            UpdatedAt = DateTime.UtcNow
+        };
+        _db.People.Add(person);
+        await _db.SaveChangesAsync(cancellationToken);
+
+        // Step 3 — Assign Admin role
         _db.UserRoles.Add(new UserRole
         {
             UserId = user.Id,

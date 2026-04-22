@@ -50,8 +50,13 @@ public sealed class AuthService : IAuthService
         if (user is null || !user.IsActive)
             return null;
 
-        var verify = _passwordHasher.VerifyHashedPassword(user, user.PasswordHash, request.Password);
-        if (verify == PasswordVerificationResult.Failed)
+        var result = _passwordHasher.VerifyHashedPassword(
+            user,
+            user.PasswordHash,
+            request.Password
+        );
+
+        if (result == PasswordVerificationResult.Failed)
             return null;
 
         var roles = user.UserRoles.Select(ur => ur.Role.Name).ToList();
@@ -60,7 +65,6 @@ public sealed class AuthService : IAuthService
 
         var (token, expiresIn) = _jwt.CreateAccessToken(user, roles, permissions);
 
-       
         var refreshToken = Convert.ToBase64String(RandomNumberGenerator.GetBytes(64));
         var tokenHash = ComputeHash(refreshToken);
 
@@ -73,19 +77,18 @@ public sealed class AuthService : IAuthService
 
         _db.RefreshTokens.Add(refreshTokenEntity);
         await _db.SaveChangesAsync(cancellationToken);
-       
 
         return new AuthResponseDto
         {
             AccessToken = token,
-            RefreshToken = refreshToken, 
+            RefreshToken = refreshToken,
             ExpiresInSeconds = expiresIn,
             UserId = user.Id,
             UserName = user.UserName,
             Roles = roles
         };
     }
-   
+
     public async Task<AuthResponseDto?> RefreshTokenAsync(string refreshToken, CancellationToken cancellationToken = default)
     {
         var tokenHash = ComputeHash(refreshToken);

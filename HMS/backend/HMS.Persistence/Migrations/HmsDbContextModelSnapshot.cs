@@ -22,6 +22,304 @@ namespace HMS.Persistence.Migrations
 
             SqlServerModelBuilderExtensions.UseIdentityColumns(modelBuilder);
 
+            modelBuilder.Entity("HMS.Domain.Entities.Department", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int?>("CreatedById")
+                        .HasColumnType("int");
+
+                    b.Property<string>("Description")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int?>("UpdatedById")
+                        .HasColumnType("int");
+
+                    b.HasKey("Id");
+
+                    b.ToTable("Department");
+                });
+
+            modelBuilder.Entity("HMS.Domain.Entities.DoctorProfile", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int?>("CreatedById")
+                        .HasColumnType("int");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("bit");
+
+                    b.Property<string>("LicenseNumber")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<int?>("SpecializationId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("StaffProfileId")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int?>("UpdatedById")
+                        .HasColumnType("int");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("SpecializationId");
+
+                    b.HasIndex("StaffProfileId")
+                        .IsUnique();
+
+                    b.ToTable("DoctorProfile");
+                });
+
+            modelBuilder.Entity("HMS.Domain.Entities.NurseProfile", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int?>("CreatedById")
+                        .HasColumnType("int");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("bit");
+
+                    b.Property<string>("LicenseNumber")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<int>("StaffProfileId")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int?>("UpdatedById")
+                        .HasColumnType("int");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("StaffProfileId")
+                        .IsUnique();
+
+                    b.ToTable("NurseProfile");
+                });
+
+            modelBuilder.Entity("HMS.Domain.Entities.PatientProfile", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("BloodType")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int?>("CreatedById")
+                        .HasColumnType("int");
+
+                    b.Property<string>("InsuranceNumber")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("PatientNumber")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<int>("PersonId")
+                        .HasColumnType("int");
+
+                    b.Property<int?>("PrimaryDoctorId")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int?>("UpdatedById")
+                        .HasColumnType("int");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("PersonId")
+                        .IsUnique();
+
+                    b.HasIndex("PrimaryDoctorId");
+
+                    b.ToTable("PatientProfiles");
+                });
+
+            modelBuilder.Entity("HMS.Domain.Entities.Person", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("Address")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("City")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("Country")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int?>("CreatedById")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime?>("DateOfBirth")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("FirstName")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("Gender")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("LastName")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("PersonalNumber")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("Phone")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int?>("UpdatedById")
+                        .HasColumnType("int");
+
+                    b.Property<int?>("UserId")
+                        .HasColumnType("int");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("UserId")
+                        .IsUnique()
+                        .HasFilter("[UserId] IS NOT NULL");
+
+                    b.ToTable("People");
+                });
+
+            modelBuilder.Entity("HMS.Domain.Entities.Specialization", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int?>("CreatedById")
+                        .HasColumnType("int");
+
+                    b.Property<string>("Description")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int?>("UpdatedById")
+                        .HasColumnType("int");
+
+                    b.HasKey("Id");
+
+                    b.ToTable("Specialization");
+                });
+
+            modelBuilder.Entity("HMS.Domain.Entities.StaffProfile", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int?>("CreatedById")
+                        .HasColumnType("int");
+
+                    b.Property<int?>("DepartmentId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("EmploymentStatus")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<DateTime?>("HireDate")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int>("PersonId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("StaffNumber")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int?>("UpdatedById")
+                        .HasColumnType("int");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("DepartmentId");
+
+                    b.HasIndex("PersonId")
+                        .IsUnique();
+
+                    b.ToTable("StaffProfile");
+                });
+
             modelBuilder.Entity("Identity.Domain.Entities.AuditLog", b =>
                 {
                     b.Property<int>("Id")
@@ -248,27 +546,19 @@ namespace HMS.Persistence.Migrations
                         .HasMaxLength(256)
                         .HasColumnType("nvarchar(256)");
 
-                    b.Property<string>("FirstName")
-                        .IsRequired()
-                        .HasMaxLength(100)
-                        .HasColumnType("nvarchar(100)");
+                    b.Property<DateTime?>("EmailVerifiedAt")
+                        .HasColumnType("datetime2");
 
                     b.Property<bool>("IsActive")
                         .HasColumnType("bit");
 
-                    b.Property<string>("LastName")
-                        .IsRequired()
-                        .HasMaxLength(100)
-                        .HasColumnType("nvarchar(100)");
+                    b.Property<DateTime?>("LastLoginAt")
+                        .HasColumnType("datetime2");
 
                     b.Property<string>("PasswordHash")
                         .IsRequired()
                         .HasMaxLength(512)
                         .HasColumnType("nvarchar(512)");
-
-                    b.Property<string>("PhoneNumber")
-                        .HasMaxLength(32)
-                        .HasColumnType("nvarchar(32)");
 
                     b.Property<DateTime>("UpdatedAt")
                         .HasColumnType("datetime2");
@@ -330,6 +620,77 @@ namespace HMS.Persistence.Migrations
                     b.ToTable("UserRoles", (string)null);
                 });
 
+            modelBuilder.Entity("HMS.Domain.Entities.DoctorProfile", b =>
+                {
+                    b.HasOne("HMS.Domain.Entities.Specialization", "Specialization")
+                        .WithMany("DoctorProfiles")
+                        .HasForeignKey("SpecializationId");
+
+                    b.HasOne("HMS.Domain.Entities.StaffProfile", "StaffProfile")
+                        .WithOne("DoctorProfile")
+                        .HasForeignKey("HMS.Domain.Entities.DoctorProfile", "StaffProfileId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Specialization");
+
+                    b.Navigation("StaffProfile");
+                });
+
+            modelBuilder.Entity("HMS.Domain.Entities.NurseProfile", b =>
+                {
+                    b.HasOne("HMS.Domain.Entities.StaffProfile", "StaffProfile")
+                        .WithOne("NurseProfile")
+                        .HasForeignKey("HMS.Domain.Entities.NurseProfile", "StaffProfileId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("StaffProfile");
+                });
+
+            modelBuilder.Entity("HMS.Domain.Entities.PatientProfile", b =>
+                {
+                    b.HasOne("HMS.Domain.Entities.Person", "Person")
+                        .WithOne("PatientProfile")
+                        .HasForeignKey("HMS.Domain.Entities.PatientProfile", "PersonId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("HMS.Domain.Entities.DoctorProfile", "PrimaryDoctor")
+                        .WithMany("AssignedPatients")
+                        .HasForeignKey("PrimaryDoctorId");
+
+                    b.Navigation("Person");
+
+                    b.Navigation("PrimaryDoctor");
+                });
+
+            modelBuilder.Entity("HMS.Domain.Entities.Person", b =>
+                {
+                    b.HasOne("Identity.Domain.Entities.User", "User")
+                        .WithOne("Person")
+                        .HasForeignKey("HMS.Domain.Entities.Person", "UserId");
+
+                    b.Navigation("User");
+                });
+
+            modelBuilder.Entity("HMS.Domain.Entities.StaffProfile", b =>
+                {
+                    b.HasOne("HMS.Domain.Entities.Department", "Department")
+                        .WithMany("StaffProfiles")
+                        .HasForeignKey("DepartmentId");
+
+                    b.HasOne("HMS.Domain.Entities.Person", "Person")
+                        .WithOne("StaffProfile")
+                        .HasForeignKey("HMS.Domain.Entities.StaffProfile", "PersonId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Department");
+
+                    b.Navigation("Person");
+                });
+
             modelBuilder.Entity("Identity.Domain.Entities.AuditLog", b =>
                 {
                     b.HasOne("Identity.Domain.Entities.User", "User")
@@ -389,6 +750,35 @@ namespace HMS.Persistence.Migrations
                     b.Navigation("User");
                 });
 
+            modelBuilder.Entity("HMS.Domain.Entities.Department", b =>
+                {
+                    b.Navigation("StaffProfiles");
+                });
+
+            modelBuilder.Entity("HMS.Domain.Entities.DoctorProfile", b =>
+                {
+                    b.Navigation("AssignedPatients");
+                });
+
+            modelBuilder.Entity("HMS.Domain.Entities.Person", b =>
+                {
+                    b.Navigation("PatientProfile");
+
+                    b.Navigation("StaffProfile");
+                });
+
+            modelBuilder.Entity("HMS.Domain.Entities.Specialization", b =>
+                {
+                    b.Navigation("DoctorProfiles");
+                });
+
+            modelBuilder.Entity("HMS.Domain.Entities.StaffProfile", b =>
+                {
+                    b.Navigation("DoctorProfile");
+
+                    b.Navigation("NurseProfile");
+                });
+
             modelBuilder.Entity("Identity.Domain.Entities.Permission", b =>
                 {
                     b.Navigation("RolePermissions");
@@ -404,6 +794,8 @@ namespace HMS.Persistence.Migrations
             modelBuilder.Entity("Identity.Domain.Entities.User", b =>
                 {
                     b.Navigation("AuditLogs");
+
+                    b.Navigation("Person");
 
                     b.Navigation("RefreshTokens");
 

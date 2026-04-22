@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using Identity.Domain.Entities;
+using HMS.Domain.Entities;
 
 namespace HMS.Persistence; 
 
@@ -14,6 +15,8 @@ public class HmsDbContext : DbContext
     public DbSet<RolePermission> RolePermissions => Set<RolePermission>();
     public DbSet<RefreshToken> RefreshTokens => Set<RefreshToken>();
     public DbSet<AuditLog> AuditLogs => Set<AuditLog>();
+    public DbSet<Person> People => Set<Person>();
+    public DbSet<PatientProfile> PatientProfiles => Set<PatientProfile>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
