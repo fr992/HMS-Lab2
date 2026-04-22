@@ -21,6 +21,8 @@ namespace Identity.Infrastructure.Services.Patients;
     RegisterPatientRequestDto request,
     CancellationToken cancellationToken)
     {
+        await ValidatePrimaryDoctorAsync(request.PrimaryDoctorId, cancellationToken);
+
         // check duplciate email
         if(await _db.Users.AnyAsync( u => u.Email == request.Email,cancellationToken))
             throw new InvalidOperationException("A user with this email already exists.");
@@ -36,57 +38,66 @@ namespace Identity.Infrastructure.Services.Patients;
                 throw new InvalidOperationException("A person with this personal number already exists.");
         }
 
-        // step 1 - - create user 
-
-        var user = new User
+        await using var transaction = await _db.Database.BeginTransactionAsync(cancellationToken);
+        try
         {
-            UserName = request.UserName,
-            Email = request.Email,
-            PasswordHash = _passwordHasher.HashPassword(request.Password),
-            IsActive = true,
-            CreatedAt = DateTime.UtcNow,
-            UpdatedAt = DateTime.UtcNow
-        };
-        _db.Users.Add(user);
-        await _db.SaveChangesAsync(cancellationToken); // saved to get userid
+            var user = new User
+            {
+                UserName = request.UserName,
+                Email = request.Email,
+                PasswordHash = _passwordHasher.HashPassword(request.Password),
+                IsActive = true,
+                CreatedAt = DateTime.UtcNow,
+                UpdatedAt = DateTime.UtcNow
+            };
+            _db.Users.Add(user);
+            await _db.SaveChangesAsync(cancellationToken);
 
-        // step 2 - - create person linked to User
+            var person = new Person
+            {
+                UserId = user.Id,
+                FirstName = request.FirstName,
+                LastName = request.LastName,
+                PersonalNumber = request.PersonalNumber,
+                DateOfBirth = request.DateOfBirth,
+                Gender = request.Gender,
+                Phone = request.Phone,
+                Address = request.Address,
+                City = request.City,
+                Country = request.Country,
+                CreatedAt = DateTime.UtcNow,
+                UpdatedAt = DateTime.UtcNow
+            };
+            _db.People.Add(person);
+            await _db.SaveChangesAsync(cancellationToken);
 
-        var person = new Person
+            var profile = new PatientProfile
+            {
+                PersonId = person.Id,
+                PatientNumber = string.Empty,
+                InsuranceNumber = request.InsuranceNumber,
+                BloodType = request.BloodType,
+                PrimaryDoctorId = request.PrimaryDoctorId,
+                CreatedAt = DateTime.UtcNow,
+                UpdatedAt = DateTime.UtcNow
+            };
+
+            _db.PatientProfiles.Add(profile);
+            await _db.SaveChangesAsync(cancellationToken);
+
+            profile.PatientNumber = GeneratePatientNumber(profile.Id);
+            profile.UpdatedAt = DateTime.UtcNow;
+            await _db.SaveChangesAsync(cancellationToken);
+
+            await transaction.CommitAsync(cancellationToken);
+
+            return await MapToDtoAsync(profile.Id, cancellationToken);
+        }
+        catch
         {
-            UserId = user.Id,
-            FirstName = request.FirstName,
-            LastName = request.LastName,
-            PersonalNumber = request.PersonalNumber,
-            DateOfBirth = request.DateOfBirth,
-            Gender = request.Gender,
-            Phone = request.Phone,
-            Address = request.Address,
-            City = request.City,
-            Country = request.Country,
-            CreatedAt = DateTime.UtcNow,
-            UpdatedAt = DateTime.UtcNow
-        };
-        _db.People.Add(person);
-        await _db.SaveChangesAsync(cancellationToken);
-
-        // step 3 - - create patient profile linked to person 
-        var patientNumber = await GeneratePatientNumberAsync(cancellationToken);
-        var profile = new PatientProfile
-        {
-            PersonId = person.Id,
-            PatientNumber = patientNumber,
-            InsuranceNumber = request.InsuranceNumber,
-            BloodType = request.BloodType,
-            PrimaryDoctorId = request.PrimaryDoctorId,
-            CreatedAt = DateTime.UtcNow,
-            UpdatedAt = DateTime.UtcNow
-        };
-
-        _db.PatientProfiles.Add(profile);
-        await _db.SaveChangesAsync(cancellationToken);
-
-        return await MapToDtoAsync(profile.Id, cancellationToken);
+            await transaction.RollbackAsync(cancellationToken);
+            throw;
+        }
     }
 
     public async Task<PatientProfileDto?> GetByIdAsync(int id, CancellationToken cancellationToken)
@@ -104,6 +115,9 @@ namespace Identity.Infrastructure.Services.Patients;
 
         if (profile is null)
             throw new InvalidOperationException("Patient not found.");
+
+        if (request.PrimaryDoctorId.HasValue)
+            await ValidatePrimaryDoctorAsync(request.PrimaryDoctorId, cancellationToken);
 
         // check for duplicate personal number if changing it
         if(!string.IsNullOrWhiteSpace(request.PersonalNumber) && 
@@ -152,10 +166,20 @@ namespace Identity.Infrastructure.Services.Patients;
         return true;
     }
 
-    private async Task<string> GeneratePatientNumberAsync(CancellationToken cancellationToken)
+    private static string GeneratePatientNumber(int patientProfileId)
     {
-        var count = await _db.PatientProfiles.CountAsync(cancellationToken);
-        return $"PAT-{(count + 1):D5}";
+        return $"PAT-{patientProfileId:D5}";
+    }
+
+    private async Task ValidatePrimaryDoctorAsync(int? primaryDoctorId, CancellationToken cancellationToken)
+    {
+        if (!primaryDoctorId.HasValue)
+            return;
+
+        var doctorExists = await _db.Set<DoctorProfile>()
+            .AnyAsync(d => d.Id == primaryDoctorId.Value, cancellationToken);
+        if (!doctorExists)
+            throw new InvalidOperationException("Primary doctor does not exist.");
     }
 
     private async Task<PatientProfileDto> MapToDtoAsync(int profileId, CancellationToken cancellationToken)
