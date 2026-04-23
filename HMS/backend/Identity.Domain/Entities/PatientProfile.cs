@@ -13,4 +13,5 @@ public class PatientProfile : BaseEntity
 
     public int? PrimaryDoctorId { get; set; }
     public DoctorProfile? PrimaryDoctor { get; set; }
+    public ICollection<PatientContact> Contacts { get; set; } = new List<PatientContact>();
 }

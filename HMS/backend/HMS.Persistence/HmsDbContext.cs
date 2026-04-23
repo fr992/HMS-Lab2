@@ -17,6 +17,7 @@ public class HmsDbContext : DbContext
     public DbSet<AuditLog> AuditLogs => Set<AuditLog>();
     public DbSet<Person> People => Set<Person>();
     public DbSet<PatientProfile> PatientProfiles => Set<PatientProfile>();
+    public DbSet<PatientContact> PatientContacts => Set<PatientContact>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
