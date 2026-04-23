@@ -21,35 +21,33 @@ namespace Identity.Infrastructure.Services.Patients;
     RegisterPatientRequestDto request,
     CancellationToken cancellationToken)
     {
-        await ValidatePrimaryDoctorAsync(request.PrimaryDoctorId, cancellationToken);
-
-        // check duplciate email
-        if(await _db.Users.AnyAsync( u => u.Email == request.Email,cancellationToken))
-            throw new InvalidOperationException("A user with this email already exists.");
-
-        // check duplciate username
-        if (await _db.Users.AnyAsync(u => u.UserName == request.UserName, cancellationToken)) 
-            throw new InvalidOperationException("A patient with this username already exists.");
-
-        // check duplciate personal number 
-        if (!string.IsNullOrWhiteSpace(request.PersonalNumber))
-        {
-            if (await _db.People.AnyAsync(p => p.PersonalNumber == request.PersonalNumber, cancellationToken))
-                throw new InvalidOperationException("A person with this personal number already exists.");
-        }
-
         await using var transaction = await _db.Database.BeginTransactionAsync(cancellationToken);
         try
         {
+            // ALL validations inside transaction
+            await ValidatePrimaryDoctorAsync(request.PrimaryDoctorId, cancellationToken);
+
+            if (await _db.Users.AnyAsync(u => u.Email == request.Email, cancellationToken))
+                throw new InvalidOperationException("A user with this email already exists.");
+
+            if (await _db.Users.AnyAsync(u => u.UserName == request.UserName, cancellationToken))
+                throw new InvalidOperationException("A patient with this username already exists.");
+
+            if (!string.IsNullOrWhiteSpace(request.PersonalNumber))
+            {
+                if (await _db.People.AnyAsync(p => p.PersonalNumber == request.PersonalNumber, cancellationToken))
+                    throw new InvalidOperationException("A person with this personal number already exists.");
+            }
+
             var user = new User
             {
                 UserName = request.UserName,
                 Email = request.Email,
-                PasswordHash = _passwordHasher.HashPassword(request.Password),
                 IsActive = true,
                 CreatedAt = DateTime.UtcNow,
                 UpdatedAt = DateTime.UtcNow
             };
+            user.PasswordHash = _passwordHasher.HashPassword(request.Password);
             _db.Users.Add(user);
             await _db.SaveChangesAsync(cancellationToken);
 
@@ -81,7 +79,6 @@ namespace Identity.Infrastructure.Services.Patients;
                 CreatedAt = DateTime.UtcNow,
                 UpdatedAt = DateTime.UtcNow
             };
-
             _db.PatientProfiles.Add(profile);
             await _db.SaveChangesAsync(cancellationToken);
 
@@ -90,7 +87,6 @@ namespace Identity.Infrastructure.Services.Patients;
             await _db.SaveChangesAsync(cancellationToken);
 
             await transaction.CommitAsync(cancellationToken);
-
             return await MapToDtoAsync(profile.Id, cancellationToken);
         }
         catch

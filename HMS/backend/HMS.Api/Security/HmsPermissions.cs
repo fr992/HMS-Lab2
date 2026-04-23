@@ -16,6 +16,7 @@ public static class HmsPermissions
         "Patients.Register",
         "Patients.Read",
         "Patients.Update",
+        "Patients.Delete",
         "Appointments.Read",
         "Appointments.Create",
         "Appointments.ManageStatus",

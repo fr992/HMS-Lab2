@@ -39,6 +39,7 @@ public sealed class IdentityDataSeeder
         ("Patients.Register", "Regjistron pacient të ri dhe përdorues portal (recepsion)."),
         ("Patients.Read", "Lexon të dhënat e pacientit."),
         ("Patients.Update", "Përditëson të dhënat e pacientit."),
+        ("Patients.Delete", "Fshin të dhënat e pacientit."),
         ("Appointments.Read", "Sheh terminet dhe oraret."),
         ("Appointments.Create", "Krijon termin për pacient."),
         ("Appointments.ManageStatus", "Aprovon, refuzon ose ndryshon statusin e terminit."),
@@ -74,12 +75,12 @@ public sealed class IdentityDataSeeder
         ("Admin", new[]
         {
             "Users.Create", "Users.Read", "Users.Update", "Users.SetActive",
-            "Roles.Read", "Permissions.Read", "RolePermissions.Manage",
+            "Roles.Read", "Permissions.Read", "Patients.Register", "Patients.Read", "Patients.Update", "Patients.Delete", "RolePermissions.Manage",
             "AuditLogs.Read", "Settings.Manage"
         }),
         ("Receptionist", new[]
         {
-            "Patients.Register", "Patients.Read", "Patients.Update",
+            "Patients.Register", "Patients.Read", "Patients.Update", "Patients.Delete",
             "Appointments.Read", "Appointments.Create", "Appointments.ManageStatus",
             "Invoices.Read", "Payments.ConfirmCash",
             "LabResults.Read"
