@@ -134,6 +134,54 @@ namespace HMS.Persistence.Migrations
                     b.ToTable("NurseProfile");
                 });
 
+            modelBuilder.Entity("HMS.Domain.Entities.PatientContact", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int?>("CreatedById")
+                        .HasColumnType("int");
+
+                    b.Property<string>("Email")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<bool>("IsPrimary")
+                        .HasColumnType("bit");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<int>("PatientProfileId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("Phone")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("Relationship")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int?>("UpdatedById")
+                        .HasColumnType("int");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("PatientProfileId");
+
+                    b.ToTable("PatientContacts");
+                });
+
             modelBuilder.Entity("HMS.Domain.Entities.PatientProfile", b =>
                 {
                     b.Property<int>("Id")
@@ -156,7 +204,8 @@ namespace HMS.Persistence.Migrations
 
                     b.Property<string>("PatientNumber")
                         .IsRequired()
-                        .HasColumnType("nvarchar(max)");
+                        .HasMaxLength(32)
+                        .HasColumnType("nvarchar(32)");
 
                     b.Property<int>("PersonId")
                         .HasColumnType("int");
@@ -171,6 +220,9 @@ namespace HMS.Persistence.Migrations
                         .HasColumnType("int");
 
                     b.HasKey("Id");
+
+                    b.HasIndex("PatientNumber")
+                        .IsUnique();
 
                     b.HasIndex("PersonId")
                         .IsUnique();
@@ -648,6 +700,17 @@ namespace HMS.Persistence.Migrations
                     b.Navigation("StaffProfile");
                 });
 
+            modelBuilder.Entity("HMS.Domain.Entities.PatientContact", b =>
+                {
+                    b.HasOne("HMS.Domain.Entities.PatientProfile", "PatientProfile")
+                        .WithMany("Contacts")
+                        .HasForeignKey("PatientProfileId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("PatientProfile");
+                });
+
             modelBuilder.Entity("HMS.Domain.Entities.PatientProfile", b =>
                 {
                     b.HasOne("HMS.Domain.Entities.Person", "Person")
@@ -758,6 +821,11 @@ namespace HMS.Persistence.Migrations
             modelBuilder.Entity("HMS.Domain.Entities.DoctorProfile", b =>
                 {
                     b.Navigation("AssignedPatients");
+                });
+
+            modelBuilder.Entity("HMS.Domain.Entities.PatientProfile", b =>
+                {
+                    b.Navigation("Contacts");
                 });
 
             modelBuilder.Entity("HMS.Domain.Entities.Person", b =>

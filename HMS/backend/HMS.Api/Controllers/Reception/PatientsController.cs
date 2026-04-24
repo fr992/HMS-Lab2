@@ -48,6 +48,16 @@ public async Task<ActionResult<PatientProfileDto>> RegisterPatient(
         return Ok(patient);
     }
 
+    [HttpGet]
+    [RequirePermission("Patients.Read")]
+    public async Task<ActionResult<List<PatientProfileDto>>> GetAll(
+    CancellationToken cancellationToken)
+    {
+        var patients = await _patientService.GetAllAsync(cancellationToken);
+
+        return Ok(patients);
+    }
+
 
     [HttpPut("{id:int}")]
     [RequirePermission("Patients.Update")]

@@ -4,6 +4,7 @@ using Identity.Domain.Entities;
 using HMS.Persistence;
 using Microsoft.EntityFrameworkCore;
 using HMS.Domain.Entities;
+using Microsoft.AspNetCore.Http.HttpResults;
 
 namespace Identity.Infrastructure.Services.Patients;
 
@@ -103,6 +104,42 @@ namespace Identity.Infrastructure.Services.Patients;
         return await MapToDtoAsync(id, cancellationToken);
     }
 
+    public async Task<List<PatientProfileDto>> GetAllAsync(CancellationToken cancellationToken)
+    {
+        return await _db.PatientProfiles
+            .AsNoTracking()
+            .Select(p => new PatientProfileDto
+            {
+                // PatientProfile
+                Id = p.Id,
+                PatientNumber = p.PatientNumber,
+                InsuranceNumber = p.InsuranceNumber,
+                BloodType = p.BloodType,
+                PrimaryDoctorId = p.PrimaryDoctorId,
+
+                // Person
+                PersonId = p.PersonId,
+                FirstName = p.Person.FirstName,
+                LastName = p.Person.LastName,
+                PersonalNumber = p.Person.PersonalNumber,
+                DateOfBirth = p.Person.DateOfBirth,
+                Gender = p.Person.Gender,
+                Phone = p.Person.Phone,
+                Address = p.Person.Address,
+                City = p.Person.City,
+                Country = p.Person.Country,
+
+                // User
+                UserId = p.Person.UserId,
+                UserName = p.Person.User!.UserName,
+                Email = p.Person.User!.Email,
+
+                // BaseEntity
+                CreatedAt = p.CreatedAt,
+                UpdatedAt = p.UpdatedAt
+            })
+            .ToListAsync(cancellationToken);
+    }
     public async Task<PatientProfileDto> UpdateAsync(int id, UpdatePatientRequestDto request, CancellationToken cancellationToken)
     {
         var profile = await _db.PatientProfiles

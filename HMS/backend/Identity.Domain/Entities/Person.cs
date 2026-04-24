@@ -5,7 +5,7 @@ namespace HMS.Domain.Entities;
 
 public class Person : BaseEntity
 {
-    public int? UserId { get; set; }
+    public int UserId { get; set; }
     public User? User { get; set; }
 
     public string FirstName { get; set; } = string.Empty;
