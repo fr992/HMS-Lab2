@@ -1,4 +1,6 @@
-public class PatientContactDto
+namespace HMS.Contracts.Identity;
+
+public sealed class PatientContactDto
 {
     public string Name { get; set; } = string.Empty;
     public string Relationship { get; set; } = string.Empty;

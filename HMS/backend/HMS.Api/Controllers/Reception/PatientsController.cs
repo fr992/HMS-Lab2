@@ -66,10 +66,6 @@ public async Task<ActionResult<PatientProfileDto>> RegisterPatient(
         try
         {
             var patient = await _patientService.UpdateAsync(id, request, cancellationToken);
-
-            if(patient is null) 
-                return NotFound();
-
             return Ok(patient);
         }
         catch(InvalidOperationException ex)

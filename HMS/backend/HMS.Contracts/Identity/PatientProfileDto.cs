@@ -1,4 +1,4 @@
-﻿namespace HMS.Contracts.Identity;
+namespace HMS.Contracts.Identity;
 
 public sealed class PatientProfileDto
 {
@@ -21,8 +21,8 @@ public sealed class PatientProfileDto
     public string? City { get; set; }
     public string? Country { get; set; }
 
-    // User
-    public int UserId { get; set; }
+    // User (null when the person has no linked login account)
+    public int? UserId { get; set; }
     public string UserName { get; set; } = string.Empty;
     public string Email { get; set; } = string.Empty;
 

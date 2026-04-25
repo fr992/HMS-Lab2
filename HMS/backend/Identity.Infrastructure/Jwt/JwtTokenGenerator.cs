@@ -1,4 +1,4 @@
-﻿using System.IdentityModel.Tokens.Jwt;
+using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 using System.Text;
 using Identity.Domain.Entities;
@@ -43,6 +43,9 @@ public sealed class JwtTokenGenerator : IJwtTokenGenerator
 
         foreach (var p in permissionNames)
             claims.Add(new Claim(PermissionClaimType, p));
+
+        if (permissionNames.Count > 0)
+            claims.Add(new Claim("permissions", string.Join('|', permissionNames)));
 
         var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(_settings.Key));
         var creds = new SigningCredentials(key, SecurityAlgorithms.HmacSha256);

@@ -1,4 +1,4 @@
-﻿using System.Text;
+using System.Text;
 using HMS.Application.Abstractions.Identity;
 using Identity.Domain.Entities;
 using Identity.Infrastructure.Jwt;
@@ -54,7 +54,7 @@ public static class DependencyInjection
         services.AddScoped<IAuthService, AuthService>();
         services.AddScoped<IUserManagementService, UserManagementService>();
         services.AddScoped<IdentityDataSeeder>();
-        services.AddScoped<PatientContactService>();
+        services.AddScoped<IPatientContactService, PatientContactService>();
 
         return services;
     }

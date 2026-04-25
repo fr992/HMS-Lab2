@@ -4,7 +4,6 @@ using Identity.Domain.Entities;
 using HMS.Persistence;
 using Microsoft.EntityFrameworkCore;
 using HMS.Domain.Entities;
-using Microsoft.AspNetCore.Http.HttpResults;
 
 namespace Identity.Infrastructure.Services.Patients;
 
@@ -131,8 +130,8 @@ namespace Identity.Infrastructure.Services.Patients;
 
                 // User
                 UserId = p.Person.UserId,
-                UserName = p.Person.User!.UserName,
-                Email = p.Person.User!.Email,
+                UserName = p.Person.User != null ? p.Person.User.UserName : string.Empty,
+                Email = p.Person.User != null ? p.Person.User.Email : string.Empty,
 
                 // BaseEntity
                 CreatedAt = p.CreatedAt,
@@ -237,9 +236,9 @@ namespace Identity.Infrastructure.Services.Patients;
                 Address = p.Person.Address,
                 City = p.Person.City,
                 Country = p.Person.Country,
-                UserId = p.Person.UserId!.Value,
-                UserName = p.Person.User!.UserName,
-                Email = p.Person.User!.Email,
+                UserId = p.Person.UserId,
+                UserName = p.Person.User != null ? p.Person.User.UserName : string.Empty,
+                Email = p.Person.User != null ? p.Person.User.Email : string.Empty,
                 CreatedAt = p.CreatedAt,
                 UpdatedAt = p.UpdatedAt
             })

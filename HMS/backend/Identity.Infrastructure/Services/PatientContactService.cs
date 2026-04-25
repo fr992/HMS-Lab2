@@ -1,14 +1,12 @@
 using HMS.Application.Abstractions.Identity;
 using HMS.Contracts.Identity;
-using Identity.Domain.Entities;
+using HMS.Domain.Entities;
 using HMS.Persistence;
 using Microsoft.EntityFrameworkCore;
-using HMS.Domain.Entities;
 
 namespace Identity.Infrastructure.Services;
 
-
-public class PatientContactService
+public sealed class PatientContactService : IPatientContactService
 {
     private readonly HmsDbContext _db;
 
@@ -17,23 +15,47 @@ public class PatientContactService
         _db = db;
     }
 
-    public async Task UpdateContactsAsync(int patientProfileId, List<PatientContactDto> contacts)
+    public async Task<IReadOnlyList<PatientContactDto>?> GetByPatientIdAsync(
+        int patientProfileId,
+        CancellationToken cancellationToken = default)
+    {
+        if (!await _db.PatientProfiles
+                .AsNoTracking()
+                .AnyAsync(p => p.Id == patientProfileId, cancellationToken))
+            return null;
+
+        return await _db.PatientContacts
+            .AsNoTracking()
+            .Where(c => c.PatientProfileId == patientProfileId)
+            .OrderBy(c => c.Id)
+            .Select(c => new PatientContactDto
+            {
+                Name = c.Name,
+                Relationship = c.Relationship,
+                Phone = c.Phone,
+                Email = c.Email,
+                IsPrimary = c.IsPrimary
+            })
+            .ToListAsync(cancellationToken);
+    }
+
+    public async Task UpdateContactsAsync(
+        int patientProfileId,
+        IReadOnlyList<PatientContactDto> contacts,
+        CancellationToken cancellationToken = default)
     {
         var patient = await _db.PatientProfiles
             .Include(p => p.Contacts)
-            .FirstOrDefaultAsync(p => p.Id == patientProfileId);
+            .FirstOrDefaultAsync(p => p.Id == patientProfileId, cancellationToken);
 
-        if (patient == null)
-            throw new Exception("Patient not found");
+        if (patient is null)
+            throw new InvalidOperationException("Patient not found.");
 
-        // VALIDATION
         if (contacts.Count(c => c.IsPrimary) > 1)
-            throw new Exception("Only one primary contact allowed");
+            throw new InvalidOperationException("Only one primary contact is allowed.");
 
-        // REMOVE OLD CONTACTS
         _db.PatientContacts.RemoveRange(patient.Contacts);
 
-        // ADD NEW CONTACTS
         var newContacts = contacts.Select(c => new PatientContact
         {
             PatientProfileId = patientProfileId,
@@ -44,8 +66,7 @@ public class PatientContactService
             IsPrimary = c.IsPrimary
         });
 
-        await _db.PatientContacts.AddRangeAsync(newContacts);
-
-        await _db.SaveChangesAsync();
+        await _db.PatientContacts.AddRangeAsync(newContacts, cancellationToken);
+        await _db.SaveChangesAsync(cancellationToken);
     }
 }

@@ -87,6 +87,7 @@ public sealed class IdentityDataSeeder
         }),
         ("Doctor", new[]
         {
+            "Patients.Read",
             "Appointments.Read",
             "Encounters.Create", "Encounters.Read", "Encounters.Update", "Encounters.Close",
             "Diagnoses.Manage", "Prescriptions.Manage",

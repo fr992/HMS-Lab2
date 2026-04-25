@@ -1,24 +1,51 @@
-using Microsoft.AspNetCore.Mvc;
+using HMS.Api.Authorization;
+using HMS.Application.Abstractions.Identity;
 using HMS.Contracts.Identity;
+using Microsoft.AspNetCore.Mvc;
 
-namespace Identity.Infrastructure.Services;
-
+namespace HMS.Api.Controllers.Patient;
 
 [ApiController]
-[Route("api/patients/{patientId}/contacts")]
-public class PatientContactsController : ControllerBase
+[Route("api/patients/{patientId:int}/contacts")]
+public sealed class PatientContactsController : ControllerBase
 {
-    private readonly PatientContactService _service;
+    private readonly IPatientContactService _contacts;
 
-    public PatientContactsController(PatientContactService service)
+    public PatientContactsController(IPatientContactService contacts)
     {
-        _service = service;
+        _contacts = contacts;
+    }
+
+    [HttpGet]
+    [RequirePermission("Patients.Read")]
+    public async Task<ActionResult<IReadOnlyList<PatientContactDto>>> GetByPatientId(
+        int patientId,
+        CancellationToken cancellationToken)
+    {
+        var list = await _contacts.GetByPatientIdAsync(patientId, cancellationToken);
+        if (list is null)
+            return NotFound();
+        return Ok(list);
     }
 
     [HttpPut]
-    public async Task<IActionResult> Update(int patientId, List<PatientContactDto> contacts)
+    [RequirePermission("Patients.Update")]
+    public async Task<IActionResult> Update(
+        int patientId,
+        [FromBody] List<PatientContactDto> contacts,
+        CancellationToken cancellationToken)
     {
-        await _service.UpdateContactsAsync(patientId, contacts);
+        if (contacts is null)
+            return BadRequest();
+        try
+        {
+            await _contacts.UpdateContactsAsync(patientId, contacts, cancellationToken);
+        }
+        catch (InvalidOperationException ex)
+        {
+            return ex.Message == "Patient not found." ? NotFound() : BadRequest(new { error = ex.Message });
+        }
+
         return NoContent();
     }
 }
