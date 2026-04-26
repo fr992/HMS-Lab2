@@ -30,7 +30,10 @@ export const usePatientsStore = create((set) => ({
       const created = await api.registerPatient(body);
       set((s) => ({
         items: [created, ...s.items],
-        lastActionSuccess: "Patient registered successfully.",
+        lastActionSuccess:
+          created && !created.userId
+            ? "Patient registered (no portal account)."
+            : "Patient registered successfully.",
       }));
       return created;
     } catch (e) {
@@ -46,6 +49,21 @@ export const usePatientsStore = create((set) => ({
       set((s) => ({
         items: s.items.map((p) => (p.id === id ? { ...p, ...updated } : p)),
         lastActionSuccess: "Patient updated successfully.",
+      }));
+      return updated;
+    } catch (e) {
+      set({ lastActionError: api.getApiErrorMessage(e) });
+      return null;
+    }
+  },
+
+  linkPortalAccount: async (id, body) => {
+    set({ lastActionError: null, lastActionSuccess: null });
+    try {
+      const updated = await api.linkPatientPortal(id, body);
+      set((s) => ({
+        items: s.items.map((p) => (p.id === id ? { ...p, ...updated } : p)),
+        lastActionSuccess: "Portal access added. The patient can sign in with the new credentials.",
       }));
       return updated;
     } catch (e) {

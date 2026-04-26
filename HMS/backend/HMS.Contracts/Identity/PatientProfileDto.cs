@@ -8,6 +8,7 @@ public sealed class PatientProfileDto
     public string? InsuranceNumber { get; set; }
     public string? BloodType { get; set; }
     public int? PrimaryDoctorId { get; set; }
+    public string? PrimaryDoctorName { get; set; }
 
     // Person
     public int PersonId { get; set; }

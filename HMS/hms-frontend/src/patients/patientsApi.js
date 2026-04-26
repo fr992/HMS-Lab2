@@ -52,6 +52,15 @@ export async function updatePatient(id, body) {
 }
 
 /**
+ * @param {number} id patient profile id
+ * @param {{ userName: string, email: string, password: string }} body
+ */
+export async function linkPatientPortal(id, body) {
+  const { data } = await api.post(`/patients/${id}/portal`, body);
+  return data;
+}
+
+/**
  * @param {number} id
  */
 export async function deletePatient(id) {

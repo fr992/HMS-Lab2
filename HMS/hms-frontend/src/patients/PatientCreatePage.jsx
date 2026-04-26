@@ -10,20 +10,24 @@ export default function PatientCreatePage() {
   const [error, setError] = useState(null);
 
   return (
-    <div>
-      <h1 className="text-2xl font-semibold text-slate-900">New patient</h1>
-      <p className="mt-1 text-sm text-slate-600">
-        Create a patient record and linked portal account.
-      </p>
+    <div className="mx-auto w-full max-w-4xl space-y-6">
+      <div>
+        <h1 className="text-2xl font-semibold tracking-tight text-slate-900 sm:text-3xl">
+          New patient
+        </h1>
+        <p className="mt-1.5 text-sm text-slate-600">
+          Create a patient record and linked portal account.
+        </p>
+      </div>
       {error && (
         <div
-          className="mt-4 rounded-md border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-900"
+          className="rounded-xl border border-rose-200/80 bg-rose-50/90 px-4 py-3 text-sm text-rose-900 shadow-sm"
           role="alert"
         >
           {error}
         </div>
       )}
-      <div className="mt-6 max-w-3xl">
+      <div className="rounded-2xl border border-slate-200/80 bg-white p-5 shadow-sm sm:p-6 md:p-8">
         <PatientForm
           key="create"
           mode="create"

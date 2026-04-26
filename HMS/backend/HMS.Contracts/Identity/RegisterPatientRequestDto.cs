@@ -1,11 +1,14 @@
-﻿namespace HMS.Contracts.Identity;
+namespace HMS.Contracts.Identity;
 
 public sealed class RegisterPatientRequestDto
 {
-    // ── User (auth) fields ─────────────────────────────────
-    public string UserName { get; set; } = string.Empty;
-    public string Email { get; set; } = string.Empty;
-    public string Password { get; set; } = string.Empty;
+    /// <summary>When true or omitted, create a user and link. When false, register patient record only (no portal login).</summary>
+    public bool? CreatePortalAccount { get; set; }
+
+    // ── User (auth) fields — used only when CreatePortalAccount is true (default) ──
+    public string? UserName { get; set; }
+    public string? Email { get; set; }
+    public string? Password { get; set; }
 
     // ── Person (identity) fields ───────────────────────────
     public string FirstName { get; set; } = string.Empty;

@@ -1,8 +1,8 @@
+using System.Security.Claims;
 using HMS.Api.Authorization;
 using HMS.Application.Abstractions.Identity;
 using HMS.Contracts.Identity;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.AspNetCore.Mvc.Routing;
 
 namespace HMS.Api.Controllers.Reception;
 
@@ -18,6 +18,12 @@ public sealed class PatientsController : ControllerBase
         _patientService = patientService;
     }
 
+    private int? CurrentUserId()
+    {
+        var sub = User.FindFirstValue(ClaimTypes.NameIdentifier);
+        return int.TryParse(sub, out var id) ? id : null;
+    }
+
 [HttpPost("register")]
 [RequirePermission("Patients.Register")]
 public async Task<ActionResult<PatientProfileDto>> RegisterPatient(
@@ -26,7 +32,7 @@ public async Task<ActionResult<PatientProfileDto>> RegisterPatient(
 {
     try
     {
-        var patient = await _patientService.RegisterAsync(request, cancellationToken);
+        var patient = await _patientService.RegisterAsync(request, CurrentUserId(), cancellationToken);
         return CreatedAtAction(nameof(GetById), new { id = patient.Id }, patient);
     }
     catch (InvalidOperationException ex)
@@ -34,6 +40,28 @@ public async Task<ActionResult<PatientProfileDto>> RegisterPatient(
         return BadRequest(new { error = ex.Message });
     }
 }
+
+    [HttpPost("{id:int}/portal")]
+    [RequirePermission("Patients.Update")]
+    public async Task<ActionResult<PatientProfileDto>> LinkPortalAccount(
+        int id,
+        [FromBody] LinkPatientPortalRequestDto request,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            var patient = await _patientService.LinkPortalAccountAsync(
+                id,
+                request,
+                CurrentUserId(),
+                cancellationToken);
+            return Ok(patient);
+        }
+        catch (InvalidOperationException ex)
+        {
+            return BadRequest(new { error = ex.Message });
+        }
+    }
 
     [HttpGet("{id:int}")]
     [RequirePermission("Patients.Read")]
@@ -65,7 +93,7 @@ public async Task<ActionResult<PatientProfileDto>> RegisterPatient(
     {
         try
         {
-            var patient = await _patientService.UpdateAsync(id, request, cancellationToken);
+            var patient = await _patientService.UpdateAsync(id, request, CurrentUserId(), cancellationToken);
             return Ok(patient);
         }
         catch(InvalidOperationException ex)

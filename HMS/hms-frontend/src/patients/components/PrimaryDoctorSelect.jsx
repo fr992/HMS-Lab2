@@ -1,8 +1,9 @@
 import { useEffect, useId, useMemo } from "react";
 import { useDoctorOptionsStore } from "@/patients/doctorOptionsStore";
+import { NATIVE_SELECT_CHEVRON } from "@/patients/selectFieldStyles";
 
-const selectClass = (err) =>
-  `mt-1 w-full rounded border ${err ? "border-rose-500" : "border-slate-300"} bg-white px-2 py-2 text-sm text-slate-900 focus:border-sky-500 focus:outline-none focus:ring-1 focus:ring-sky-500 disabled:cursor-not-allowed disabled:opacity-50`;
+const baseSelectClass = (err) =>
+  `mt-1.5 w-full rounded-xl border ${err ? "border-rose-400" : "border-slate-200/90"} bg-white pl-3.5 py-2.5 text-sm text-slate-900 shadow-sm transition focus:border-sky-500 focus:outline-none focus:ring-2 focus:ring-sky-500/20 disabled:cursor-not-allowed disabled:opacity-50 ${NATIVE_SELECT_CHEVRON}`.trim();
 
 function parseId(value) {
   const t = (value ?? "").trim();
@@ -17,8 +18,19 @@ function parseId(value) {
  * @param {function(string): void} props.onValueChange
  * @param {boolean} props.disabled
  * @param {boolean} [props.hasError]
+ * @param {boolean} [props.hideLabel] — when true, do not render the top label (parent provides section label)
+ * @param {string} [props.className] — extra classes for the outer wrapper
+ * @param {string} [props.selectClassName] — extra classes for the &lt;select&gt;
  */
-export default function PrimaryDoctorSelect({ value, onValueChange, disabled, hasError = false }) {
+export default function PrimaryDoctorSelect({
+  value,
+  onValueChange,
+  disabled,
+  hasError = false,
+  hideLabel = false,
+  className = "",
+  selectClassName = "",
+}) {
   const helpId = useId();
   const load = useDoctorOptionsStore((s) => s.load);
   const status = useDoctorOptionsStore((s) => s.status);
@@ -70,10 +82,15 @@ export default function PrimaryDoctorSelect({ value, onValueChange, disabled, ha
   }, [currentId, items, isLoading, showOrphan]);
 
   return (
-    <div>
-      <label className="text-xs font-medium text-slate-600" htmlFor={helpId}>
-        Primary doctor
-      </label>
+    <div className={className}>
+      {!hideLabel && (
+        <label
+          className="text-xs font-semibold tracking-wide text-slate-600"
+          htmlFor={helpId}
+        >
+          Primary doctor
+        </label>
+      )}
       {isLoading && (
         <p className="mb-0.5 text-xs text-slate-500" aria-live="polite">
           Loading…
@@ -81,10 +98,11 @@ export default function PrimaryDoctorSelect({ value, onValueChange, disabled, ha
       )}
       <select
         id={helpId}
-        className={selectClass(!!hasError)}
+        className={`${baseSelectClass(!!hasError)} ${selectClassName}`.trim()}
         value={selectValue}
         onChange={(e) => onValueChange(e.target.value)}
         disabled={disabled || isLoading}
+        aria-label={hideLabel ? "Primary doctor" : undefined}
         aria-describedby={
           loadError || showEmptyInfo ? helpTextId : undefined
         }
