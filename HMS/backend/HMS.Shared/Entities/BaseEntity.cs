@@ -1,9 +1,4 @@
-﻿using System;
-using System.Net;
-using System.Numerics;
-using System.Xml.Linq;
-
-namespace HMS.Shared.Entities;
+﻿namespace HMS.Shared.Entities;
 
 public abstract class BaseEntity
 {

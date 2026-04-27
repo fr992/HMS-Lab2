@@ -94,7 +94,7 @@ namespace HMS.Persistence.Migrations
                     b.HasIndex("StaffProfileId")
                         .IsUnique();
 
-                    b.ToTable("DoctorProfile");
+                    b.ToTable("DoctorProfiles");
                 });
 
             modelBuilder.Entity("HMS.Domain.Entities.NurseProfile", b =>
@@ -370,6 +370,76 @@ namespace HMS.Persistence.Migrations
                         .IsUnique();
 
                     b.ToTable("StaffProfile");
+                });
+
+            modelBuilder.Entity("Identity.Domain.Entities.Appointment", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("AppointmentType")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("CancellationReason")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<DateTime?>("CancelledAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int?>("CancelledByUserId")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime?>("ConfirmedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int?>("CreatedById")
+                        .HasColumnType("int");
+
+                    b.Property<int?>("DepartmentId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("DoctorProfileId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("PatientProfileId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("Reason")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<DateTime>("ScheduledEnd")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateTime>("ScheduledStart")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int?>("UpdatedById")
+                        .HasColumnType("int");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CancelledByUserId");
+
+                    b.HasIndex("DepartmentId");
+
+                    b.HasIndex("DoctorProfileId");
+
+                    b.HasIndex("PatientProfileId");
+
+                    b.ToTable("Appointments");
                 });
 
             modelBuilder.Entity("Identity.Domain.Entities.AuditLog", b =>
@@ -681,7 +751,7 @@ namespace HMS.Persistence.Migrations
                     b.HasOne("HMS.Domain.Entities.StaffProfile", "StaffProfile")
                         .WithOne("DoctorProfile")
                         .HasForeignKey("HMS.Domain.Entities.DoctorProfile", "StaffProfileId")
-                        .OnDelete(DeleteBehavior.Cascade)
+                        .OnDelete(DeleteBehavior.NoAction)
                         .IsRequired();
 
                     b.Navigation("Specialization");
@@ -752,6 +822,37 @@ namespace HMS.Persistence.Migrations
                     b.Navigation("Department");
 
                     b.Navigation("Person");
+                });
+
+            modelBuilder.Entity("Identity.Domain.Entities.Appointment", b =>
+                {
+                    b.HasOne("Identity.Domain.Entities.User", "CancelledByUser")
+                        .WithMany()
+                        .HasForeignKey("CancelledByUserId");
+
+                    b.HasOne("HMS.Domain.Entities.Department", "Department")
+                        .WithMany()
+                        .HasForeignKey("DepartmentId");
+
+                    b.HasOne("HMS.Domain.Entities.DoctorProfile", "DoctorProfile")
+                        .WithMany()
+                        .HasForeignKey("DoctorProfileId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("HMS.Domain.Entities.PatientProfile", "PatientProfile")
+                        .WithMany()
+                        .HasForeignKey("PatientProfileId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("CancelledByUser");
+
+                    b.Navigation("Department");
+
+                    b.Navigation("DoctorProfile");
+
+                    b.Navigation("PatientProfile");
                 });
 
             modelBuilder.Entity("Identity.Domain.Entities.AuditLog", b =>

@@ -1,5 +1,4 @@
 ﻿using HMS.Shared.Entities;
-using Identity.Domain.Entities;
 
 namespace HMS.Domain.Entities;
 
