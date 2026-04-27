@@ -6,7 +6,7 @@ using Microsoft.EntityFrameworkCore.Migrations;
 namespace HMS.Persistence.Migrations
 {
     /// <inheritdoc />
-    public partial class InitialCreate : Migration
+    public partial class Database : Migration
     {
         /// <inheritdoc />
         protected override void Up(MigrationBuilder migrationBuilder)
@@ -285,7 +285,7 @@ namespace HMS.Persistence.Migrations
                 });
 
             migrationBuilder.CreateTable(
-                name: "DoctorProfile",
+                name: "DoctorProfiles",
                 columns: table => new
                 {
                     Id = table.Column<int>(type: "int", nullable: false)
@@ -301,18 +301,17 @@ namespace HMS.Persistence.Migrations
                 },
                 constraints: table =>
                 {
-                    table.PrimaryKey("PK_DoctorProfile", x => x.Id);
+                    table.PrimaryKey("PK_DoctorProfiles", x => x.Id);
                     table.ForeignKey(
-                        name: "FK_DoctorProfile_Specialization_SpecializationId",
+                        name: "FK_DoctorProfiles_Specialization_SpecializationId",
                         column: x => x.SpecializationId,
                         principalTable: "Specialization",
                         principalColumn: "Id");
                     table.ForeignKey(
-                        name: "FK_DoctorProfile_StaffProfile_StaffProfileId",
+                        name: "FK_DoctorProfiles_StaffProfile_StaffProfileId",
                         column: x => x.StaffProfileId,
                         principalTable: "StaffProfile",
-                        principalColumn: "Id",
-                        onDelete: ReferentialAction.Cascade);
+                        principalColumn: "Id");
                 });
 
             migrationBuilder.CreateTable(
@@ -347,7 +346,7 @@ namespace HMS.Persistence.Migrations
                     Id = table.Column<int>(type: "int", nullable: false)
                         .Annotation("SqlServer:Identity", "1, 1"),
                     PersonId = table.Column<int>(type: "int", nullable: false),
-                    PatientNumber = table.Column<string>(type: "nvarchar(max)", nullable: false),
+                    PatientNumber = table.Column<string>(type: "nvarchar(32)", maxLength: 32, nullable: false),
                     InsuranceNumber = table.Column<string>(type: "nvarchar(max)", nullable: true),
                     BloodType = table.Column<string>(type: "nvarchar(max)", nullable: true),
                     PrimaryDoctorId = table.Column<int>(type: "int", nullable: true),
@@ -360,9 +359,9 @@ namespace HMS.Persistence.Migrations
                 {
                     table.PrimaryKey("PK_PatientProfiles", x => x.Id);
                     table.ForeignKey(
-                        name: "FK_PatientProfiles_DoctorProfile_PrimaryDoctorId",
+                        name: "FK_PatientProfiles_DoctorProfiles_PrimaryDoctorId",
                         column: x => x.PrimaryDoctorId,
-                        principalTable: "DoctorProfile",
+                        principalTable: "DoctorProfiles",
                         principalColumn: "Id");
                     table.ForeignKey(
                         name: "FK_PatientProfiles_People_PersonId",
@@ -371,6 +370,104 @@ namespace HMS.Persistence.Migrations
                         principalColumn: "Id",
                         onDelete: ReferentialAction.Cascade);
                 });
+
+            migrationBuilder.CreateTable(
+                name: "Appointments",
+                columns: table => new
+                {
+                    Id = table.Column<int>(type: "int", nullable: false)
+                        .Annotation("SqlServer:Identity", "1, 1"),
+                    PatientProfileId = table.Column<int>(type: "int", nullable: false),
+                    DoctorProfileId = table.Column<int>(type: "int", nullable: false),
+                    DepartmentId = table.Column<int>(type: "int", nullable: true),
+                    ScheduledStart = table.Column<DateTime>(type: "datetime2", nullable: false),
+                    ScheduledEnd = table.Column<DateTime>(type: "datetime2", nullable: false),
+                    Status = table.Column<string>(type: "nvarchar(max)", nullable: false),
+                    AppointmentType = table.Column<string>(type: "nvarchar(max)", nullable: true),
+                    Reason = table.Column<string>(type: "nvarchar(max)", nullable: true),
+                    CancellationReason = table.Column<string>(type: "nvarchar(max)", nullable: true),
+                    ConfirmedAt = table.Column<DateTime>(type: "datetime2", nullable: true),
+                    CancelledAt = table.Column<DateTime>(type: "datetime2", nullable: true),
+                    CancelledByUserId = table.Column<int>(type: "int", nullable: true),
+                    CreatedAt = table.Column<DateTime>(type: "datetime2", nullable: false),
+                    UpdatedAt = table.Column<DateTime>(type: "datetime2", nullable: false),
+                    CreatedById = table.Column<int>(type: "int", nullable: true),
+                    UpdatedById = table.Column<int>(type: "int", nullable: true)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_Appointments", x => x.Id);
+                    table.ForeignKey(
+                        name: "FK_Appointments_Department_DepartmentId",
+                        column: x => x.DepartmentId,
+                        principalTable: "Department",
+                        principalColumn: "Id");
+                    table.ForeignKey(
+                        name: "FK_Appointments_DoctorProfiles_DoctorProfileId",
+                        column: x => x.DoctorProfileId,
+                        principalTable: "DoctorProfiles",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Cascade);
+                    table.ForeignKey(
+                        name: "FK_Appointments_PatientProfiles_PatientProfileId",
+                        column: x => x.PatientProfileId,
+                        principalTable: "PatientProfiles",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Cascade);
+                    table.ForeignKey(
+                        name: "FK_Appointments_Users_CancelledByUserId",
+                        column: x => x.CancelledByUserId,
+                        principalTable: "Users",
+                        principalColumn: "Id");
+                });
+
+            migrationBuilder.CreateTable(
+                name: "PatientContacts",
+                columns: table => new
+                {
+                    Id = table.Column<int>(type: "int", nullable: false)
+                        .Annotation("SqlServer:Identity", "1, 1"),
+                    PatientProfileId = table.Column<int>(type: "int", nullable: false),
+                    Name = table.Column<string>(type: "nvarchar(max)", nullable: false),
+                    Relationship = table.Column<string>(type: "nvarchar(max)", nullable: false),
+                    Phone = table.Column<string>(type: "nvarchar(max)", nullable: false),
+                    Email = table.Column<string>(type: "nvarchar(max)", nullable: true),
+                    IsPrimary = table.Column<bool>(type: "bit", nullable: false),
+                    CreatedAt = table.Column<DateTime>(type: "datetime2", nullable: false),
+                    UpdatedAt = table.Column<DateTime>(type: "datetime2", nullable: false),
+                    CreatedById = table.Column<int>(type: "int", nullable: true),
+                    UpdatedById = table.Column<int>(type: "int", nullable: true)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_PatientContacts", x => x.Id);
+                    table.ForeignKey(
+                        name: "FK_PatientContacts_PatientProfiles_PatientProfileId",
+                        column: x => x.PatientProfileId,
+                        principalTable: "PatientProfiles",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Cascade);
+                });
+
+            migrationBuilder.CreateIndex(
+                name: "IX_Appointments_CancelledByUserId",
+                table: "Appointments",
+                column: "CancelledByUserId");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_Appointments_DepartmentId",
+                table: "Appointments",
+                column: "DepartmentId");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_Appointments_DoctorProfileId",
+                table: "Appointments",
+                column: "DoctorProfileId");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_Appointments_PatientProfileId",
+                table: "Appointments",
+                column: "PatientProfileId");
 
             migrationBuilder.CreateIndex(
                 name: "IX_AuditLogs_Entity_EntityId",
@@ -383,13 +480,13 @@ namespace HMS.Persistence.Migrations
                 column: "UserId");
 
             migrationBuilder.CreateIndex(
-                name: "IX_DoctorProfile_SpecializationId",
-                table: "DoctorProfile",
+                name: "IX_DoctorProfiles_SpecializationId",
+                table: "DoctorProfiles",
                 column: "SpecializationId");
 
             migrationBuilder.CreateIndex(
-                name: "IX_DoctorProfile_StaffProfileId",
-                table: "DoctorProfile",
+                name: "IX_DoctorProfiles_StaffProfileId",
+                table: "DoctorProfiles",
                 column: "StaffProfileId",
                 unique: true);
 
@@ -397,6 +494,17 @@ namespace HMS.Persistence.Migrations
                 name: "IX_NurseProfile_StaffProfileId",
                 table: "NurseProfile",
                 column: "StaffProfileId",
+                unique: true);
+
+            migrationBuilder.CreateIndex(
+                name: "IX_PatientContacts_PatientProfileId",
+                table: "PatientContacts",
+                column: "PatientProfileId");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_PatientProfiles_PatientNumber",
+                table: "PatientProfiles",
+                column: "PatientNumber",
                 unique: true);
 
             migrationBuilder.CreateIndex(
@@ -484,13 +592,16 @@ namespace HMS.Persistence.Migrations
         protected override void Down(MigrationBuilder migrationBuilder)
         {
             migrationBuilder.DropTable(
+                name: "Appointments");
+
+            migrationBuilder.DropTable(
                 name: "AuditLogs");
 
             migrationBuilder.DropTable(
                 name: "NurseProfile");
 
             migrationBuilder.DropTable(
-                name: "PatientProfiles");
+                name: "PatientContacts");
 
             migrationBuilder.DropTable(
                 name: "RefreshTokens");
@@ -502,13 +613,16 @@ namespace HMS.Persistence.Migrations
                 name: "UserRoles");
 
             migrationBuilder.DropTable(
-                name: "DoctorProfile");
+                name: "PatientProfiles");
 
             migrationBuilder.DropTable(
                 name: "Permissions");
 
             migrationBuilder.DropTable(
                 name: "Roles");
+
+            migrationBuilder.DropTable(
+                name: "DoctorProfiles");
 
             migrationBuilder.DropTable(
                 name: "Specialization");

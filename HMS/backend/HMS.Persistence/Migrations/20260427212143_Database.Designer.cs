@@ -12,8 +12,8 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace HMS.Persistence.Migrations
 {
     [DbContext(typeof(HmsDbContext))]
-    [Migration("20260427135223_AppointmentTable")]
-    partial class AppointmentTable
+    [Migration("20260427212143_Database")]
+    partial class Database
     {
         /// <inheritdoc />
         protected override void BuildTargetModel(ModelBuilder modelBuilder)

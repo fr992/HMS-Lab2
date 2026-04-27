@@ -37,9 +37,12 @@ public sealed class AppointmentService : IAppointmentService
                 throw new InvalidOperationException("Doctor profile does not exist.");
 
             var hasConflict = await _db.Appointments
-                .AnyAsync(a => a.DoctorProfileId == request.DoctorProfileId &&
-                               ((request.ScheduledStart >= a.ScheduledStart && request.ScheduledStart < a.ScheduledEnd) ||
-                                (request.ScheduledEnd > a.ScheduledStart && request.ScheduledEnd <= a.ScheduledEnd)), cancellationToken);
+     .AnyAsync(a =>
+         a.DoctorProfileId == request.DoctorProfileId &&
+         a.Status != AppointmentStatus.Cancelled &&
+         request.ScheduledStart < a.ScheduledEnd &&
+         request.ScheduledEnd > a.ScheduledStart,
+         cancellationToken);
 
             if (hasConflict)
                 throw new InvalidOperationException("Doctor has a conflicting appointment.");
@@ -65,6 +68,7 @@ public sealed class AppointmentService : IAppointmentService
 
             _db.Appointments.Add(appointment);
             await _db.SaveChangesAsync(cancellationToken);
+            await transaction.CommitAsync(cancellationToken);
 
             return await GetByIdAsync(appointment.Id, cancellationToken)
                 ?? throw new InvalidOperationException("Appointment created but could not be loaded.");
@@ -122,7 +126,7 @@ public sealed class AppointmentService : IAppointmentService
             throw new InvalidOperationException("Appointment not found.");
 
         if (request.ScheduledEnd <= request.ScheduledStart)
-            throw new InvalidOperationException("cheduled end must be after start.");
+            throw new InvalidOperationException("Scheduled end must be after start.");
 
         appointment.ScheduledStart = request.ScheduledStart;
         appointment.ScheduledEnd = request.ScheduledEnd;
@@ -186,8 +190,10 @@ public sealed class AppointmentService : IAppointmentService
     }
 
     public async Task<List<AppointmentDto>> GetAppointmentsAsync(
-            DateTimeOffset? date, 
-            CancellationToken cancellationToken)
+    int actorUserId,
+    IEnumerable<string> permissions,
+    DateTimeOffset? date,
+    CancellationToken cancellationToken)
     {
         var query = _db.Appointments
             .AsNoTracking()
@@ -199,12 +205,32 @@ public sealed class AppointmentService : IAppointmentService
             .Include(a => a.Department)
             .AsQueryable();
 
+        var canReadAll = permissions.Contains("Appointments.Read");
+        var canReadOwn = permissions.Contains("Own.Appointments.View");
+
+        if (canReadAll)
+        {
+            // Admin / Staff see all
+        }
+        else if (canReadOwn)
+        {
+            // Patient only own
+            query = query.Where(a =>
+                a.PatientProfile.Person.UserId == actorUserId);
+        }
+        else
+        {
+            throw new UnauthorizedAccessException("No permission to view appointments.");
+        }
+
         if (date.HasValue)
         {
             var day = date.Value.Date;
+            var nextDay = day.AddDays(1);
 
             query = query.Where(a =>
-                a.ScheduledStart.Date == day);
+                a.ScheduledStart >= day &&
+                a.ScheduledStart < nextDay);
         }
 
         return await query
@@ -213,16 +239,12 @@ public sealed class AppointmentService : IAppointmentService
                 Id = a.Id,
                 PatientProfileId = a.PatientProfileId,
                 PatientName = a.PatientProfile.Person.FullName,
-
                 DoctorProfileId = a.DoctorProfileId,
                 DoctorName = a.DoctorProfile.StaffProfile.Person.FullName,
-
                 DepartmentId = a.DepartmentId,
                 DepartmentName = a.Department != null ? a.Department.Name : null,
-
                 ScheduledStart = a.ScheduledStart,
                 ScheduledEnd = a.ScheduledEnd,
-
                 Status = a.Status,
                 AppointmentType = a.AppointmentType,
                 Reason = a.Reason

@@ -1,23 +1,55 @@
 using HMS.Api.Authorization;
+using HMS.Api.Security;
+using HMS.Application.Abstractions.Identity;
+using HMS.Contracts.Identity;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using System.Security.Claims;
 
-namespace HMS.Api.Controllers.Patient;
+namespace HMS.Api.Controllers.Patients;
 
 [ApiController]
-[Route("api/me/appointments")]
+[Route("api/patients/me/appointments")]
+[Authorize]
 public sealed class MyAppointmentsController : ControllerBase
 {
-    [HttpGet]
-    [RequirePermission("Own.Appointments.View")]
-    public IActionResult Mine()
+    private readonly IAppointmentService _appointmentService;
+
+    public MyAppointmentsController(IAppointmentService appointmentService)
     {
-        return Ok(Array.Empty<object>());
+        _appointmentService = appointmentService;
     }
 
-    [HttpPost("request")]
-    [RequirePermission("Own.Appointments.Request")]
-    public IActionResult RequestAppointment([FromBody] object? request)
+    [HttpGet]
+    [RequirePermission("Own.Appointments.View")]
+    public async Task<ActionResult<List<AppointmentDto>>> GetMyAppointments(
+        [FromQuery] DateTimeOffset? date,
+        CancellationToken cancellationToken)
     {
-        return Ok(new { requested = false, note = "Patient portal appointments not implemented yet." });
+        var userId = GetCurrentUserId();
+
+        var permissions = User.Claims
+            .Where(c => c.Type == "permission")
+            .Select(c => c.Value)
+            .ToList();
+
+        var result = await _appointmentService.GetAppointmentsAsync(
+            userId,
+            permissions, 
+            date,
+            cancellationToken);
+
+        return Ok(result);
+    }
+
+    private int GetCurrentUserId()
+    {
+        var value = User.FindFirstValue(ClaimTypes.NameIdentifier)
+            ?? User.FindFirstValue("sub");
+
+        if (string.IsNullOrWhiteSpace(value))
+            throw new UnauthorizedAccessException("User id claim is missing.");
+
+        return int.Parse(value);
     }
 }
