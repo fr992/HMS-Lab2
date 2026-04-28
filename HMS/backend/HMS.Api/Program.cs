@@ -1,14 +1,16 @@
+using HMS.Api.Authorization;
+using HMS.Api.Security;
 using HMS.Application;
+using HMS.Application.Abstractions.Identity;
 using HMS.Persistence;
+using Identity.Domain.Entities;
 using Identity.Infrastructure;
 using Identity.Infrastructure.Seed;
+using Identity.Infrastructure.Services.Patients;
 using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.OpenApi.Models;
-using HMS.Api.Security;
-using HMS.Api.Authorization;
-using HMS.Application.Abstractions.Identity;
-using Identity.Infrastructure.Services.Patients;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -57,7 +59,8 @@ builder.Services.AddPersistence(builder.Configuration);
 builder.Services.AddIdentityInfrastructure(builder.Configuration);
 builder.Services.AddSingleton<IAuthorizationHandler, PermissionAuthorizationHandler>();
 builder.Services.AddScoped<IPatientService, PatientService>();
-builder.Services.AddScoped<IPasswordHasher, PasswordHasher>();
+builder.Services.AddScoped<IPasswordHasher<User>, PasswordHasher<User>>();
+builder.Services.AddScoped<IAppointmentService, AppointmentService>();
 builder.Services.AddAuthorization(options =>
 {
     options.FallbackPolicy = new AuthorizationPolicyBuilder()

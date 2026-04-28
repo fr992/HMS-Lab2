@@ -9,7 +9,7 @@ namespace Identity.Infrastructure.Services.Patients;
 public sealed class AppointmentService : IAppointmentService
 {
     private readonly HmsDbContext _db;
-    public AppointmentService(HmsDbContext db, IPasswordHasher passwordHasher)
+    public AppointmentService(HmsDbContext db)
     {
         _db = db;
     }

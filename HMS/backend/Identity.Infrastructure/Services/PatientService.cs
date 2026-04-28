@@ -1,26 +1,31 @@
 using HMS.Application.Abstractions.Identity;
 using HMS.Contracts.Identity;
-using Identity.Domain.Entities;
-using HMS.Persistence;
-using Microsoft.EntityFrameworkCore;
 using HMS.Domain.Entities;
+using HMS.Persistence;
+using Identity.Domain.Entities;
+using Microsoft.AspNetCore.Identity;
+using Microsoft.EntityFrameworkCore;
+
 
 namespace Identity.Infrastructure.Services.Patients;
 
     public sealed class PatientService : IPatientService
     {
         private readonly HmsDbContext _db;
-        private readonly IPasswordHasher _passwordHasher; 
-        public PatientService(HmsDbContext db, IPasswordHasher passwordHasher)
+        private readonly IPasswordHasher<User> _passwordHasher;
+
+        public PatientService(
+            HmsDbContext db,
+            IPasswordHasher<User> passwordHasher)
         {
             _db = db;
             _passwordHasher = passwordHasher;
         }
 
     public async Task<PatientProfileDto> RegisterAsync(
-    RegisterPatientRequestDto request,
-    int? actorUserId,
-    CancellationToken cancellationToken)
+     RegisterPatientRequestDto request,
+     int? actorUserId,
+     CancellationToken cancellationToken)
     {
         await using var transaction = await _db.Database.BeginTransactionAsync(cancellationToken);
         try
@@ -63,8 +68,22 @@ namespace Identity.Infrastructure.Services.Patients;
                     CreatedById = actorUserId,
                     UpdatedById = actorUserId
                 };
-                user.PasswordHash = _passwordHasher.HashPassword(request.Password);
+                user.PasswordHash = _passwordHasher.HashPassword(user, request.Password);
                 _db.Users.Add(user);
+                await _db.SaveChangesAsync(cancellationToken);
+
+                // Assign Patient role
+                var patientRole = await _db.Roles
+                    .FirstOrDefaultAsync(r => r.Name == "Patient", cancellationToken)
+                    ?? throw new InvalidOperationException("Patient role not found in database.");
+
+                _db.UserRoles.Add(new UserRole
+                {
+                    UserId = user.Id,
+                    RoleId = patientRole.Id,
+                    CreatedAt = DateTime.UtcNow,
+                    CreatedById = actorUserId
+                });
                 await _db.SaveChangesAsync(cancellationToken);
             }
 
@@ -169,7 +188,7 @@ namespace Identity.Infrastructure.Services.Patients;
                 CreatedById = actorUserId,
                 UpdatedById = actorUserId
             };
-            user.PasswordHash = _passwordHasher.HashPassword(request.Password);
+            user.PasswordHash = _passwordHasher.HashPassword(user, request.Password);
             _db.Users.Add(user);
             await _db.SaveChangesAsync(cancellationToken);
 
