@@ -1,4 +1,4 @@
-﻿namespace HMS.Contracts.Identity
+namespace HMS.Contracts.Identity
 {
     public class CreateAppointmentDto
     {

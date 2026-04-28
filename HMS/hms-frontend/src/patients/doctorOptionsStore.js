@@ -1,8 +1,59 @@
 import { create } from "zustand";
 import { fetchDoctorsList, getApiErrorMessage } from "@/patients/patientsApi";
+
 /**
- * @typedef {{ id: number, fullName: string }} DoctorItem
+ * @typedef {{
+ *  id: number,
+ *  fullName: string,
+ *  specializationName?: string | null,
+ *  departmentName?: string | null
+ * }} DoctorItem
  */
+
+/**
+ * Normalizes `GET /api/doctors` response for selects.
+ * @param {unknown} data
+ * @returns {DoctorItem[]}
+ */
+function normalizeDoctorsResponse(data) {
+  const raw = Array.isArray(data)
+    ? data
+    : data && typeof data === "object" && Array.isArray(data.items)
+      ? data.items
+      : [];
+  /** @type {DoctorItem[]} */
+  const out = [];
+  for (const d of raw) {
+    if (!d || typeof d !== "object") continue;
+    const id = Number(d.id ?? d.doctorProfileId);
+    if (!Number.isFinite(id)) continue;
+    const fullName =
+      (typeof d.fullName === "string" ? d.fullName.trim() : "") ||
+      [d.firstName, d.lastName].filter(Boolean).join(" ").trim() ||
+      `Doctor #${id}`;
+    out.push({
+      id,
+      fullName,
+      specializationName:
+        typeof d.specializationName === "string" ? d.specializationName : null,
+      departmentName:
+        typeof d.departmentName === "string" ? d.departmentName : null,
+    });
+  }
+  return out;
+}
+
+/**
+ * @returns {Promise<{ items: DoctorItem[], error: string | null }>}
+ */
+export async function loadDoctorListForForm() {
+  try {
+    const data = await fetchDoctorsList();
+    return { items: normalizeDoctorsResponse(data), error: null };
+  } catch (e) {
+    return { items: [], error: getApiErrorMessage(e) };
+  }
+}
 
 let inFlight = null;
 

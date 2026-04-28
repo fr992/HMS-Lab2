@@ -76,7 +76,8 @@ public sealed class IdentityDataSeeder
         {
             "Users.Create", "Users.Read", "Users.Update", "Users.SetActive",
             "Roles.Read", "Permissions.Read", "Patients.Register", "Patients.Read", "Patients.Update", "Patients.Delete", "RolePermissions.Manage",
-            "AuditLogs.Read", "Settings.Manage"
+            "AuditLogs.Read", "Settings.Manage",
+            "Appointments.Read", "Appointments.Create", "Appointments.ManageStatus",
         }),
         ("Receptionist", new[]
         {

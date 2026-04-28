@@ -51,13 +51,20 @@ public sealed class DoctorAppointmentsController : ControllerBase
     {
         var userId = GetCurrentUserId();
 
-        var result = await _appointmentService.UpdateStatusAsync(
-            id,
-            request,
-            userId,
-            cancellationToken);
+        try
+        {
+            var result = await _appointmentService.UpdateStatusAsync(
+                id,
+                request,
+                userId,
+                cancellationToken);
 
-        return Ok(result);
+            return Ok(result);
+        }
+        catch (InvalidOperationException ex)
+        {
+            return BadRequest(new { error = ex.Message });
+        }
     }
 
     private int GetCurrentUserId()

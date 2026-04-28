@@ -5,6 +5,7 @@ export default function Sidebar() {
   const auth = useAuth();
   const { pathname } = useLocation();
   const canReadPatients = auth.hasPermission("Patients.Read");
+  const canReadAppointments = auth.hasPermission("Appointments.Read");
   const isAdmin = auth.userRole === "Admin";
 
   const linkClass = (to) => {
@@ -32,7 +33,7 @@ export default function Sidebar() {
       </div>
       <nav className="p-2">
         {isAdmin && (
-          <div className="mb-4">
+          <div className="mb-4 space-y-1">
             <p className="mb-1 px-2 text-xs font-medium uppercase text-slate-400">
               Administration
             </p>
@@ -42,17 +43,35 @@ export default function Sidebar() {
             <Link className={linkClass("/admin/users")} to="/admin/users">
               Users
             </Link>
+            {canReadAppointments && (
+              <Link
+                className={linkClass("/appointments")}
+                to="/appointments"
+              >
+                Appointments
+              </Link>
+            )}
           </div>
         )}
 
-        {canReadPatients && (
-          <div>
+        {(canReadPatients || (canReadAppointments && !isAdmin)) && (
+          <div className="space-y-1">
             <p className="mb-1 px-2 text-xs font-medium uppercase text-slate-400">
               Clinical
             </p>
-            <Link className={linkClass("/patients")} to="/patients">
-              Patients
-            </Link>
+            {canReadPatients && (
+              <Link className={linkClass("/patients")} to="/patients">
+                Patients
+              </Link>
+            )}
+            {canReadAppointments && !isAdmin && (
+              <Link
+                className={linkClass("/appointments")}
+                to="/appointments"
+              >
+                Appointments
+              </Link>
+            )}
           </div>
         )}
 

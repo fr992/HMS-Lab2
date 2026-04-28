@@ -10,6 +10,10 @@ import PatientCreatePage from "@/patients/PatientCreatePage";
 import PatientEditPage from "@/patients/PatientEditPage";
 import PatientDetailPage from "@/patients/PatientDetailPage";
 import UnauthorizedPage from "@/pages/UnauthorizedPage";
+import AppointmentsListPage from "@/appointments/AppointmentsListPage";
+import AppointmentDetailPage from "@/appointments/AppointmentDetailPage";
+import AppointmentEditPage from "@/appointments/AppointmentEditPage";
+import AppointmentCreatePage from "@/appointments/AppointmentCreatePage";
 
 export default function App() {
   return (
@@ -55,6 +59,34 @@ export default function App() {
               element={
                 <PermissionRoute anyPermission={["Patients.Update"]}>
                   <PatientEditPage />
+                </PermissionRoute>
+              }
+            />
+          </Route>
+
+          <Route
+            path="/appointments"
+            element={
+              <PermissionRoute anyPermission={["Appointments.Read"]}>
+                <AdminLayout />
+              </PermissionRoute>
+            }
+          >
+            <Route index element={<AppointmentsListPage />} />
+            <Route
+              path="new"
+              element={
+                <PermissionRoute anyPermission={["Appointments.Create"]}>
+                  <AppointmentCreatePage />
+                </PermissionRoute>
+              }
+            />
+            <Route path=":id" element={<AppointmentDetailPage />} />
+            <Route
+              path=":id/edit"
+              element={
+                <PermissionRoute anyPermission={["Appointments.Create"]}>
+                  <AppointmentEditPage />
                 </PermissionRoute>
               }
             />

@@ -65,12 +65,19 @@ public sealed class AppointmentsController : ControllerBase
     {
         var userId = GetCurrentUserId();
 
-        var result = await _appointmentService.CreateAsync(
-            request,
-            userId,
-            cancellationToken);
+        try
+        {
+            var result = await _appointmentService.CreateAsync(
+                request,
+                userId,
+                cancellationToken);
 
-        return CreatedAtAction(nameof(GetById), new { id = result.Id }, result);
+            return CreatedAtAction(nameof(GetById), new { id = result.Id }, result);
+        }
+        catch (InvalidOperationException ex)
+        {
+            return BadRequest(new { error = ex.Message });
+        }
     }
 
     [HttpPut("{id:int}")]
@@ -82,13 +89,20 @@ public sealed class AppointmentsController : ControllerBase
     {
         var userId = GetCurrentUserId();
 
-        var result = await _appointmentService.UpdateAsync(
-            id,
-            request,
-            userId,
-            cancellationToken);
+        try
+        {
+            var result = await _appointmentService.UpdateAsync(
+                id,
+                request,
+                userId,
+                cancellationToken);
 
-        return Ok(result);
+            return Ok(result);
+        }
+        catch (InvalidOperationException ex)
+        {
+            return BadRequest(new { error = ex.Message });
+        }
     }
 
     [HttpPatch("{id:int}/status")]
@@ -100,13 +114,20 @@ public sealed class AppointmentsController : ControllerBase
     {
         var userId = GetCurrentUserId();
 
-        var result = await _appointmentService.UpdateStatusAsync(
-            id,
-            request,
-            userId,
-            cancellationToken);
+        try
+        {
+            var result = await _appointmentService.UpdateStatusAsync(
+                id,
+                request,
+                userId,
+                cancellationToken);
 
-        return Ok(result);
+            return Ok(result);
+        }
+        catch (InvalidOperationException ex)
+        {
+            return BadRequest(new { error = ex.Message });
+        }
     }
 
     private int GetCurrentUserId()
