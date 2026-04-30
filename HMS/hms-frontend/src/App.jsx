@@ -14,13 +14,14 @@ import AppointmentsListPage from "@/appointments/AppointmentsListPage";
 import AppointmentDetailPage from "@/appointments/AppointmentDetailPage";
 import AppointmentEditPage from "@/appointments/AppointmentEditPage";
 import AppointmentCreatePage from "@/appointments/AppointmentCreatePage";
+import LandingPage from "@/pages/home/LandingPage";
 
 export default function App() {
   return (
     <AuthProvider>
       <BrowserRouter>
         <Routes>
-          <Route path="/" element={<Navigate to="/login" replace />} />
+          <Route path="/" element={<LandingPage />} />
           <Route path="/login" element={<LoginPage />} />
           <Route path="/unauthorized" element={<UnauthorizedPage />} />
 
