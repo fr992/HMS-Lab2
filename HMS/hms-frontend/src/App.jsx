@@ -10,13 +10,14 @@ import PatientCreatePage from "@/patients/PatientCreatePage";
 import PatientEditPage from "@/patients/PatientEditPage";
 import PatientDetailPage from "@/patients/PatientDetailPage";
 import UnauthorizedPage from "@/pages/UnauthorizedPage";
+import LandingPage from "@/pages/home/LandingPage";
 
 export default function App() {
   return (
     <AuthProvider>
       <BrowserRouter>
         <Routes>
-          <Route path="/" element={<Navigate to="/login" replace />} />
+          <Route path="/" element={<LandingPage />} />
           <Route path="/login" element={<LoginPage />} />
           <Route path="/unauthorized" element={<UnauthorizedPage />} />
 
