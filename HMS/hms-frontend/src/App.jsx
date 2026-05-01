@@ -1,19 +1,20 @@
-import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
+import { BrowserRouter, Route, Routes } from "react-router-dom";
 import LoginPage from "@/pages/auth/LoginPage";
 import AdminLayout from "@/layouts/AdminLayout";
-import AdminDashboard from "@/pages/admin/AdminDashboard";
-import UsersPage from "@/pages/admin/UsersPage";
+import MainLayout from "@/layouts/MainLayout";
+import DashboardPage from "@/features/dashboard/DashboardPage";
+import UsersPage from "@/features/users/UsersPage";
 import PermissionRoute from "@/routes/PermissionRoute";
 import { AuthProvider } from "@/auth/AuthContext";
-import PatientsListPage from "@/patients/PatientsListPage";
-import PatientCreatePage from "@/patients/PatientCreatePage";
-import PatientEditPage from "@/patients/PatientEditPage";
-import PatientDetailPage from "@/patients/PatientDetailPage";
-import UnauthorizedPage from "@/pages/UnauthorizedPage";
-import AppointmentsListPage from "@/appointments/AppointmentsListPage";
-import AppointmentDetailPage from "@/appointments/AppointmentDetailPage";
-import AppointmentEditPage from "@/appointments/AppointmentEditPage";
-import AppointmentCreatePage from "@/appointments/AppointmentCreatePage";
+import PatientsListPage from "@/features/patients/PatientsListPage";
+import PatientCreatePage from "@/features/patients/PatientCreatePage";
+import PatientEditPage from "@/features/patients/PatientEditPage";
+import PatientDetailPage from "@/features/patients/PatientDetailPage";
+import UnauthorizedPage from "@/pages/errors/UnauthorizedPage";
+import AppointmentsListPage from "@/features/appointments/AppointmentsListPage";
+import AppointmentDetailPage from "@/features/appointments/AppointmentDetailPage";
+import AppointmentEditPage from "@/features/appointments/AppointmentEditPage";
+import AppointmentCreatePage from "@/features/appointments/AppointmentCreatePage";
 import LandingPage from "@/pages/home/LandingPage";
 
 export default function App() {
@@ -21,7 +22,9 @@ export default function App() {
     <AuthProvider>
       <BrowserRouter>
         <Routes>
-          <Route path="/" element={<LandingPage />} />
+          <Route element={<MainLayout />}>
+            <Route path="/" element={<LandingPage />} />
+          </Route>
           <Route path="/login" element={<LoginPage />} />
           <Route path="/unauthorized" element={<UnauthorizedPage />} />
 
@@ -33,7 +36,7 @@ export default function App() {
               </PermissionRoute>
             }
           >
-            <Route path="dashboard" element={<AdminDashboard />} />
+            <Route path="dashboard" element={<DashboardPage />} />
             <Route path="users" element={<UsersPage />} />
           </Route>
 
@@ -86,7 +89,7 @@ export default function App() {
             <Route
               path=":id/edit"
               element={
-                <PermissionRoute anyPermission={["Appointments.Create"]}>
+                <PermissionRoute anyPermission={["Appointments.Update"]}>
                   <AppointmentEditPage />
                 </PermissionRoute>
               }
