@@ -22,6 +22,7 @@ public class HmsDbContext : DbContext
     public DbSet<AppointmentRequest> AppointmentRequests => Set<AppointmentRequest>();
     public DbSet<DoctorProfile> DoctorProfiles => Set<DoctorProfile>();
     public DbSet<Encounter> Encounters => Set<Encounter>();
+    public DbSet<Diagnosis> Diagnoses => Set<Diagnosis>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {

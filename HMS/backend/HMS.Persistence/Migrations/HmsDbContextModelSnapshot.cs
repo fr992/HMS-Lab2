@@ -557,6 +557,63 @@ namespace HMS.Persistence.Migrations
                     b.ToTable("AuditLogs", (string)null);
                 });
 
+            modelBuilder.Entity("Identity.Domain.Entities.Diagnosis", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int>("CreatedByDoctorId")
+                        .HasColumnType("int");
+
+                    b.Property<int?>("CreatedById")
+                        .HasColumnType("int");
+
+                    b.Property<string>("Description")
+                        .IsRequired()
+                        .HasMaxLength(1000)
+                        .HasColumnType("nvarchar(1000)");
+
+                    b.Property<DateTime>("DiagnosedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int>("EncounterId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("IcdCode")
+                        .HasMaxLength(30)
+                        .HasColumnType("nvarchar(30)");
+
+                    b.Property<string>("Notes")
+                        .HasMaxLength(2000)
+                        .HasColumnType("nvarchar(2000)");
+
+                    b.Property<string>("Type")
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int?>("UpdatedById")
+                        .HasColumnType("int");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CreatedByDoctorId");
+
+                    b.HasIndex("EncounterId");
+
+                    b.HasIndex("IcdCode");
+
+                    b.ToTable("Diagnoses", (string)null);
+                });
+
             modelBuilder.Entity("Identity.Domain.Entities.Encounter", b =>
                 {
                     b.Property<int>("Id")
@@ -1008,6 +1065,25 @@ namespace HMS.Persistence.Migrations
                     b.Navigation("User");
                 });
 
+            modelBuilder.Entity("Identity.Domain.Entities.Diagnosis", b =>
+                {
+                    b.HasOne("HMS.Domain.Entities.DoctorProfile", "CreatedByDoctor")
+                        .WithMany()
+                        .HasForeignKey("CreatedByDoctorId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("Identity.Domain.Entities.Encounter", "Encounter")
+                        .WithMany("Diagnoses")
+                        .HasForeignKey("EncounterId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("CreatedByDoctor");
+
+                    b.Navigation("Encounter");
+                });
+
             modelBuilder.Entity("Identity.Domain.Entities.Encounter", b =>
                 {
                     b.HasOne("Identity.Domain.Entities.Appointment", "Appointment")
@@ -1127,6 +1203,11 @@ namespace HMS.Persistence.Migrations
                     b.Navigation("DoctorProfile");
 
                     b.Navigation("NurseProfile");
+                });
+
+            modelBuilder.Entity("Identity.Domain.Entities.Encounter", b =>
+                {
+                    b.Navigation("Diagnoses");
                 });
 
             modelBuilder.Entity("Identity.Domain.Entities.Permission", b =>

@@ -31,4 +31,6 @@ public class Encounter : BaseEntity
 
     public int? UpdatedByUserId { get; set; }
     public User? UpdatedByUser { get; set; }
+
+    public ICollection<Diagnosis> Diagnoses { get; set; } = new List<Diagnosis>();
 }

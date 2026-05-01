@@ -57,6 +57,8 @@ public static class DependencyInjection
         services.AddScoped<IdentityDataSeeder>();
         services.AddScoped<IPatientContactService, PatientContactService>();
         services.AddScoped<IEncounterService, EncounterService>();
+        services.AddScoped<IDiagnosisService, DiagnosisService>();
+
 
         return services;
     }
