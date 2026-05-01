@@ -5,7 +5,7 @@ export { getApiErrorMessage } from "@/features/patients/patientsApi";
  * @param {string} [dateISO] date-only ISO string for server filter
  */
 /**
- * @param {object} body — CreateAppointmentDto (camelCase)
+ * @param {object} body CreateAppointmentDto (camelCase)
  */
 export async function createAppointment(body) {
   const { data } = await api.post("/receptionist/appointments", body);
@@ -17,9 +17,15 @@ export async function fetchDepartmentsList() {
   return data;
 }
 
-export async function fetchAppointments(dateISO) {
+export async function fetchAppointments(filters) {
   const params = {};
-  if (dateISO) params.date = dateISO;
+  if (typeof filters === "string") {
+    if (filters) params.date = filters;
+  } else if (filters) {
+    if (filters.date) params.date = filters.date;
+    if (filters.from) params.from = filters.from;
+    if (filters.to) params.to = filters.to;
+  }
   const { data } = await api.get("/receptionist/appointments", { params });
   return data;
 }
@@ -33,7 +39,7 @@ export async function fetchAppointmentById(id) {
 }
 
 /**
- * PATCH /api/receptionist/appointments/{id}/status — payload matches backend DTO.
+ * PATCH /api/receptionist/appointments/{id}/status. Payload matches backend DTO.
  * @param {number} id
  * @param {{ status: string, cancellationReason?: string }} payload
  */

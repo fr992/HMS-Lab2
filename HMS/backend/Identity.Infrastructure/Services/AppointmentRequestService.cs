@@ -2,6 +2,7 @@ using HMS.Application.Abstractions.Identity;
 using HMS.Contracts.Identity;
 using HMS.Persistence;
 using Identity.Domain.Entities;
+using Microsoft.EntityFrameworkCore;
 
 namespace Identity.Infrastructure.Services.Patients;
 
@@ -55,7 +56,113 @@ public sealed class AppointmentRequestService : IAppointmentRequestService
             PreferredDate = entity.PreferredDate,
             ReasonForVisit = entity.ReasonForVisit,
             Status = entity.Status.ToString(),
-            CreatedAt = entity.CreatedAt
+            CreatedAt = entity.CreatedAt,
+            UpdatedAt = entity.UpdatedAt
         };
+    }
+
+    public async Task<List<AppointmentRequestDto>> GetAllAsync(
+        string? status,
+        DateOnly? preferredDate,
+        CancellationToken ct)
+    {
+        var query = _db.AppointmentRequests
+            .AsNoTracking()
+            .AsQueryable();
+
+        if (!string.IsNullOrWhiteSpace(status))
+        {
+            var parsedStatus = ParseStatus(status);
+            query = query.Where(a => a.Status == parsedStatus);
+        }
+
+        if (preferredDate.HasValue)
+        {
+            query = query.Where(a => a.PreferredDate == preferredDate.Value);
+        }
+
+        return await query
+            .OrderBy(a => a.Status == AppointmentRequestStatus.Pending ? 0 : 1)
+            .ThenBy(a => a.PreferredDate)
+            .ThenByDescending(a => a.CreatedAt)
+            .Select(a => new AppointmentRequestDto
+            {
+                Id = a.Id,
+                FirstName = a.FirstName,
+                LastName = a.LastName,
+                Email = a.Email,
+                Phone = a.Phone,
+                DateOfBirth = a.DateOfBirth,
+                PreferredDate = a.PreferredDate,
+                ReasonForVisit = a.ReasonForVisit,
+                Status = a.Status.ToString(),
+                CreatedAt = a.CreatedAt,
+                UpdatedAt = a.UpdatedAt
+            })
+            .ToListAsync(ct);
+    }
+
+    public async Task<AppointmentRequestDto?> GetByIdAsync(
+        int id,
+        CancellationToken ct)
+    {
+        return await _db.AppointmentRequests
+            .AsNoTracking()
+            .Where(a => a.Id == id)
+            .Select(a => new AppointmentRequestDto
+            {
+                Id = a.Id,
+                FirstName = a.FirstName,
+                LastName = a.LastName,
+                Email = a.Email,
+                Phone = a.Phone,
+                DateOfBirth = a.DateOfBirth,
+                PreferredDate = a.PreferredDate,
+                ReasonForVisit = a.ReasonForVisit,
+                Status = a.Status.ToString(),
+                CreatedAt = a.CreatedAt,
+                UpdatedAt = a.UpdatedAt
+            })
+            .FirstOrDefaultAsync(ct);
+    }
+
+    public async Task<AppointmentRequestDto> UpdateStatusAsync(
+        int id,
+        UpdateAppointmentRequestStatusDto dto,
+        int? actorUserId,
+        CancellationToken ct)
+    {
+        var entity = await _db.AppointmentRequests
+            .FirstOrDefaultAsync(a => a.Id == id, ct);
+
+        if (entity == null)
+            throw new InvalidOperationException("Appointment request not found.");
+
+        var nextStatus = ParseStatus(dto.Status);
+        if (entity.Status != nextStatus)
+        {
+            entity.Status = nextStatus;
+            entity.UpdatedAt = DateTime.UtcNow;
+            entity.UpdatedById = actorUserId;
+
+            await _db.SaveChangesAsync(ct);
+        }
+
+        return await GetByIdAsync(id, ct)
+            ?? throw new InvalidOperationException("Updated but not found.");
+    }
+
+    private static AppointmentRequestStatus ParseStatus(string raw)
+    {
+        if (string.IsNullOrWhiteSpace(raw))
+            throw new InvalidOperationException("Appointment request status is required.");
+
+        if (Enum.TryParse<AppointmentRequestStatus>(raw.Trim(), ignoreCase: true, out var status)
+            && Enum.IsDefined(status))
+        {
+            return status;
+        }
+
+        throw new InvalidOperationException($"Unknown appointment request status: '{raw.Trim()}'.");
     }
 }

@@ -8,6 +8,12 @@ namespace HMS.Application.Abstractions.Identity
         Task<AppointmentDto?> GetByIdAsync(int id, CancellationToken cancellationToken);
         Task<AppointmentDto> UpdateAsync(int id, UpdateAppointmentDto request, int? actorUserId, CancellationToken cancellationToken);
         Task<AppointmentDto> UpdateStatusAsync(int id, UpdateAppointmentStatusDto request, int? actorUserId, CancellationToken cancellationToken);
-        Task<List<AppointmentDto>> GetAppointmentsAsync(int actorUserId, IEnumerable<string> permissions, DateTimeOffset? date, CancellationToken cancellationToken);
+        Task<List<AppointmentDto>> GetAppointmentsAsync(
+            int actorUserId,
+            IEnumerable<string> permissions,
+            DateTimeOffset? date,
+            DateTimeOffset? from,
+            DateTimeOffset? to,
+            CancellationToken cancellationToken);
     }
 }

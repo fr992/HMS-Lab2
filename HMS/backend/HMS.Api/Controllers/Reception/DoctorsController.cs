@@ -20,7 +20,7 @@ public sealed class DoctorsController : ControllerBase
     }
 
     /// <summary>
-    /// Active doctors for dropdowns (patient primary doctor, appointments, etc.).
+    /// Active doctor users for dropdowns (patient primary doctor, appointments, etc.).
     /// </summary>
     [HttpGet]
     [RequirePermission("Patients.Read")]
@@ -33,12 +33,9 @@ public sealed class DoctorsController : ControllerBase
                 d.IsActive &&
                 d.StaffProfile != null &&
                 d.StaffProfile.Person != null &&
-                (
-                    // include doctor profiles without auth-user linkage
-                    d.StaffProfile.Person.User == null ||
-                    // include only explicit doctor roles for linked users
-                    d.StaffProfile.Person.User.UserRoles.Any(ur => ur.Role.Name == "Doctor")
-                ))
+                d.StaffProfile.Person.User != null &&
+                d.StaffProfile.Person.User.IsActive &&
+                d.StaffProfile.Person.User.UserRoles.Any(ur => ur.Role.Name == "Doctor"))
             .OrderBy(d => d.StaffProfile.Person.LastName)
             .ThenBy(d => d.StaffProfile.Person.FirstName)
             .Select(d => new DoctorProfileDto

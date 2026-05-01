@@ -1,4 +1,4 @@
-/** Mirrors backend `AppointmentStatus` — use for API payloads and UI only. */
+/** Mirrors backend `AppointmentStatus`; use for API payloads and UI only. */
 export const APPOINTMENT_STATUS = {
   SCHEDULED: "scheduled",
   CONFIRMED: "confirmed",

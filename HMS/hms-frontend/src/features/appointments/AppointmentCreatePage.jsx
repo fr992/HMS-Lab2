@@ -18,11 +18,7 @@ export default function AppointmentCreatePage() {
           New appointment
         </h1>
         <p className="mt-1.5 text-sm text-slate-600">
-          Book a visit using the same fields as the server{" "}
-          <code className="rounded bg-slate-100 px-1.5 py-0.5 text-xs">
-            CreateAppointmentDto
-          </code>
-          .
+          Book a visit for an existing patient.
         </p>
       </div>
       {error && (

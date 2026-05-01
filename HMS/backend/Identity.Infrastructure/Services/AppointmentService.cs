@@ -182,6 +182,8 @@ public sealed class AppointmentService : IAppointmentService
         int actorUserId,
         IEnumerable<string> permissions,
         DateTimeOffset? date,
+        DateTimeOffset? from,
+        DateTimeOffset? to,
         CancellationToken cancellationToken)
     {
         var query = _db.Appointments
@@ -221,8 +223,26 @@ public sealed class AppointmentService : IAppointmentService
                 a.ScheduledStart >= day &&
                 a.ScheduledStart < nextDay);
         }
+        else
+        {
+            if (from.HasValue && to.HasValue && to.Value <= from.Value)
+                throw new InvalidOperationException("End of date range must be after start.");
+
+            if (from.HasValue)
+            {
+                var rangeStart = from.Value.UtcDateTime;
+                query = query.Where(a => a.ScheduledStart >= rangeStart);
+            }
+
+            if (to.HasValue)
+            {
+                var rangeEnd = to.Value.UtcDateTime;
+                query = query.Where(a => a.ScheduledStart < rangeEnd);
+            }
+        }
 
         return await query
+            .OrderBy(a => a.ScheduledStart)
             .Select(a => new AppointmentDto
             {
                 Id = a.Id,

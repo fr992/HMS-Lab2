@@ -15,6 +15,7 @@ import AppointmentsListPage from "@/features/appointments/AppointmentsListPage";
 import AppointmentDetailPage from "@/features/appointments/AppointmentDetailPage";
 import AppointmentEditPage from "@/features/appointments/AppointmentEditPage";
 import AppointmentCreatePage from "@/features/appointments/AppointmentCreatePage";
+import AppointmentRequestsPage from "@/features/appointmentRequests/AppointmentRequestsPage";
 import LandingPage from "@/pages/home/LandingPage";
 
 export default function App() {
@@ -89,11 +90,22 @@ export default function App() {
             <Route
               path=":id/edit"
               element={
-                <PermissionRoute anyPermission={["Appointments.Update"]}>
+                <PermissionRoute anyPermission={["Appointments.Create"]}>
                   <AppointmentEditPage />
                 </PermissionRoute>
               }
             />
+          </Route>
+
+          <Route
+            path="/appointment-requests"
+            element={
+              <PermissionRoute anyPermission={["Appointments.Read"]}>
+                <AdminLayout />
+              </PermissionRoute>
+            }
+          >
+            <Route index element={<AppointmentRequestsPage />} />
           </Route>
         </Routes>
       </BrowserRouter>

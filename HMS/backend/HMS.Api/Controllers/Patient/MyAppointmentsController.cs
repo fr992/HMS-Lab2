@@ -24,6 +24,8 @@ public sealed class MyAppointmentsController : ControllerBase
     [RequirePermission("Own.Appointments.View")]
     public async Task<ActionResult<List<AppointmentDto>>> GetMyAppointments(
         [FromQuery] DateTimeOffset? date,
+        [FromQuery] DateTimeOffset? from,
+        [FromQuery] DateTimeOffset? to,
         CancellationToken cancellationToken)
     {
         var userId = GetCurrentUserId();
@@ -33,13 +35,22 @@ public sealed class MyAppointmentsController : ControllerBase
             .Select(c => c.Value)
             .ToList();
 
-        var result = await _appointmentService.GetAppointmentsAsync(
-            userId,
-            permissions, 
-            date,
-            cancellationToken);
+        try
+        {
+            var result = await _appointmentService.GetAppointmentsAsync(
+                userId,
+                permissions,
+                date,
+                from,
+                to,
+                cancellationToken);
 
-        return Ok(result);
+            return Ok(result);
+        }
+        catch (InvalidOperationException ex)
+        {
+            return BadRequest(new { error = ex.Message });
+        }
     }
 
     private int GetCurrentUserId()

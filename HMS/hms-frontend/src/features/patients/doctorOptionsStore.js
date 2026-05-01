@@ -64,7 +64,7 @@ export const useDoctorOptionsStore = create((set, get) => ({
   error: null,
 
   load: async () => {
-    if (get().status === "ready") return;
+    if (get().status === "ready" && get().items.length > 0) return;
     if (inFlight) {
       await inFlight;
       return;

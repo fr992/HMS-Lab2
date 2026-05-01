@@ -26,14 +26,6 @@ const selectCls = (name, err) =>
     err
   )} ${NATIVE_SELECT_CHEVRON}`.trim();
 
-const SCHEDULED_STATUS_OPTIONS = [
-  { value: "0", label: "Scheduled" },
-  { value: "1", label: "Confirmed" },
-  { value: "2", label: "Completed" },
-  { value: "3", label: "Cancelled" },
-  { value: "4", label: "No show" },
-];
-
 function FormSection({ icon, title, subtitle, children }) {
   return (
     <section className="rounded-2xl border border-slate-200/80 bg-white/90 p-5 shadow-sm sm:p-6">
@@ -108,7 +100,6 @@ const initialForm = {
   departmentId: "",
   scheduledStart: "",
   scheduledEnd: "",
-  scheduledStatus: "0",
   appointmentType: "",
   reason: "",
 };
@@ -123,13 +114,27 @@ function buildPayload(form) {
     departmentId: dept === "" ? null : Number.parseInt(dept, 10),
     scheduledStart: start.toISOString(),
     scheduledEnd: end.toISOString(),
-    scheduledStatus: Number.parseInt(form.scheduledStatus, 10) || 0,
     appointmentType:
       form.appointmentType.trim() === ""
         ? null
         : form.appointmentType.trim(),
     reason: form.reason.trim() === "" ? null : form.reason.trim(),
   };
+}
+
+function getSlotCheckInput(form) {
+  const doctorId = Number.parseInt(form.doctorProfileId, 10);
+  if (!Number.isFinite(doctorId) || !form.scheduledStart || !form.scheduledEnd) {
+    return null;
+  }
+
+  const start = new Date(form.scheduledStart);
+  const end = new Date(form.scheduledEnd);
+  if (!(end > start)) {
+    return null;
+  }
+
+  return { doctorId, start, end };
 }
 
 export default function AppointmentForm({ submitting, onCancel, onSubmit }) {
@@ -149,6 +154,9 @@ export default function AppointmentForm({ submitting, onCancel, onSubmit }) {
   const doctorsStatus = useDoctorOptionsStore((s) => s.status);
   const doctorsError = useDoctorOptionsStore((s) => s.error);
   const doctors = useDoctorOptionsStore((s) => s.items);
+  const selectedDoctorProfileId = form.doctorProfileId;
+  const selectedScheduledStart = form.scheduledStart;
+  const selectedScheduledEnd = form.scheduledEnd;
 
   useEffect(() => {
     void loadDoctors();
@@ -175,33 +183,27 @@ export default function AppointmentForm({ submitting, onCancel, onSubmit }) {
 
   useEffect(() => {
     let cancelled = false;
-    const doctorId = Number.parseInt(form.doctorProfileId, 10);
-    if (!Number.isFinite(doctorId) || !form.scheduledStart || !form.scheduledEnd) {
-      setSlotError(null);
-      setCheckingSlot(false);
-      return;
-    }
-
-    const start = new Date(form.scheduledStart);
-    const end = new Date(form.scheduledEnd);
-    if (!(end > start)) {
-      setSlotError(null);
-      setCheckingSlot(false);
+    const slotInput = getSlotCheckInput({
+      doctorProfileId: selectedDoctorProfileId,
+      scheduledStart: selectedScheduledStart,
+      scheduledEnd: selectedScheduledEnd,
+    });
+    if (!slotInput) {
       return;
     }
 
     (async () => {
       setCheckingSlot(true);
       try {
-        const day = form.scheduledStart.slice(0, 10);
+        const day = selectedScheduledStart.slice(0, 10);
         const list = await fetchAppointments(day);
         if (cancelled) return;
         const hasConflict = (Array.isArray(list) ? list : []).some((a) => {
           if (!isActiveForConflict(a.status)) return false;
-          if (a.doctorProfileId !== doctorId) return false;
+          if (a.doctorProfileId !== slotInput.doctorId) return false;
           return hasTimeOverlap(
-            start,
-            end,
+            slotInput.start,
+            slotInput.end,
             new Date(a.scheduledStart),
             new Date(a.scheduledEnd)
           );
@@ -222,7 +224,7 @@ export default function AppointmentForm({ submitting, onCancel, onSubmit }) {
     return () => {
       cancelled = true;
     };
-  }, [form.doctorProfileId, form.scheduledStart, form.scheduledEnd]);
+  }, [selectedDoctorProfileId, selectedScheduledEnd, selectedScheduledStart]);
 
   useEffect(() => {
     let cancelled = false;
@@ -244,8 +246,20 @@ export default function AppointmentForm({ submitting, onCancel, onSubmit }) {
   }, []);
 
   const setField = (name, value) => {
-    setForm((f) => ({ ...f, [name]: value }));
+    const nextForm = { ...form, [name]: value };
+    setForm(nextForm);
     setErr((e) => ({ ...e, [name]: undefined }));
+
+    if (
+      name === "doctorProfileId" ||
+      name === "scheduledStart" ||
+      name === "scheduledEnd"
+    ) {
+      setSlotError(null);
+      if (!getSlotCheckInput(nextForm)) {
+        setCheckingSlot(false);
+      }
+    }
   };
 
   const validate = () => {
@@ -276,7 +290,7 @@ export default function AppointmentForm({ submitting, onCancel, onSubmit }) {
       <FormSection
         icon={<IconPerson />}
         title="Participants"
-        subtitle="Patient profile, treating doctor, and optional department id."
+        subtitle="Patient profile, treating doctor, and optional department."
       >
         <div className="grid gap-5 sm:grid-cols-2">
           <div className="sm:col-span-2">
@@ -295,7 +309,7 @@ export default function AppointmentForm({ submitting, onCancel, onSubmit }) {
               </option>
               {patients.map((p) => (
                 <option key={p.id} value={String(p.id)}>
-                  {p.firstName} {p.lastName} · #{p.patientNumber}
+                  {p.firstName} {p.lastName} - #{p.patientNumber}
                 </option>
               ))}
             </select>
@@ -339,6 +353,11 @@ export default function AppointmentForm({ submitting, onCancel, onSubmit }) {
                 {doctorsError}
               </p>
             )}
+            {doctorsStatus === "ready" && doctors.length === 0 && (
+              <p className="mt-1 text-xs text-amber-800" role="status">
+                No active doctor users with the Doctor role were returned.
+              </p>
+            )}
           </div>
 
           <div>
@@ -373,8 +392,8 @@ export default function AppointmentForm({ submitting, onCancel, onSubmit }) {
 
       <FormSection
         icon={<IconCalendar />}
-        title="Schedule & details"
-        subtitle="Matches CreateAppointmentDto: times are stored in UTC on the server."
+        title="Schedule and details"
+        subtitle="Appointment time, type, and booking notes."
       >
         <div className="grid gap-5 sm:grid-cols-2">
           <div>
@@ -414,29 +433,6 @@ export default function AppointmentForm({ submitting, onCancel, onSubmit }) {
                 Checking doctor availability...
               </p>
             )}
-          </div>
-
-          <div>
-            <label className={labelCls} htmlFor={`${formId}-sched-status`}>
-              Scheduled status
-            </label>
-            <select
-              id={`${formId}-sched-status`}
-              className={selectCls("scheduledStatus", err)}
-              value={form.scheduledStatus}
-              onChange={(e) => setField("scheduledStatus", e.target.value)}
-              disabled={submitting}
-            >
-              {SCHEDULED_STATUS_OPTIONS.map((option) => (
-                <option key={option.value} value={option.value}>
-                  {option.label}
-                </option>
-              ))}
-            </select>
-            <p className="mt-1 text-xs text-slate-500">
-              Sent as <code className="rounded bg-slate-100 px-1">scheduledStatus</code>{" "}
-              numeric enum in the DTO.
-            </p>
           </div>
 
           <div>
