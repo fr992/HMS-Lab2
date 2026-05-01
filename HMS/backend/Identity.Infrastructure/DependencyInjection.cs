@@ -4,6 +4,7 @@ using Identity.Domain.Entities;
 using Identity.Infrastructure.Jwt;
 using Identity.Infrastructure.Seed;
 using Identity.Infrastructure.Services;
+using Identity.Infrastructure.Services.Patients;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.Extensions.Configuration;
@@ -55,6 +56,7 @@ public static class DependencyInjection
         services.AddScoped<IUserManagementService, UserManagementService>();
         services.AddScoped<IdentityDataSeeder>();
         services.AddScoped<IPatientContactService, PatientContactService>();
+        services.AddScoped<IEncounterService, EncounterService>();
 
         return services;
     }
