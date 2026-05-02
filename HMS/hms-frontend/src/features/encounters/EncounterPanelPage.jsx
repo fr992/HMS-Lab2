@@ -13,12 +13,20 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { useAuth } from "@/auth/AuthContext";
+import { encountersApi } from "./api/encountersApi";
 import { useEncounterPanelStore } from "./encounterPanelStore";
 
 const ENCOUNTER_TYPES = [
   { value: "outpatient", label: "Outpatient" },
   { value: "emergency", label: "Emergency" },
   { value: "follow_up", label: "Follow-up" },
+];
+
+const DIAGNOSIS_TYPES = [
+  { value: "", label: "No type" },
+  { value: "primary", label: "Primary" },
+  { value: "secondary", label: "Secondary" },
+  { value: "provisional", label: "Provisional" },
 ];
 
 const HISTORY_PAGE_SIZE = 5;
@@ -57,6 +65,19 @@ function pageItems(items, page) {
     safePage,
     items: items.slice(start, start + HISTORY_PAGE_SIZE),
   };
+}
+
+function filterMedications(medications, searchTerm) {
+  const term = searchTerm.trim().toLowerCase();
+  if (!term) return medications;
+
+  return medications.filter((medication) =>
+    [medication.name, medication.description]
+      .filter(Boolean)
+      .join(" ")
+      .toLowerCase()
+      .includes(term)
+  );
 }
 
 export default function EncounterPanelPage() {
@@ -99,10 +120,48 @@ export default function EncounterPanelPage() {
   const [completionNotice, setCompletionNotice] = useState(false);
   const [diagnosisPage, setDiagnosisPage] = useState(1);
   const [prescriptionPage, setPrescriptionPage] = useState(1);
+  const [medications, setMedications] = useState([]);
+  const [medicationSearch, setMedicationSearch] = useState("");
+  const [medicationsLoading, setMedicationsLoading] = useState(false);
+  const [medicationsError, setMedicationsError] = useState("");
 
   useEffect(() => {
     void loadPanel(encounterId);
   }, [encounterId, loadPanel]);
+
+  useEffect(() => {
+    if (!auth.hasPermission("Medications.Read")) return;
+
+    let cancelled = false;
+
+    async function loadMedications() {
+      setMedicationsLoading(true);
+      setMedicationsError("");
+
+      try {
+        const response = await encountersApi.getActiveMedications();
+        if (!cancelled) {
+          setMedications(Array.isArray(response.data) ? response.data : []);
+        }
+      } catch (err) {
+        console.error("Failed to load medications", err);
+        if (!cancelled) {
+          setMedications([]);
+          setMedicationsError("Failed to load medications.");
+        }
+      } finally {
+        if (!cancelled) {
+          setMedicationsLoading(false);
+        }
+      }
+    }
+
+    void loadMedications();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [auth]);
 
   if (loading) {
     return (
@@ -123,6 +182,7 @@ export default function EncounterPanelPage() {
     auth.userRole === "Admin" ? "/admin/encounters" : "/doctor/encounters";
   const diagnosisPaging = pageItems(diagnoses, diagnosisPage);
   const prescriptionPaging = pageItems(prescriptions, prescriptionPage);
+  const filteredMedications = filterMedications(medications, medicationSearch);
 
   async function handleCreateDiagnosis(e) {
     e.preventDefault();
@@ -354,7 +414,12 @@ export default function EncounterPanelPage() {
             <PrescriptionForm
               form={prescriptionForm}
               saving={saving}
+              medications={filteredMedications}
+              medicationSearch={medicationSearch}
+              medicationsLoading={medicationsLoading}
+              medicationsError={medicationsError}
               onChange={setPrescriptionForm}
+              onMedicationSearchChange={setMedicationSearch}
               onSubmit={handleCreatePrescription}
             />
           )}
@@ -451,11 +516,17 @@ function DiagnosisForm({ form, saving, onChange, onSubmit }) {
           value={form.icdCode}
           onChange={(e) => onChange({ ...form, icdCode: e.target.value })}
         />
-        <Input
-          placeholder="Type"
+        <select
           value={form.type}
           onChange={(e) => onChange({ ...form, type: e.target.value })}
-        />
+          className="h-9 w-full rounded-md border border-input bg-background px-3 text-sm text-slate-900"
+        >
+          {DIAGNOSIS_TYPES.map((type) => (
+            <option key={type.value || "none"} value={type.value}>
+              {type.label}
+            </option>
+          ))}
+        </select>
         <Input
           placeholder="Description *"
           value={form.description}
@@ -475,17 +546,52 @@ function DiagnosisForm({ form, saving, onChange, onSubmit }) {
   );
 }
 
-function PrescriptionForm({ form, saving, onChange, onSubmit }) {
+function PrescriptionForm({
+  form,
+  saving,
+  medications,
+  medicationSearch,
+  medicationsLoading,
+  medicationsError,
+  onChange,
+  onMedicationSearchChange,
+  onSubmit,
+}) {
   return (
     <form onSubmit={onSubmit} className="space-y-3 rounded-lg border p-4">
       <div className="grid gap-3 md:grid-cols-4">
-        <Input
-          placeholder="Medication ID *"
-          type="number"
-          value={form.medicationId}
-          onChange={(e) => onChange({ ...form, medicationId: e.target.value })}
-          required
-        />
+        <div className="space-y-2">
+          <Input
+            placeholder="Search medication"
+            value={medicationSearch}
+            onChange={(e) => onMedicationSearchChange(e.target.value)}
+          />
+          <select
+            value={form.medicationId}
+            onChange={(e) => onChange({ ...form, medicationId: e.target.value })}
+            className="h-9 w-full rounded-md border border-input bg-background px-3 text-sm text-slate-900 disabled:opacity-60"
+            disabled={medicationsLoading || medications.length === 0}
+            required
+          >
+            <option value="">
+              {medicationsLoading ? "Loading medications..." : "Select medication"}
+            </option>
+            {medications.map((medication) => (
+              <option key={medication.id} value={medication.id}>
+                {medication.name}
+              </option>
+            ))}
+          </select>
+          {medicationsError && (
+            <p className="text-xs text-rose-600">{medicationsError}</p>
+          )}
+          {!medicationsLoading &&
+            !medicationsError &&
+            medicationSearch &&
+            medications.length === 0 && (
+              <p className="text-xs text-slate-500">No medications match.</p>
+            )}
+        </div>
         <Input
           placeholder="Dosage *"
           value={form.dosage}
