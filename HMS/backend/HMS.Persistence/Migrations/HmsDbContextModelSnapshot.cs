@@ -697,6 +697,46 @@ namespace HMS.Persistence.Migrations
                     b.ToTable("Encounters", (string)null);
                 });
 
+            modelBuilder.Entity("Identity.Domain.Entities.Medication", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int?>("CreatedById")
+                        .HasColumnType("int");
+
+                    b.Property<string>("Description")
+                        .HasMaxLength(1000)
+                        .HasColumnType("nvarchar(1000)");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("bit");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(150)
+                        .HasColumnType("nvarchar(150)");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int?>("UpdatedById")
+                        .HasColumnType("int");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("Name")
+                        .IsUnique();
+
+                    b.ToTable("Medications", (string)null);
+                });
+
             modelBuilder.Entity("Identity.Domain.Entities.Permission", b =>
                 {
                     b.Property<int>("Id")
@@ -814,6 +854,9 @@ namespace HMS.Persistence.Migrations
                         .HasMaxLength(1000)
                         .HasColumnType("nvarchar(1000)");
 
+                    b.Property<int>("MedicationId")
+                        .HasColumnType("int");
+
                     b.Property<int>("PrescriptionId")
                         .HasColumnType("int");
 
@@ -835,6 +878,8 @@ namespace HMS.Persistence.Migrations
                         .HasColumnType("int");
 
                     b.HasKey("Id");
+
+                    b.HasIndex("MedicationId");
 
                     b.HasIndex("PrescriptionId");
 
@@ -1250,11 +1295,19 @@ namespace HMS.Persistence.Migrations
 
             modelBuilder.Entity("Identity.Domain.Entities.PrescriptionItem", b =>
                 {
+                    b.HasOne("Identity.Domain.Entities.Medication", "Medication")
+                        .WithMany()
+                        .HasForeignKey("MedicationId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
                     b.HasOne("Identity.Domain.Entities.Prescription", "Prescription")
                         .WithMany("Items")
                         .HasForeignKey("PrescriptionId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
+
+                    b.Navigation("Medication");
 
                     b.Navigation("Prescription");
                 });

@@ -38,9 +38,9 @@ public sealed class PrescriptionItemConfiguration : IEntityTypeConfiguration<Pre
             .HasForeignKey(pi => pi.PrescriptionId)
             .OnDelete(DeleteBehavior.Cascade);
 
-        //builder.HasOne(pi => pi.Medication)
-           // .WithMany()
-           // .HasForeignKey(pi => pi.MedicationId)
-           // .OnDelete(DeleteBehavior.Restrict);
+        builder.HasOne(pi => pi.Medication)
+            .WithMany()
+            .HasForeignKey(pi => pi.MedicationId)
+            .OnDelete(DeleteBehavior.Restrict);
     }
 }

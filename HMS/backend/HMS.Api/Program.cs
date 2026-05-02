@@ -6,6 +6,7 @@ using HMS.Persistence;
 using Identity.Domain.Entities;
 using Identity.Infrastructure;
 using Identity.Infrastructure.Seed;
+using Identity.Infrastructure.Services;
 using Identity.Infrastructure.Services.Patients;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
@@ -62,6 +63,7 @@ builder.Services.AddScoped<IPatientService, PatientService>();
 builder.Services.AddScoped<IPasswordHasher<User>, PasswordHasher<User>>();
 builder.Services.AddScoped<IAppointmentService, AppointmentService>();
 builder.Services.AddScoped<IAppointmentRequestService, AppointmentRequestService>();
+builder.Services.AddScoped<IMedicationsService, MedicationsService>();
 builder.Services.AddAuthorization(options =>
 {
     options.FallbackPolicy = new AuthorizationPolicyBuilder()

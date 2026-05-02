@@ -43,7 +43,7 @@ public sealed class PrescriptionService : IPrescriptionService
         if (encounter.DoctorProfileId != request.PrescribedByDoctorId)
             throw new InvalidOperationException("Prescription doctor must match the encounter doctor.");
 
-        /*var medicationIds = request.Items
+        var medicationIds = request.Items
              .Select(i => i.MedicationId)
              .Distinct()
              .ToList();
@@ -58,7 +58,7 @@ public sealed class PrescriptionService : IPrescriptionService
              .ToList();
 
          if (missingMedicationIds.Count > 0)
-             throw new InvalidOperationException("One or more medications do not exist.");*/
+             throw new InvalidOperationException("One or more medications do not exist.");
 
         foreach (var item in request.Items)
         {
@@ -92,7 +92,7 @@ public sealed class PrescriptionService : IPrescriptionService
 
             Items = request.Items.Select(i => new PrescriptionItem
             {
-               // MedicationId = i.MedicationId,
+               MedicationId = i.MedicationId,
                 Dosage = i.Dosage.Trim(),
                 Unit = i.Unit?.Trim(),
                 Frequency = i.Frequency.Trim(),
@@ -125,8 +125,8 @@ public sealed class PrescriptionService : IPrescriptionService
             .Include(p => p.PrescribedByDoctor)
                 .ThenInclude(d => d.StaffProfile)
                     .ThenInclude(s => s.Person)
-            //.Include(p => p.Items)
-            //   .ThenInclude(i => i.Medication)
+            .Include(p => p.Items)
+               .ThenInclude(i => i.Medication)
             .Where(p => p.Id == id)
             .Select(p => new PrescriptionDto
             {
@@ -140,8 +140,8 @@ public sealed class PrescriptionService : IPrescriptionService
                 Items = p.Items.Select(i => new PrescriptionItemDto
                 {
                     Id = i.Id,
-                    //MedicationId = i.MedicationId,
-                    //MedicationName = i.Medication.Name,
+                    MedicationId = i.MedicationId,
+                    MedicationName = i.Medication.Name,
                     Dosage = i.Dosage,
                     Unit = i.Unit,
                     Frequency = i.Frequency,
@@ -167,8 +167,8 @@ public sealed class PrescriptionService : IPrescriptionService
             .Include(p => p.PrescribedByDoctor)
                 .ThenInclude(d => d.StaffProfile)
                     .ThenInclude(s => s.Person)
-            //.Include(p => p.Items)
-            //    .ThenInclude(i => i.Medication)
+            .Include(p => p.Items)
+                .ThenInclude(i => i.Medication)
             .AsQueryable();
 
         if (encounterId.HasValue)
@@ -194,8 +194,8 @@ public sealed class PrescriptionService : IPrescriptionService
                 Items = p.Items.Select(i => new PrescriptionItemDto
                 {
                     Id = i.Id,
-                    //MedicationId = i.MedicationId,
-                    //MedicationName = i.Medication.Name,
+                    MedicationId = i.MedicationId,
+                    MedicationName = i.Medication.Name,
                     Dosage = i.Dosage,
                     Unit = i.Unit,
                     Frequency = i.Frequency,

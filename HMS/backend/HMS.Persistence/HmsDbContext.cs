@@ -25,6 +25,7 @@ public class HmsDbContext : DbContext
     public DbSet<Diagnosis> Diagnoses => Set<Diagnosis>();
     public DbSet<Prescription> Prescriptions => Set<Prescription>();
     public DbSet<PrescriptionItem> PrescriptionItems => Set<PrescriptionItem>();
+    public DbSet<Medication> Medications => Set<Medication>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {

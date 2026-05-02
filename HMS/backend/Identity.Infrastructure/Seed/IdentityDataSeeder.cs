@@ -51,8 +51,16 @@ public sealed class IdentityDataSeeder
         ("Encounters.Update", "Përditëson encounter gjatë vizitës."),
         ("Encounters.Close", "Mbyll vizitën."),
         ("Diagnoses.Manage", "Menaxhon diagnozat e lidhura me encounter."),
-        ("Prescriptions.Manage", "Menaxhon recetat dhe barnat."),
         ("LabRequests.Create", "Krijon kërkesë laboratori nga vizita."),
+        ("Diagnoses.Manage", "Menaxhon diagnozat e lidhura me encounter."),
+        ("Prescriptions.Read", "Lexon recetat."),
+        ("Prescriptions.Create", "Krijon receta."),
+        ("Prescriptions.Update", "Përditëson statusin e recetës."),
+        ("Prescriptions.Delete", "Fshin receta."),
+        ("Medications.Read", "Lexon barnat."),
+        ("Medications.Create", "Krijon barna."),
+        ("Medications.Update", "Përditëson barna."),
+        ("Medications.Delete", "Fshin barna."),
         ("NurseTasks.Assign", "Cakton detyra infermierit."),
         ("NurseTasks.Read", "Sheh detyrat e caktuara."),
         ("NurseTasks.Complete", "Shënon detyrën si të kryer."),
@@ -77,7 +85,16 @@ public sealed class IdentityDataSeeder
             "Users.Create", "Users.Read", "Users.Update", "Users.SetActive",
             "Roles.Read", "Permissions.Read", "Patients.Register", "Patients.Read", "Patients.Update", "Patients.Delete", "RolePermissions.Manage",
             "AuditLogs.Read", "Settings.Manage",
+
             "Appointments.Read", "Appointments.Create", "Appointments.ManageStatus",
+
+            "Encounters.Create", "Encounters.Read", "Encounters.Update", "Encounters.Close",
+
+            "Diagnoses.Manage",
+
+            "Prescriptions.Read", "Prescriptions.Create", "Prescriptions.Update", "Prescriptions.Delete",
+
+            "Medications.Read", "Medications.Create", "Medications.Update", "Medications.Delete",
         }),
         ("Receptionist", new[]
         {
@@ -90,8 +107,15 @@ public sealed class IdentityDataSeeder
         {
             "Patients.Read",
             "Appointments.Read",
+
             "Encounters.Create", "Encounters.Read", "Encounters.Update", "Encounters.Close",
-            "Diagnoses.Manage", "Prescriptions.Manage",
+
+            "Diagnoses.Manage", 
+
+            "Prescriptions.Read", "Prescriptions.Create", "Prescriptions.Update",
+
+            "Medications.Read",
+
             "LabRequests.Create",
             "NurseTasks.Assign"
         }),
