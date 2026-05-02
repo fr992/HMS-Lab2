@@ -56,6 +56,34 @@ createDiagnosis: async (encounterId, payload) => {
   }
 },
 
+updateEncounter: async (encounterId, payload) => {
+  try {
+    set({ saving: true, error: "" });
+
+    await encountersApi.updateEncounter(encounterId, payload);
+
+    const response = await encountersApi.getPanel(encounterId);
+
+    set({
+      panel: response.data,
+      saving: false,
+    });
+  } catch (err) {
+    console.error("Update encounter error:", err);
+
+    set({
+      error:
+        err?.response?.data?.error ||
+        err?.response?.data?.message ||
+        err?.response?.data?.title ||
+        `Failed to update encounter. Status: ${err?.response?.status}`,
+      saving: false,
+    });
+
+    throw err;
+  }
+},
+
 createPrescription: async (encounterId, payload) => {
   try {
     set({ saving: true, error: "" });
@@ -93,6 +121,8 @@ closeEncounter: async (encounterId) => {
       panel: response.data,
       saving: false,
     });
+
+    return response.data;
   } catch (err) {
     console.error("Close encounter error:", err);
 
@@ -104,6 +134,8 @@ closeEncounter: async (encounterId) => {
         `Failed to close encounter. Status: ${err?.response?.status}`,
       saving: false,
     });
+
+    throw err;
   }
 },
 }));

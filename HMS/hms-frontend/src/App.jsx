@@ -42,6 +42,22 @@ export default function App() {
           >
             <Route path="dashboard" element={<DashboardPage />} />
             <Route path="users" element={<UsersPage />} />
+            <Route
+              path="encounters"
+              element={
+                <PermissionRoute anyPermission={["Encounters.Read"]}>
+                  <EncountersListPage />
+                </PermissionRoute>
+              }
+            />
+            <Route
+              path="encounters/:encounterId"
+              element={
+                <PermissionRoute anyPermission={["Encounters.Read"]}>
+                  <EncounterPanelPage />
+                </PermissionRoute>
+              }
+            />
           </Route>
 
           <Route

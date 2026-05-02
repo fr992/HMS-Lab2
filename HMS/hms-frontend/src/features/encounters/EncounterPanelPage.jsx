@@ -1,25 +1,78 @@
 import { useEffect, useState } from "react";
-import { useParams } from "react-router-dom";
+import { Link, useParams } from "react-router-dom";
+import {
+  ArrowLeft,
+  CheckCircle2,
+  ChevronLeft,
+  ChevronRight,
+  LoaderCircle,
+} from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
+import { useAuth } from "@/auth/AuthContext";
 import { useEncounterPanelStore } from "./encounterPanelStore";
+
+const ENCOUNTER_TYPES = [
+  { value: "outpatient", label: "Outpatient" },
+  { value: "emergency", label: "Emergency" },
+  { value: "follow_up", label: "Follow-up" },
+];
+
+const HISTORY_PAGE_SIZE = 5;
+
+function toDateTimeLocalValue(value) {
+  if (!value) return "";
+
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "";
+
+  const local = new Date(date.getTime() - date.getTimezoneOffset() * 60000);
+  return local.toISOString().slice(0, 16);
+}
+
+function fromDateTimeLocalValue(value) {
+  if (!value) return null;
+  return new Date(value).toISOString();
+}
+
+function formatDate(value) {
+  if (!value) return "-";
+
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "-";
+
+  return date.toLocaleString();
+}
+
+function pageItems(items, page) {
+  const totalPages = Math.max(1, Math.ceil(items.length / HISTORY_PAGE_SIZE));
+  const safePage = Math.min(Math.max(page, 1), totalPages);
+  const start = (safePage - 1) * HISTORY_PAGE_SIZE;
+
+  return {
+    totalPages,
+    safePage,
+    items: items.slice(start, start + HISTORY_PAGE_SIZE),
+  };
+}
 
 export default function EncounterPanelPage() {
   const { encounterId } = useParams();
-
-const {
-  panel,
-  loading,
-  saving,
-  error,
-  loadPanel,
-  createDiagnosis,
-  createPrescription,
-  closeEncounter,
-} = useEncounterPanelStore();
+  const auth = useAuth();
+  const {
+    panel,
+    loading,
+    saving,
+    error,
+    loadPanel,
+    updateEncounter,
+    createDiagnosis,
+    createPrescription,
+    closeEncounter,
+  } = useEncounterPanelStore();
 
   const [diagnosisForm, setDiagnosisForm] = useState({
     icdCode: "",
@@ -27,7 +80,6 @@ const {
     type: "",
     notes: "",
   });
-
   const [prescriptionForm, setPrescriptionForm] = useState({
     notes: "",
     medicationId: "",
@@ -36,10 +88,41 @@ const {
     duration: "",
     instructions: "",
   });
+  const [editingEncounter, setEditingEncounter] = useState(false);
+  const [encounterForm, setEncounterForm] = useState({
+    encounterType: "outpatient",
+    startedAt: "",
+    endedAt: "",
+    notes: "",
+  });
+  const [completingEncounter, setCompletingEncounter] = useState(false);
+  const [completionNotice, setCompletionNotice] = useState(false);
+  const [diagnosisPage, setDiagnosisPage] = useState(1);
+  const [prescriptionPage, setPrescriptionPage] = useState(1);
 
   useEffect(() => {
-    loadPanel(encounterId);
+    void loadPanel(encounterId);
   }, [encounterId, loadPanel]);
+
+  if (loading) {
+    return (
+      <div className="flex min-h-[18rem] items-center justify-center text-sm text-slate-500">
+        Loading encounter panel...
+      </div>
+    );
+  }
+
+  if (error) return <div className="p-6 text-red-600">{error}</div>;
+  if (!panel) return <div className="p-6">No encounter data found.</div>;
+
+  const { encounter, patient, diagnoses, prescriptions } = panel;
+  const isOpen = String(encounter.status ?? "").toLowerCase() === "open";
+  const canUpdateEncounter = auth.hasPermission("Encounters.Update");
+  const canCloseEncounter = auth.hasPermission("Encounters.Close");
+  const listPath =
+    auth.userRole === "Admin" ? "/admin/encounters" : "/doctor/encounters";
+  const diagnosisPaging = pageItems(diagnoses, diagnosisPage);
+  const prescriptionPaging = pageItems(prescriptions, prescriptionPage);
 
   async function handleCreateDiagnosis(e) {
     e.preventDefault();
@@ -58,6 +141,30 @@ const {
       type: "",
       notes: "",
     });
+    setDiagnosisPage(1);
+  }
+
+  function beginEditEncounter() {
+    setEncounterForm({
+      encounterType: encounter.encounterType || "outpatient",
+      startedAt: toDateTimeLocalValue(encounter.startedAt),
+      endedAt: toDateTimeLocalValue(encounter.endedAt),
+      notes: encounter.notes || "",
+    });
+    setEditingEncounter(true);
+  }
+
+  async function handleUpdateEncounter(e) {
+    e.preventDefault();
+
+    await updateEncounter(encounterId, {
+      encounterType: encounterForm.encounterType,
+      startedAt: fromDateTimeLocalValue(encounterForm.startedAt),
+      endedAt: fromDateTimeLocalValue(encounterForm.endedAt),
+      notes: encounterForm.notes || null,
+    });
+
+    setEditingEncounter(false);
   }
 
   async function handleCreatePrescription(e) {
@@ -65,7 +172,7 @@ const {
 
     await createPrescription(encounterId, {
       encounterId: Number(encounterId),
-      prescribedByDoctorId: panel.encounter.doctorProfileId,
+      prescribedByDoctorId: encounter.doctorProfileId,
       notes: prescriptionForm.notes || null,
       items: [
         {
@@ -86,50 +193,112 @@ const {
       duration: "",
       instructions: "",
     });
+    setPrescriptionPage(1);
   }
 
-  if (loading) return <div className="p-6">Loading encounter panel...</div>;
-  if (error) return <div className="p-6 text-red-600">{error}</div>;
-  if (!panel) return <div className="p-6">No encounter data found.</div>;
-
-  const { encounter, patient, diagnoses, prescriptions } = panel;
-  const isOpen = encounter.status === "Open";
+  async function handleCompleteEncounter() {
+    setCompletingEncounter(true);
+    try {
+      await closeEncounter(encounterId);
+      setCompletionNotice(true);
+      window.setTimeout(() => setCompletionNotice(false), 3000);
+    } finally {
+      setCompletingEncounter(false);
+    }
+  }
 
   return (
-    <div className="space-y-6 p-6">
-      <div className="flex items-center justify-between">
-  <div>
-    <h1 className="text-2xl font-bold">Encounter Panel</h1>
-    <p className="text-sm text-muted-foreground">
-      Manage the patient visit from one place.
-    </p>
-  </div>
+    <div className="space-y-5">
+      <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+        <div className="flex min-w-0 items-start gap-3">
+          <Button asChild variant="outline" size="icon" className="mt-1">
+            <Link to={listPath} aria-label="Back to encounters">
+              <ArrowLeft className="h-4 w-4" aria-hidden />
+            </Link>
+          </Button>
+          <div className="min-w-0">
+            <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+              Encounter
+            </p>
+            <h1 className="mt-1 truncate text-2xl font-semibold tracking-tight text-slate-900 sm:text-3xl">
+              {encounter.encounterNumber}
+            </h1>
+            <p className="mt-1 text-sm text-slate-600">
+              {encounter.patientName} with {encounter.doctorName}
+            </p>
+          </div>
+        </div>
 
-    {isOpen ? (
-        <Button
-        type="button"
-        disabled={saving}
-        onClick={() => closeEncounter(encounterId)}
-        >
-            {saving ? "Saving..." : "Complete Encounter"}
+        <div className="flex flex-wrap items-center gap-2">
+          <Badge variant="outline" className="border-slate-200 bg-white">
+            {encounter.status}
+          </Badge>
+          {isOpen && canCloseEncounter && (
+            <Button
+              type="button"
+              disabled={saving || completingEncounter}
+              onClick={handleCompleteEncounter}
+              className="relative overflow-hidden bg-emerald-600 text-white transition hover:bg-emerald-700 disabled:opacity-80"
+            >
+              {completingEncounter && (
+                <span className="absolute inset-0 bg-white/20 animate-pulse" />
+              )}
+              <span className="relative inline-flex items-center gap-2">
+                {completingEncounter ? (
+                  <LoaderCircle className="h-4 w-4 animate-spin" aria-hidden />
+                ) : (
+                  <CheckCircle2 className="h-4 w-4" aria-hidden />
+                )}
+                {completingEncounter ? "Completing..." : "Complete Encounter"}
+              </span>
             </Button>
-        ) : (
-         <Badge>{encounter.status}</Badge>
-        )}
-    </div>
+          )}
+        </div>
+      </div>
+
+      {completionNotice && (
+        <div
+          role="status"
+          className="rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-medium text-emerald-900 shadow-sm animate-in fade-in slide-in-from-top-1"
+        >
+          Encounter completed successfully.
+        </div>
+      )}
 
       <Card>
-        <CardHeader>
+        <CardHeader className="flex flex-row items-center justify-between gap-3">
           <CardTitle>Encounter Info</CardTitle>
+          {isOpen && canUpdateEncounter && !editingEncounter && (
+            <Button
+              type="button"
+              size="sm"
+              variant="outline"
+              onClick={beginEditEncounter}
+            >
+              Edit
+            </Button>
+          )}
         </CardHeader>
-        <CardContent className="grid gap-3 md:grid-cols-2">
-          <Info label="Encounter No." value={encounter.encounterNumber} />
-          <Info label="Status" value={<Badge>{encounter.status}</Badge>} />
-          <Info label="Patient" value={encounter.patientName} />
-          <Info label="Doctor" value={encounter.doctorName} />
-          <Info label="Type" value={encounter.encounterType} />
-          <Info label="Started At" value={formatDate(encounter.startedAt)} />
-          <Info label="Notes" value={encounter.notes || "-"} />
+        <CardContent>
+          {editingEncounter ? (
+            <EncounterEditForm
+              form={encounterForm}
+              saving={saving}
+              onChange={setEncounterForm}
+              onSubmit={handleUpdateEncounter}
+              onCancel={() => setEditingEncounter(false)}
+            />
+          ) : (
+            <div className="grid gap-3 md:grid-cols-2">
+              <Info label="Status" value={<Badge>{encounter.status}</Badge>} />
+              <Info label="Patient" value={encounter.patientName} />
+              <Info label="Doctor" value={encounter.doctorName} />
+              <Info label="Type" value={encounter.encounterType} />
+              <Info label="Started At" value={formatDate(encounter.startedAt)} />
+              <Info label="Ended At" value={formatDate(encounter.endedAt)} />
+              <Info label="Notes" value={encounter.notes || "-"} />
+            </div>
+          )}
         </CardContent>
       </Card>
 
@@ -157,70 +326,22 @@ const {
           <CardTitle>Diagnoses</CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
-            {isOpen && (
-          <form onSubmit={handleCreateDiagnosis} className="space-y-3 rounded-lg border p-4">
-            <div className="grid gap-3 md:grid-cols-3">
-              <Input
-                placeholder="ICD Code"
-                value={diagnosisForm.icdCode}
-                onChange={(e) =>
-                  setDiagnosisForm({ ...diagnosisForm, icdCode: e.target.value })
-                }
-              />
-
-              <Input
-                placeholder="Type"
-                value={diagnosisForm.type}
-                onChange={(e) =>
-                  setDiagnosisForm({ ...diagnosisForm, type: e.target.value })
-                }
-              />
-
-              <Input
-                placeholder="Description *"
-                value={diagnosisForm.description}
-                onChange={(e) =>
-                  setDiagnosisForm({
-                    ...diagnosisForm,
-                    description: e.target.value,
-                  })
-                }
-                required
-              />
-            </div>
-
-            <Textarea
-              placeholder="Notes"
-              value={diagnosisForm.notes}
-              onChange={(e) =>
-                setDiagnosisForm({ ...diagnosisForm, notes: e.target.value })
-              }
+          {isOpen && (
+            <DiagnosisForm
+              form={diagnosisForm}
+              saving={saving}
+              onChange={setDiagnosisForm}
+              onSubmit={handleCreateDiagnosis}
             />
-
-            <Button type="submit" disabled={saving}>
-              {saving ? "Saving..." : "Add Diagnosis"}
-            </Button>
-          </form>
-            )}
-
-          {diagnoses.length === 0 ? (
-            <p className="text-sm text-muted-foreground">No diagnoses yet.</p>
-          ) : (
-            <div className="space-y-3">
-              {diagnoses.map((d) => (
-                <div key={d.id} className="rounded-lg border p-3">
-                  <div className="font-medium">{d.description}</div>
-                  <div className="text-sm text-muted-foreground">
-                    ICD: {d.icdCode || "-"} · Type: {d.type || "-"}
-                  </div>
-                  <div className="text-sm text-muted-foreground">
-                    Doctor: {d.createdByDoctorName}
-                  </div>
-                  {d.notes && <p className="mt-2 text-sm">{d.notes}</p>}
-                </div>
-              ))}
-            </div>
           )}
+
+          <DiagnosisHistory
+            diagnoses={diagnoses}
+            visibleDiagnoses={diagnosisPaging.items}
+            page={diagnosisPaging.safePage}
+            totalPages={diagnosisPaging.totalPages}
+            onPageChange={setDiagnosisPage}
+          />
         </CardContent>
       </Card>
 
@@ -229,130 +350,333 @@ const {
           <CardTitle>Prescriptions</CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
-            {isOpen && (
-          <form onSubmit={handleCreatePrescription} className="space-y-3 rounded-lg border p-4">
-            <div className="grid gap-3 md:grid-cols-4">
-              <Input
-                placeholder="Medication ID *"
-                type="number"
-                value={prescriptionForm.medicationId}
-                onChange={(e) =>
-                  setPrescriptionForm({
-                    ...prescriptionForm,
-                    medicationId: e.target.value,
-                  })
-                }
-                required
-              />
-
-              <Input
-                placeholder="Dosage *"
-                value={prescriptionForm.dosage}
-                onChange={(e) =>
-                  setPrescriptionForm({
-                    ...prescriptionForm,
-                    dosage: e.target.value,
-                  })
-                }
-                required
-              />
-
-              <Input
-                placeholder="Frequency *"
-                value={prescriptionForm.frequency}
-                onChange={(e) =>
-                  setPrescriptionForm({
-                    ...prescriptionForm,
-                    frequency: e.target.value,
-                  })
-                }
-                required
-              />
-
-              <Input
-                placeholder="Duration *"
-                value={prescriptionForm.duration}
-                onChange={(e) =>
-                  setPrescriptionForm({
-                    ...prescriptionForm,
-                    duration: e.target.value,
-                  })
-                }
-                required
-              />
-            </div>
-
-            <Textarea
-              placeholder="Prescription notes"
-              value={prescriptionForm.notes}
-              onChange={(e) =>
-                setPrescriptionForm({
-                  ...prescriptionForm,
-                  notes: e.target.value,
-                })
-              }
+          {isOpen && (
+            <PrescriptionForm
+              form={prescriptionForm}
+              saving={saving}
+              onChange={setPrescriptionForm}
+              onSubmit={handleCreatePrescription}
             />
-
-            <Textarea
-              placeholder="Medication instructions"
-              value={prescriptionForm.instructions}
-              onChange={(e) =>
-                setPrescriptionForm({
-                  ...prescriptionForm,
-                  instructions: e.target.value,
-                })
-              }
-            />
-
-            <Button type="submit" disabled={saving}>
-              {saving ? "Saving..." : "Add Prescription"}
-            </Button>
-          </form>
-            )}
-
-          {prescriptions.length === 0 ? (
-            <p className="text-sm text-muted-foreground">
-              No prescriptions yet.
-            </p>
-          ) : (
-            <div className="space-y-3">
-              {prescriptions.map((p) => (
-                <div key={p.id} className="rounded-lg border p-3">
-                  <div className="flex items-center justify-between">
-                    <div className="font-medium">Prescription #{p.id}</div>
-                    <Badge>{p.status}</Badge>
-                  </div>
-
-                  <div className="text-sm text-muted-foreground">
-                    Doctor: {p.doctorName}
-                  </div>
-
-                  {p.notes && <p className="mt-2 text-sm">{p.notes}</p>}
-
-                  <div className="mt-3 space-y-2">
-                    {p.items?.map((item) => (
-                      <div
-                        key={item.id}
-                        className="rounded-md bg-muted p-2 text-sm"
-                      >
-                        <div className="font-medium">{item.medicationName}</div>
-                        <div>
-                          {item.dosage} · {item.frequency} · {item.duration}
-                        </div>
-                        {item.instructions && (
-                          <div className="text-muted-foreground">
-                            {item.instructions}
-                          </div>
-                        )}
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              ))}
-            </div>
           )}
+
+          <PrescriptionHistory
+            prescriptions={prescriptions}
+            visiblePrescriptions={prescriptionPaging.items}
+            page={prescriptionPaging.safePage}
+            totalPages={prescriptionPaging.totalPages}
+            onPageChange={setPrescriptionPage}
+          />
         </CardContent>
       </Card>
+    </div>
+  );
+}
+
+function EncounterEditForm({ form, saving, onChange, onSubmit, onCancel }) {
+  return (
+    <form onSubmit={onSubmit} className="space-y-4">
+      <div className="grid gap-3 md:grid-cols-3">
+        <label className="block">
+          <span className="mb-1 block text-xs font-medium text-muted-foreground">
+            Type
+          </span>
+          <select
+            value={form.encounterType}
+            onChange={(e) =>
+              onChange({ ...form, encounterType: e.target.value })
+            }
+            className="h-9 w-full rounded-md border border-input bg-background px-3 text-sm"
+            required
+          >
+            {ENCOUNTER_TYPES.map((type) => (
+              <option key={type.value} value={type.value}>
+                {type.label}
+              </option>
+            ))}
+          </select>
+        </label>
+
+        <label className="block">
+          <span className="mb-1 block text-xs font-medium text-muted-foreground">
+            Started At
+          </span>
+          <Input
+            type="datetime-local"
+            value={form.startedAt}
+            onChange={(e) => onChange({ ...form, startedAt: e.target.value })}
+            required
+          />
+        </label>
+
+        <label className="block">
+          <span className="mb-1 block text-xs font-medium text-muted-foreground">
+            Ended At
+          </span>
+          <Input
+            type="datetime-local"
+            value={form.endedAt}
+            onChange={(e) => onChange({ ...form, endedAt: e.target.value })}
+          />
+        </label>
+      </div>
+
+      <label className="block">
+        <span className="mb-1 block text-xs font-medium text-muted-foreground">
+          Notes
+        </span>
+        <Textarea
+          value={form.notes}
+          onChange={(e) => onChange({ ...form, notes: e.target.value })}
+        />
+      </label>
+
+      <div className="flex flex-wrap items-center gap-2">
+        <Button type="submit" disabled={saving}>
+          {saving ? "Saving..." : "Save Changes"}
+        </Button>
+        <Button type="button" variant="outline" disabled={saving} onClick={onCancel}>
+          Cancel
+        </Button>
+      </div>
+    </form>
+  );
+}
+
+function DiagnosisForm({ form, saving, onChange, onSubmit }) {
+  return (
+    <form onSubmit={onSubmit} className="space-y-3 rounded-lg border p-4">
+      <div className="grid gap-3 md:grid-cols-3">
+        <Input
+          placeholder="ICD Code"
+          value={form.icdCode}
+          onChange={(e) => onChange({ ...form, icdCode: e.target.value })}
+        />
+        <Input
+          placeholder="Type"
+          value={form.type}
+          onChange={(e) => onChange({ ...form, type: e.target.value })}
+        />
+        <Input
+          placeholder="Description *"
+          value={form.description}
+          onChange={(e) => onChange({ ...form, description: e.target.value })}
+          required
+        />
+      </div>
+      <Textarea
+        placeholder="Notes"
+        value={form.notes}
+        onChange={(e) => onChange({ ...form, notes: e.target.value })}
+      />
+      <Button type="submit" disabled={saving}>
+        {saving ? "Saving..." : "Add Diagnosis"}
+      </Button>
+    </form>
+  );
+}
+
+function PrescriptionForm({ form, saving, onChange, onSubmit }) {
+  return (
+    <form onSubmit={onSubmit} className="space-y-3 rounded-lg border p-4">
+      <div className="grid gap-3 md:grid-cols-4">
+        <Input
+          placeholder="Medication ID *"
+          type="number"
+          value={form.medicationId}
+          onChange={(e) => onChange({ ...form, medicationId: e.target.value })}
+          required
+        />
+        <Input
+          placeholder="Dosage *"
+          value={form.dosage}
+          onChange={(e) => onChange({ ...form, dosage: e.target.value })}
+          required
+        />
+        <Input
+          placeholder="Frequency *"
+          value={form.frequency}
+          onChange={(e) => onChange({ ...form, frequency: e.target.value })}
+          required
+        />
+        <Input
+          placeholder="Duration *"
+          value={form.duration}
+          onChange={(e) => onChange({ ...form, duration: e.target.value })}
+          required
+        />
+      </div>
+      <Textarea
+        placeholder="Prescription notes"
+        value={form.notes}
+        onChange={(e) => onChange({ ...form, notes: e.target.value })}
+      />
+      <Textarea
+        placeholder="Medication instructions"
+        value={form.instructions}
+        onChange={(e) => onChange({ ...form, instructions: e.target.value })}
+      />
+      <Button type="submit" disabled={saving}>
+        {saving ? "Saving..." : "Add Prescription"}
+      </Button>
+    </form>
+  );
+}
+
+function DiagnosisHistory({
+  diagnoses,
+  visibleDiagnoses,
+  page,
+  totalPages,
+  onPageChange,
+}) {
+  if (diagnoses.length === 0) {
+    return <p className="text-sm text-muted-foreground">No diagnoses yet.</p>;
+  }
+
+  return (
+    <div className="overflow-hidden rounded-lg border border-slate-200">
+      <HistoryHeader
+        title="Diagnosis history"
+        count={diagnoses.length}
+        page={page}
+        totalPages={totalPages}
+        onPageChange={onPageChange}
+      />
+      <div className="divide-y divide-slate-100">
+        {visibleDiagnoses.map((diagnosis) => (
+          <details key={diagnosis.id} className="group bg-white">
+            <summary className="grid cursor-pointer list-none gap-3 px-4 py-3 hover:bg-slate-50 md:grid-cols-[minmax(0,1fr)_8rem_12rem] md:items-center">
+              <div className="min-w-0">
+                <p className="truncate text-sm font-medium text-slate-950">
+                  {diagnosis.description}
+                </p>
+                <p className="mt-1 truncate text-xs text-slate-500">
+                  ICD: {diagnosis.icdCode || "-"} | Type: {diagnosis.type || "-"}
+                </p>
+              </div>
+              <Badge variant="outline">{diagnosis.type || "Diagnosis"}</Badge>
+              <p className="truncate text-xs text-slate-500 md:text-right">
+                {diagnosis.createdByDoctorName}
+              </p>
+            </summary>
+            {diagnosis.notes && (
+              <div className="border-t border-slate-100 bg-slate-50 px-4 py-3 text-sm text-slate-700">
+                {diagnosis.notes}
+              </div>
+            )}
+          </details>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function PrescriptionHistory({
+  prescriptions,
+  visiblePrescriptions,
+  page,
+  totalPages,
+  onPageChange,
+}) {
+  if (prescriptions.length === 0) {
+    return <p className="text-sm text-muted-foreground">No prescriptions yet.</p>;
+  }
+
+  return (
+    <div className="overflow-hidden rounded-lg border border-slate-200">
+      <HistoryHeader
+        title="Prescription history"
+        count={prescriptions.length}
+        page={page}
+        totalPages={totalPages}
+        onPageChange={onPageChange}
+      />
+      <div className="divide-y divide-slate-100">
+        {visiblePrescriptions.map((prescription) => {
+          const items = prescription.items ?? [];
+          const firstItem = items[0];
+          return (
+            <details key={prescription.id} className="group bg-white">
+              <summary className="grid cursor-pointer list-none gap-3 px-4 py-3 hover:bg-slate-50 md:grid-cols-[minmax(0,1fr)_8rem_12rem] md:items-center">
+                <div className="min-w-0">
+                  <p className="truncate text-sm font-medium text-slate-950">
+                    Prescription #{prescription.id}
+                  </p>
+                  <p className="mt-1 truncate text-xs text-slate-500">
+                    {firstItem
+                      ? `${firstItem.medicationName} - ${firstItem.dosage}, ${firstItem.frequency}`
+                      : "No medication items"}
+                    {items.length > 1 ? ` +${items.length - 1} more` : ""}
+                  </p>
+                </div>
+                <Badge>{prescription.status}</Badge>
+                <p className="truncate text-xs text-slate-500 md:text-right">
+                  {prescription.doctorName}
+                </p>
+              </summary>
+              <div className="space-y-2 border-t border-slate-100 bg-slate-50 px-4 py-3">
+                {prescription.notes && (
+                  <p className="text-sm text-slate-700">{prescription.notes}</p>
+                )}
+                {items.map((item) => (
+                  <div
+                    key={item.id}
+                    className="rounded-md border border-slate-200 bg-white p-3 text-sm"
+                  >
+                    <p className="font-medium text-slate-950">
+                      {item.medicationName}
+                    </p>
+                    <p className="mt-1 text-slate-600">
+                      {item.dosage} | {item.frequency} | {item.duration}
+                    </p>
+                    {item.instructions && (
+                      <p className="mt-1 text-slate-500">{item.instructions}</p>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </details>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+function HistoryHeader({ title, count, page, totalPages, onPageChange }) {
+  return (
+    <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-200 bg-slate-50 px-4 py-3">
+      <div>
+        <p className="text-sm font-semibold text-slate-950">{title}</p>
+        <p className="text-xs text-slate-500">
+          Showing {Math.min(HISTORY_PAGE_SIZE, count)} per page, {count} total
+        </p>
+      </div>
+      <div className="flex items-center gap-2">
+        <Button
+          type="button"
+          variant="outline"
+          size="icon-sm"
+          disabled={page <= 1}
+          onClick={() => onPageChange(page - 1)}
+          aria-label="Previous page"
+        >
+          <ChevronLeft className="h-4 w-4" aria-hidden />
+        </Button>
+        <span className="min-w-16 text-center text-xs font-medium text-slate-600">
+          {page} / {totalPages}
+        </span>
+        <Button
+          type="button"
+          variant="outline"
+          size="icon-sm"
+          disabled={page >= totalPages}
+          onClick={() => onPageChange(page + 1)}
+          aria-label="Next page"
+        >
+          <ChevronRight className="h-4 w-4" aria-hidden />
+        </Button>
+      </div>
     </div>
   );
 }
@@ -364,9 +688,4 @@ function Info({ label, value }) {
       <div className="text-sm">{value}</div>
     </div>
   );
-}
-
-function formatDate(value) {
-  if (!value) return "-";
-  return new Date(value).toLocaleString();
 }

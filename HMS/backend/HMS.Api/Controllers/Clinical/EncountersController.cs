@@ -53,12 +53,25 @@ public sealed class EncountersController : ControllerBase
         [FromQuery] int? doctorProfileId,
         CancellationToken cancellationToken)
     {
-        var result = await _encounterService.GetEncountersAsync(
-            patientProfileId,
-            doctorProfileId,
-            cancellationToken);
+        try
+        {
+            var result = await _encounterService.GetEncountersAsync(
+                patientProfileId,
+                doctorProfileId,
+                CurrentUserId(),
+                CurrentUserRoles(),
+                cancellationToken);
 
-        return Ok(result);
+            return Ok(result);
+        }
+        catch (UnauthorizedAccessException)
+        {
+            return Forbid();
+        }
+        catch (InvalidOperationException ex)
+        {
+            return BadRequest(new { error = ex.Message });
+        }
     }
 
     [HttpPut("{id:int}")]
@@ -127,5 +140,15 @@ public sealed class EncountersController : ControllerBase
     {
         var value = User.FindFirstValue(ClaimTypes.NameIdentifier);
         return int.TryParse(value, out var id) ? id : null;
+    }
+
+    private IReadOnlyCollection<string> CurrentUserRoles()
+    {
+        return User.Claims
+            .Where(c => c.Type == ClaimTypes.Role || c.Type == "role")
+            .Select(c => c.Value)
+            .Where(role => !string.IsNullOrWhiteSpace(role))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToArray();
     }
 }

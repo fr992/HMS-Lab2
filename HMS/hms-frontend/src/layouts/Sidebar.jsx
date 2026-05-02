@@ -15,6 +15,7 @@ export default function Sidebar() {
   const { pathname } = useLocation();
   const canReadPatients = auth.hasPermission("Patients.Read");
   const canReadAppointments = auth.hasPermission("Appointments.Read");
+  const canReadEncounters = auth.hasPermission("Encounters.Read");
   const isAdmin = auth.userRole === "Admin";
 
   const linkClass = (to) => {
@@ -82,10 +83,21 @@ export default function Sidebar() {
                 Online Requests
               </Link>
             )}
+            {canReadEncounters && (
+              <Link
+                className={linkClass("/admin/encounters")}
+                to="/admin/encounters"
+              >
+                <Stethoscope className="h-4 w-4 shrink-0" aria-hidden />
+                Encounters
+              </Link>
+            )}
           </div>
         )}
 
-        {(canReadPatients || (canReadAppointments && !isAdmin)) && (
+        {(canReadPatients ||
+          (canReadAppointments && !isAdmin) ||
+          (canReadEncounters && !isAdmin)) && (
           <div className="space-y-1">
             <p className="mb-1 px-2 text-xs font-semibold uppercase tracking-wide text-slate-400">
               Clinical
@@ -97,7 +109,7 @@ export default function Sidebar() {
               </Link>
             )}
 
-            {auth.hasPermission("Encounters.Read") && (
+            {canReadEncounters && !isAdmin && (
               <Link className={linkClass("/doctor/encounters")} to="/doctor/encounters">
                 <Stethoscope className="h-4 w-4 shrink-0" aria-hidden />
                 Encounters

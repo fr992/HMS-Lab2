@@ -7,9 +7,12 @@ export const encountersApi = {
   createDiagnosis: (encounterId, payload) =>
     apiClient.post(`/encounters/${encounterId}/diagnoses`, payload),
 
-    createPrescription: (encounterId, payload) =>
+  updateEncounter: (encounterId, payload) =>
+    apiClient.put(`/encounters/${encounterId}`, payload),
+
+  createPrescription: (encounterId, payload) =>
     apiClient.post(`/encounters/${encounterId}/prescriptions`, payload),
 
-    closeEncounter: (encounterId) =>
+  closeEncounter: (encounterId) =>
     apiClient.post(`/encounters/${encounterId}/close`),
 };

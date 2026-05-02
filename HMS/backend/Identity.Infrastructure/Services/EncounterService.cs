@@ -117,15 +117,18 @@ public sealed class EncounterService : IEncounterService
     public async Task<List<EncounterDto>> GetEncountersAsync(
         int? patientProfileId,
         int? doctorProfileId,
+        int? actorUserId,
+        IEnumerable<string> actorRoles,
         CancellationToken cancellationToken)
     {
+        var effectiveDoctorProfileId = await ResolveEffectiveDoctorProfileIdAsync(
+            doctorProfileId,
+            actorUserId,
+            actorRoles,
+            cancellationToken);
+
         var query = _db.Encounters
             .AsNoTracking()
-            .Include(e => e.PatientProfile)
-                .ThenInclude(p => p.Person)
-            .Include(e => e.DoctorProfile)
-                .ThenInclude(d => d.StaffProfile)
-                    .ThenInclude(s => s.Person)
             .AsQueryable();
 
         if (patientProfileId.HasValue)
@@ -134,10 +137,10 @@ public sealed class EncounterService : IEncounterService
                 e.PatientProfileId == patientProfileId.Value);
         }
 
-        if (doctorProfileId.HasValue)
+        if (effectiveDoctorProfileId.HasValue)
         {
             query = query.Where(e =>
-                e.DoctorProfileId == doctorProfileId.Value);
+                e.DoctorProfileId == effectiveDoctorProfileId.Value);
         }
 
         return await query
@@ -165,6 +168,42 @@ public sealed class EncounterService : IEncounterService
                 Notes = e.Notes,
             })
             .ToListAsync(cancellationToken);
+    }
+
+    private async Task<int?> ResolveEffectiveDoctorProfileIdAsync(
+        int? requestedDoctorProfileId,
+        int? actorUserId,
+        IEnumerable<string> actorRoles,
+        CancellationToken cancellationToken)
+    {
+        var roleList = actorRoles as IList<string> ?? actorRoles.ToList();
+
+        if (roleList.Any(role => string.Equals(role, "Admin", StringComparison.OrdinalIgnoreCase)))
+            return requestedDoctorProfileId;
+
+        if (!roleList.Any(role => string.Equals(role, "Doctor", StringComparison.OrdinalIgnoreCase)))
+            throw new UnauthorizedAccessException("Only admins and doctors can list encounters.");
+
+        if (!actorUserId.HasValue)
+            throw new UnauthorizedAccessException("Authenticated user is required.");
+
+        return await ResolveDoctorProfileIdAsync(actorUserId.Value, cancellationToken);
+    }
+
+    private async Task<int> ResolveDoctorProfileIdAsync(
+        int userId,
+        CancellationToken cancellationToken)
+    {
+        var doctorProfileId = await _db.DoctorProfiles
+            .AsNoTracking()
+            .Where(d =>
+                d.IsActive &&
+                d.StaffProfile.Person.UserId == userId)
+            .Select(d => (int?)d.Id)
+            .FirstOrDefaultAsync(cancellationToken);
+
+        return doctorProfileId
+            ?? throw new InvalidOperationException("Current user is not linked to an active doctor profile.");
     }
 
     public async Task<EncounterDto> UpdateAsync(
