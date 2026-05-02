@@ -4,6 +4,7 @@ import {
   ClipboardList,
   LayoutDashboard,
   LogOut,
+  Stethoscope,
   UserRound,
   Users,
 } from "lucide-react";
@@ -95,6 +96,14 @@ export default function Sidebar() {
                 Patients
               </Link>
             )}
+
+            {auth.hasPermission("Encounters.Read") && (
+              <Link className={linkClass("/doctor/encounters")} to="/doctor/encounters">
+                <Stethoscope className="h-4 w-4 shrink-0" aria-hidden />
+                Encounters
+              </Link>
+            )}
+
             {canReadAppointments && !isAdmin && (
               <Link
                 className={linkClass("/appointments")}

@@ -229,6 +229,108 @@ public sealed class EncounterService : IEncounterService
             ?? throw new InvalidOperationException("Updated but not found.");
     }
 
+    public async Task<EncounterPanelDto?> GetPanelAsync(int id, CancellationToken cancellationToken)
+    {
+        var panel = await _db.Encounters
+            .AsNoTracking()
+            .Where(e => e.Id == id)
+            .Select(e => new EncounterPanelDto
+            {
+                Encounter = new EncounterDto
+                {
+                    Id = e.Id,
+                    EncounterNumber = e.EncounterNumber,
+                    PatientProfileId = e.PatientProfileId,
+                    PatientName = e.PatientProfile.Person.FullName,
+                    DoctorProfileId = e.DoctorProfileId,
+                    DoctorName = e.DoctorProfile.StaffProfile.Person.FullName,
+                    AppointmentId = e.AppointmentId,
+                    EncounterType = e.EncounterType,
+                    StartedAt = e.StartedAt,
+                    EndedAt = e.EndedAt,
+                    ClosedAt = e.ClosedAt,
+                    Status = e.Status,
+                    Notes = e.Notes
+                },
+                Patient = new PatientProfileDto
+                {
+                    Id = e.PatientProfile.Id,
+                    PatientNumber = e.PatientProfile.PatientNumber,
+                    InsuranceNumber = e.PatientProfile.InsuranceNumber,
+                    BloodType = e.PatientProfile.BloodType,
+                    PrimaryDoctorId = e.PatientProfile.PrimaryDoctorId,
+
+                    PersonId = e.PatientProfile.PersonId,
+                    FirstName = e.PatientProfile.Person.FirstName,
+                    LastName = e.PatientProfile.Person.LastName,
+                    PersonalNumber = e.PatientProfile.Person.PersonalNumber,
+                    DateOfBirth = e.PatientProfile.Person.DateOfBirth,
+                    Gender = e.PatientProfile.Person.Gender,
+                    Phone = e.PatientProfile.Person.Phone,
+                    Address = e.PatientProfile.Person.Address,
+                    City = e.PatientProfile.Person.City,
+                    Country = e.PatientProfile.Person.Country,
+
+                    UserId = e.PatientProfile.Person.UserId,
+                    UserName = e.PatientProfile.Person.User != null
+                        ? e.PatientProfile.Person.User.UserName
+                        : string.Empty,
+                    Email = e.PatientProfile.Person.User != null
+                        ? e.PatientProfile.Person.User.Email
+                        : string.Empty,
+
+                    CreatedAt = e.PatientProfile.CreatedAt,
+                    UpdatedAt = e.PatientProfile.UpdatedAt,
+                },
+
+                Diagnoses = _db.Diagnoses
+                    .AsNoTracking()
+                    .Where(d => d.EncounterId == e.Id)
+                    .Select(d => new DiagnosisDto
+                    {
+                        Id = d.Id,
+                        EncounterId = d.EncounterId,
+                        CreatedByDoctorId = d.CreatedByDoctorId,
+                        CreatedByDoctorName = d.CreatedByDoctor.StaffProfile.Person.FullName,
+                        IcdCode = d.IcdCode,
+                        Description = d.Description,
+                        Type = d.Type,
+                        Notes = d.Notes,
+                        DiagnosedAt = d.DiagnosedAt,
+                        CreatedAt = d.CreatedAt,
+                        UpdatedAt = d.UpdatedAt
+                    })
+                    .ToList(),
+
+                Prescriptions = _db.Prescriptions
+                    .AsNoTracking()
+                    .Where(p => p.EncounterId == e.Id)
+                    .Select(p => new PrescriptionDto
+                    {
+                        Id = p.Id,
+                        EncounterId = p.EncounterId,
+                        PrescribedByDoctorId = p.PrescribedByDoctorId,
+                        DoctorName = p.PrescribedByDoctor.StaffProfile.Person.FullName,
+                        Notes = p.Notes,
+                        Status = p.Status,
+                        Items = p.Items.Select(i => new PrescriptionItemDto
+                        {
+                            Id = i.Id,
+                            MedicationId = i.MedicationId,
+                            MedicationName = i.Medication.Name,
+                            Dosage = i.Dosage,
+                            Frequency = i.Frequency,
+                            Duration = i.Duration,
+                            Route = i.Route,
+                            Instructions = i.Instructions, 
+                        }).ToList()
+                    }).ToList()
+            })
+        .FirstOrDefaultAsync(cancellationToken);
+
+        return panel;
+    }
+
     private async Task ValidateAppointmentLinkAsync(
         int appointmentId,
         int patientProfileId,

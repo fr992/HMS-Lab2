@@ -9,4 +9,5 @@ public interface IEncounterService
     Task<List<EncounterDto>> GetEncountersAsync(int? patientProfileId, int? doctorProfileId, CancellationToken cancellationToken);
     Task<EncounterDto> UpdateAsync(int id, UpdateEncounterDto request, int? actorUserId, CancellationToken cancellationToken);
     Task<EncounterDto> UpdateStatusAsync(int id, UpdateEncounterStatusDto request, int? actorUserId, CancellationToken cancellationToken);
+    Task<EncounterPanelDto> GetPanelAsync(int id, CancellationToken cancellationToken = default);
 }

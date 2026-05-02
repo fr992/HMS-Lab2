@@ -4,7 +4,7 @@ using HMS.Persistence;
 using Identity.Domain.Entities;
 using Microsoft.EntityFrameworkCore;
 
-namespace Identity.Infrastructure.Services.Patients;
+namespace Identity.Infrastructure.Services;
 
 public sealed class DiagnosisService : IDiagnosisService
 {

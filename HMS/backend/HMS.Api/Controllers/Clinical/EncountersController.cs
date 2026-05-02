@@ -111,6 +111,18 @@ public sealed class EncountersController : ControllerBase
         return Ok(result);
     }
 
+    [HttpGet("{id:int}/panel")]
+    [RequirePermission("Encounters.Read")]
+    public async Task<ActionResult<EncounterPanelDto>> GetPanel(int id, CancellationToken cancellationToken)
+    {
+        var result = await _encounterService.GetPanelAsync(id, cancellationToken);
+
+        if(result == null) 
+            return NotFound();
+
+        return Ok(result);
+    }
+
     private int? CurrentUserId()
     {
         var value = User.FindFirstValue(ClaimTypes.NameIdentifier);

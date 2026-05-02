@@ -16,6 +16,11 @@ apiClient.interceptors.request.use((config) => {
   return config;
 });
 
+export const clinicalApi = {
+  getEncounterPanel: (encounterId) =>
+    apiClient.get(`/encounters/${encounterId}/panel`),
+};
+
 apiClient.interceptors.response.use(
   (response) => response,
   (error) => {

@@ -17,6 +17,9 @@ import AppointmentEditPage from "@/features/appointments/AppointmentEditPage";
 import AppointmentCreatePage from "@/features/appointments/AppointmentCreatePage";
 import AppointmentRequestsPage from "@/features/appointmentRequests/AppointmentRequestsPage";
 import LandingPage from "@/pages/home/LandingPage";
+import EncountersListPage from "@/features/encounters/EncountersListPage";
+import EncounterPanelPage from "@/features/encounters/EncounterPanelPage";
+
 
 export default function App() {
   return (
@@ -107,6 +110,19 @@ export default function App() {
           >
             <Route index element={<AppointmentRequestsPage />} />
           </Route>
+
+          <Route
+            path="/doctor/encounters"
+            element={
+              <PermissionRoute anyPermission={["Encounters.Read"]}>
+                <AdminLayout />
+              </PermissionRoute>
+            }
+          >
+            <Route index element={<EncountersListPage />} />
+            <Route path=":encounterId" element={<EncounterPanelPage />} />
+          </Route>
+          
         </Routes>
       </BrowserRouter>
     </AuthProvider>
