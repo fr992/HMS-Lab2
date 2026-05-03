@@ -40,10 +40,28 @@ const STATUS_META = {
   },
 };
 
+const WEEKDAY_LABELS = ["Mo", "Tu", "We", "Th", "Fr", "Sa", "Su"];
+
 function addDays(date, days) {
   const next = new Date(date);
   next.setDate(next.getDate() + days);
   return next;
+}
+
+function startOfWeek(date) {
+  const next = new Date(date);
+  next.setHours(0, 0, 0, 0);
+  const day = next.getDay();
+  const diff = day === 0 ? -6 : 1 - day;
+  next.setDate(next.getDate() + diff);
+  return next;
+}
+
+function startOfMonth(date) {
+  const d = new Date(date);
+  d.setHours(0, 0, 0, 0);
+  d.setDate(1);
+  return d;
 }
 
 function dateKey(date) {
@@ -116,22 +134,8 @@ function CompactStatusBadge({ status }) {
   );
 }
 
-export default function AppointmentCalendar({
-  appointments,
-  weekStart,
-  onDayClick,
-  onAppointmentClick,
-  canCreate,
-  onCreate,
-}) {
-  const today = new Date();
-
-  const days = useMemo(
-    () => Array.from({ length: 7 }, (_, index) => addDays(weekStart, index)),
-    [weekStart]
-  );
-
-  const appointmentsByDay = useMemo(() => {
+function useAppointmentsByDay(appointments) {
+  return useMemo(() => {
     const map = new Map();
     for (const appointment of appointments) {
       const start = new Date(appointment.scheduledStart);
@@ -149,153 +153,314 @@ export default function AppointmentCalendar({
 
     return map;
   }, [appointments]);
+}
+
+function AppointmentDayColumn({
+  day,
+  items,
+  today,
+  onDayClick,
+  onAppointmentClick,
+  canCreate,
+  onCreate,
+}) {
+  const isToday = isSameDay(day, today);
+
+  return (
+    <section
+      className={[
+        "flex min-h-[26rem] min-w-0 flex-col",
+        isToday ? "bg-sky-50/20" : "bg-white",
+      ]
+        .filter(Boolean)
+        .join(" ")}
+    >
+      <div className="flex min-h-0 flex-1 flex-col gap-2 p-2.5">
+        {items.length === 0 ? (
+          <button
+            type="button"
+            onClick={() => onDayClick(day)}
+            className="flex min-h-[11rem] flex-1 items-center justify-center rounded-md border border-dashed border-slate-200 bg-slate-50/50 text-sm font-medium text-slate-400 transition hover:border-sky-200 hover:bg-sky-50/70 hover:text-sky-700"
+          >
+            No visits
+          </button>
+        ) : (
+          items.map((appointment) => {
+            const meta = statusMeta(appointment.status);
+            return (
+              <button
+                key={appointment.id}
+                type="button"
+                onClick={() => onAppointmentClick(appointment)}
+                className={`group relative min-w-0 overflow-hidden rounded-md border ${meta.border} ${meta.bg} p-3 text-left shadow-sm transition hover:-translate-y-0.5 hover:border-sky-300 hover:bg-white hover:shadow-md`}
+              >
+                <span
+                  className={`absolute inset-y-0 left-0 w-1 ${meta.dot}`}
+                />
+                <span className="block min-w-0 pl-2">
+                  <span className="flex min-w-0 items-center gap-1.5 text-[11px] font-semibold text-slate-700">
+                    <Clock3
+                      className="h-3.5 w-3.5 shrink-0 text-slate-400"
+                      aria-hidden
+                    />
+                    <span className="truncate">
+                      {formatTimeRange(
+                        appointment.scheduledStart,
+                        appointment.scheduledEnd
+                      )}
+                    </span>
+                  </span>
+                  <span className="mt-1.5 block">
+                    <CompactStatusBadge status={appointment.status} />
+                  </span>
+                  <span className="mt-2 flex min-w-0 items-center gap-1.5 text-sm font-semibold text-slate-950">
+                    <UserRound
+                      className="h-3.5 w-3.5 shrink-0 text-slate-400"
+                      aria-hidden
+                    />
+                    <span className="truncate">{appointment.patientName}</span>
+                  </span>
+                  <span className="mt-1 flex min-w-0 items-center gap-1.5 text-xs text-slate-600">
+                    <Stethoscope
+                      className="h-3.5 w-3.5 shrink-0 text-slate-400"
+                      aria-hidden
+                    />
+                    <span className="truncate">Dr. {appointment.doctorName}</span>
+                  </span>
+                  {appointment.appointmentType && (
+                    <span className="mt-2 inline-flex max-w-full rounded-full bg-white/70 px-2 py-0.5 text-[11px] font-medium text-slate-600 ring-1 ring-inset ring-slate-200">
+                      <span className="truncate">
+                        {appointment.appointmentType}
+                      </span>
+                    </span>
+                  )}
+                </span>
+              </button>
+            );
+          })
+        )}
+      </div>
+
+      {canCreate && (
+        <div className="border-t border-slate-100 p-2">
+          <button
+            type="button"
+            onClick={() => onCreate(day)}
+            className="flex h-9 w-full items-center justify-center gap-2 rounded-md text-sm font-semibold text-sky-700 transition hover:bg-sky-50"
+          >
+            <CalendarPlus className="h-4 w-4" aria-hidden />
+            Add visit
+          </button>
+        </div>
+      )}
+    </section>
+  );
+}
+
+function MonthCalendar({
+  appointments,
+  focusDate,
+  onDayClick,
+  appointmentsByDay,
+  today,
+}) {
+  const monthStart = startOfMonth(focusDate);
+  const year = monthStart.getFullYear();
+  const month = monthStart.getMonth();
+  const dim = new Date(year, month + 1, 0).getDate();
+  const firstDow = (monthStart.getDay() + 6) % 7;
+
+  const cells = [];
+  for (let i = 0; i < firstDow; i++) {
+    cells.push({ kind: "empty" });
+  }
+  for (let d = 1; d <= dim; d++) {
+    cells.push({
+      kind: "day",
+      date: new Date(year, month, d),
+    });
+  }
+  while (cells.length % 7 !== 0) {
+    cells.push({ kind: "empty" });
+  }
+
+  return (
+    <div className="overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm">
+      <div className="grid grid-cols-7 border-b border-slate-200 bg-slate-50">
+        {WEEKDAY_LABELS.map((label) => (
+          <div
+            key={label}
+            className="px-1 py-2 text-center text-[11px] font-semibold uppercase tracking-wide text-slate-500"
+          >
+            {label}
+          </div>
+        ))}
+      </div>
+      <div className="grid grid-cols-7 gap-px bg-slate-200">
+        {cells.map((cell, idx) => {
+          if (cell.kind === "empty") {
+            return (
+              <div
+                key={`e-${idx}`}
+                className="min-h-[5.5rem] bg-slate-50/80"
+              />
+            );
+          }
+
+          const { date } = cell;
+          const key = dateKey(date);
+          const items = appointmentsByDay.get(key) ?? [];
+          const isToday = isSameDay(date, today);
+
+          return (
+            <button
+              key={key}
+              type="button"
+              onClick={() => onDayClick(date)}
+              className={[
+                "flex min-h-[5.5rem] min-w-0 flex-col items-stretch border-0 p-1.5 text-left transition hover:bg-sky-50/80",
+                isToday ? "bg-sky-50" : "bg-white",
+              ].join(" ")}
+            >
+              <span
+                className={[
+                  "inline-flex h-6 w-6 items-center justify-center rounded-full text-xs font-semibold",
+                  isToday
+                    ? "bg-sky-600 text-white"
+                    : "text-slate-800",
+                ].join(" ")}
+              >
+                {date.getDate()}
+              </span>
+              <span className="mt-1 line-clamp-2 text-[10px] font-medium text-slate-500">
+                {items.length === 0
+                  ? " "
+                  : `${items.length} ${items.length === 1 ? "visit" : "visits"}`}
+              </span>
+            </button>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+/**
+ * @param {"day" | "week" | "month"} props.calendarView
+ */
+export default function AppointmentCalendar({
+  appointments,
+  calendarView,
+  focusDate,
+  onDayClick,
+  onAppointmentClick,
+  canCreate,
+  onCreate,
+}) {
+  const today = new Date();
+  const appointmentsByDay = useAppointmentsByDay(appointments);
+
+  const days = useMemo(() => {
+    if (calendarView === "day") {
+      const d = new Date(focusDate);
+      d.setHours(0, 0, 0, 0);
+      return [d];
+    }
+    if (calendarView === "week") {
+      const from = startOfWeek(focusDate);
+      return Array.from({ length: 7 }, (_, index) => addDays(from, index));
+    }
+    return [];
+  }, [calendarView, focusDate]);
+
+  if (calendarView === "month") {
+    return (
+      <MonthCalendar
+        appointments={appointments}
+        focusDate={focusDate}
+        onDayClick={onDayClick}
+        appointmentsByDay={appointmentsByDay}
+        today={today}
+      />
+    );
+  }
+
+  const colCount = days.length;
+  const minWidth = calendarView === "day" ? "min-w-0" : "min-w-[980px]";
 
   return (
     <div className="overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm">
       <div className="overflow-x-auto">
-        <div className="grid min-w-[980px] grid-cols-7 divide-x divide-slate-200 border-b border-slate-200 bg-slate-50">
+        <div
+          className={`grid ${minWidth} divide-x divide-slate-200 border-b border-slate-200 bg-slate-50`}
+          style={{
+            gridTemplateColumns: `repeat(${colCount}, minmax(0, 1fr))`,
+          }}
+        >
           {days.map((day) => {
             const items = appointmentsByDay.get(dateKey(day)) ?? [];
             const isToday = isSameDay(day, today);
 
             return (
-            <button
-              key={dateKey(day)}
-              type="button"
-              onClick={() => onDayClick(day)}
-              className={[
-                "min-w-0 px-3 py-3 text-left transition hover:bg-white",
-                isToday ? "bg-sky-50" : "",
-              ]
-                .filter(Boolean)
-                .join(" ")}
-            >
-              <span className="flex items-start justify-between gap-2">
-                <span className="min-w-0">
-                  <span className="block truncate text-xs font-semibold uppercase tracking-wide text-slate-500">
-                    {formatDay(day)}
-                  </span>
-                  <span className="mt-1 flex items-baseline gap-1.5">
-                    <span className="text-2xl font-semibold leading-none text-slate-950">
-                      {formatDayNumber(day)}
-                    </span>
-                    <span className="text-xs font-medium text-slate-500">
-                      {formatMonth(day)}
-                    </span>
-                  </span>
-                  <span className="mt-1 block text-xs text-slate-500">
-                    {items.length} {items.length === 1 ? "visit" : "visits"}
-                  </span>
-                </span>
-                {isToday && (
-                  <span className="shrink-0 rounded-full bg-sky-600 px-2 py-0.5 text-[11px] font-semibold text-white">
-                    Today
-                  </span>
-                )}
-              </span>
-            </button>
-            );
-          })}
-        </div>
-
-        <div className="grid min-w-[980px] grid-cols-7 divide-x divide-slate-200">
-          {days.map((day) => {
-            const items = appointmentsByDay.get(dateKey(day)) ?? [];
-            const isToday = isSameDay(day, today);
-
-            return (
-              <section
+              <button
                 key={dateKey(day)}
+                type="button"
+                onClick={() => onDayClick(day)}
                 className={[
-                  "flex min-h-[26rem] min-w-0 flex-col",
-                  isToday ? "bg-sky-50/20" : "bg-white",
+                  "min-w-0 px-3 py-3 text-left transition hover:bg-white",
+                  isToday ? "bg-sky-50" : "",
                 ]
                   .filter(Boolean)
                   .join(" ")}
               >
-                <div className="flex min-h-0 flex-1 flex-col gap-2 p-2.5">
-                  {items.length === 0 ? (
-                    <button
-                      type="button"
-                      onClick={() => onDayClick(day)}
-                      className="flex min-h-[11rem] flex-1 items-center justify-center rounded-md border border-dashed border-slate-200 bg-slate-50/50 text-sm font-medium text-slate-400 transition hover:border-sky-200 hover:bg-sky-50/70 hover:text-sky-700"
-                    >
-                      No visits
-                    </button>
-                  ) : (
-                    items.map((appointment) => {
-                      const meta = statusMeta(appointment.status);
-                      return (
-                        <button
-                          key={appointment.id}
-                          type="button"
-                          onClick={() => onAppointmentClick(appointment)}
-                          className={`group relative min-w-0 overflow-hidden rounded-md border ${meta.border} ${meta.bg} p-3 text-left shadow-sm transition hover:-translate-y-0.5 hover:border-sky-300 hover:bg-white hover:shadow-md`}
-                        >
-                          <span
-                            className={`absolute inset-y-0 left-0 w-1 ${meta.dot}`}
-                          />
-                          <span className="block min-w-0 pl-2">
-                            <span className="flex min-w-0 items-center gap-1.5 text-[11px] font-semibold text-slate-700">
-                              <Clock3
-                                className="h-3.5 w-3.5 shrink-0 text-slate-400"
-                                aria-hidden
-                              />
-                              <span className="truncate">
-                                {formatTimeRange(
-                                  appointment.scheduledStart,
-                                  appointment.scheduledEnd
-                                )}
-                              </span>
-                            </span>
-                            <span className="mt-1.5 block">
-                              <CompactStatusBadge status={appointment.status} />
-                            </span>
-                            <span className="mt-2 flex min-w-0 items-center gap-1.5 text-sm font-semibold text-slate-950">
-                              <UserRound
-                                className="h-3.5 w-3.5 shrink-0 text-slate-400"
-                                aria-hidden
-                              />
-                              <span className="truncate">
-                                {appointment.patientName}
-                              </span>
-                            </span>
-                            <span className="mt-1 flex min-w-0 items-center gap-1.5 text-xs text-slate-600">
-                              <Stethoscope
-                                className="h-3.5 w-3.5 shrink-0 text-slate-400"
-                                aria-hidden
-                              />
-                              <span className="truncate">
-                                Dr. {appointment.doctorName}
-                              </span>
-                            </span>
-                            {appointment.appointmentType && (
-                              <span className="mt-2 inline-flex max-w-full rounded-full bg-white/70 px-2 py-0.5 text-[11px] font-medium text-slate-600 ring-1 ring-inset ring-slate-200">
-                                <span className="truncate">
-                                  {appointment.appointmentType}
-                                </span>
-                              </span>
-                            )}
-                          </span>
-                        </button>
-                      );
-                    })
+                <span className="flex items-start justify-between gap-2">
+                  <span className="min-w-0">
+                    <span className="block truncate text-xs font-semibold uppercase tracking-wide text-slate-500">
+                      {formatDay(day)}
+                    </span>
+                    <span className="mt-1 flex items-baseline gap-1.5">
+                      <span className="text-2xl font-semibold leading-none text-slate-950">
+                        {formatDayNumber(day)}
+                      </span>
+                      <span className="text-xs font-medium text-slate-500">
+                        {formatMonth(day)}
+                      </span>
+                    </span>
+                    <span className="mt-1 block text-xs text-slate-500">
+                      {items.length} {items.length === 1 ? "visit" : "visits"}
+                    </span>
+                  </span>
+                  {isToday && (
+                    <span className="shrink-0 rounded-full bg-sky-600 px-2 py-0.5 text-[11px] font-semibold text-white">
+                      Today
+                    </span>
                   )}
-                </div>
+                </span>
+              </button>
+            );
+          })}
+        </div>
 
-                {canCreate && (
-                  <div className="border-t border-slate-100 p-2">
-                    <button
-                      type="button"
-                      onClick={() => onCreate(day)}
-                      className="flex h-9 w-full items-center justify-center gap-2 rounded-md text-sm font-semibold text-sky-700 transition hover:bg-sky-50"
-                    >
-                      <CalendarPlus className="h-4 w-4" aria-hidden />
-                      Add visit
-                    </button>
-                  </div>
-                )}
-              </section>
+        <div
+          className={`grid ${minWidth} divide-x divide-slate-200`}
+          style={{
+            gridTemplateColumns: `repeat(${colCount}, minmax(0, 1fr))`,
+          }}
+        >
+          {days.map((day) => {
+            const items = appointmentsByDay.get(dateKey(day)) ?? [];
+
+            return (
+              <AppointmentDayColumn
+                key={dateKey(day)}
+                day={day}
+                items={items}
+                today={today}
+                onDayClick={onDayClick}
+                onAppointmentClick={onAppointmentClick}
+                canCreate={canCreate}
+                onCreate={onCreate}
+              />
             );
           })}
         </div>

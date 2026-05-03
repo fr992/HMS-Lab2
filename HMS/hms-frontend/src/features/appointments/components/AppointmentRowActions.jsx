@@ -1,6 +1,7 @@
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { useNavigate } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
+import { FolderOpen, Stethoscope } from "lucide-react";
 import {
   getAppointmentRowActions,
   isAppointmentActionVisible,
@@ -26,6 +27,7 @@ const PAD_PX = 8;
  * @param {string} props.encounterBasePath
  * @param {() => Promise<void>} props.onMutated — refetch list
  * @param {(msg: string, type?: 'success'|'error') => void} props.onToast
+ * @param {"menu" | "card"=} props.variant
  */
 export default function AppointmentRowActions({
   appointment,
@@ -35,6 +37,7 @@ export default function AppointmentRowActions({
   encounterBasePath,
   onMutated,
   onToast,
+  variant = "menu",
 }) {
   const navigate = useNavigate();
   const [open, setOpen] = useState(false);
@@ -50,6 +53,13 @@ export default function AppointmentRowActions({
   const perms = { canManageStatus, canEdit, canVisit };
   const allActions = getAppointmentRowActions(appointment.status);
   const actions = allActions.filter((a) => isAppointmentActionVisible(a, perms));
+  const visitAction = allActions.find((a) => a.kind === "visit");
+  const visitAllowed =
+    visitAction && isAppointmentActionVisible(visitAction, perms);
+  const menuActions =
+    variant === "card"
+      ? actions.filter((a) => a.kind !== "visit")
+      : actions;
 
   const runStatusPatch = async (target) => {
     if (mutating) return;
@@ -131,7 +141,7 @@ export default function AppointmentRowActions({
     }
     const el = buttonRef.current;
     if (!el) return;
-    const n = actions.length;
+    const n = menuActions.length;
     if (n < 1) return;
 
     const r = el.getBoundingClientRect();
@@ -158,7 +168,7 @@ export default function AppointmentRowActions({
     }
 
     setPos({ top, left });
-  }, [open, actions.length]);
+  }, [open, menuActions.length]);
 
   useLayoutEffect(() => {
     if (!open || !pos || nudgedForOpenRef.current) return;
@@ -201,7 +211,7 @@ export default function AppointmentRowActions({
     return () => document.removeEventListener("keydown", onKey, true);
   }, [open]);
 
-  if (actions.length < 1) {
+  if (variant === "menu" && menuActions.length < 1) {
     return <span className="text-xs text-slate-400">—</span>;
   }
 
@@ -214,7 +224,7 @@ export default function AppointmentRowActions({
             style={{ top: pos.top, left: pos.left }}
             role="menu"
           >
-            {actions.map((action) => {
+            {menuActions.map((action) => {
               const danger = action.id === "cancel";
               return (
                 <li key={action.id}>
@@ -239,25 +249,85 @@ export default function AppointmentRowActions({
         )
       : null;
 
+  const visitDisabled =
+    mutating ||
+    appointment.status === APPOINTMENT_STATUS.SCHEDULED ||
+    !visitAllowed;
+  const appointmentStatusKey = String(appointment.status ?? "").toLowerCase();
+  const isVisited = appointmentStatusKey === APPOINTMENT_STATUS.COMPLETED;
+
+  const kebab =
+    menuActions.length > 0 ? (
+      <button
+        type="button"
+        ref={buttonRef}
+        className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-500 shadow-sm transition hover:bg-slate-50 disabled:opacity-50"
+        aria-label="More appointment actions"
+        aria-haspopup="menu"
+        aria-expanded={open}
+        disabled={mutating}
+        onClick={(e) => {
+          e.stopPropagation();
+          setOpen((o) => !o);
+        }}
+      >
+        <span className="text-lg leading-none">&#8942;</span>
+      </button>
+    ) : null;
+
+  if (variant === "card") {
+    return (
+      <>
+        <div className="flex flex-wrap items-center justify-end gap-2">
+          {isVisited && (
+            <Link
+              to={`/appointments/${appointment.id}`}
+              className="inline-flex h-9 items-center justify-center gap-2 rounded-lg border border-slate-200 bg-white px-3 text-sm font-medium text-slate-800 shadow-sm transition hover:bg-slate-50"
+            >
+              <FolderOpen className="h-4 w-4 shrink-0 text-slate-600" aria-hidden />
+              Open Visit
+            </Link>
+          )}
+          {!isVisited && visitAction && visitAllowed && (
+            <span className="relative inline-flex">
+              <button
+                type="button"
+                disabled={visitDisabled}
+                title={
+                  appointment.status === APPOINTMENT_STATUS.SCHEDULED
+                    ? "Appointment must be approved"
+                    : undefined
+                }
+                onClick={(e) => {
+                  e.stopPropagation();
+                  if (visitDisabled) return;
+                  handleAction(visitAction);
+                }}
+                className="inline-flex h-9 items-center justify-center gap-2 rounded-lg bg-sky-600 px-3 text-sm font-medium text-white shadow-sm transition hover:bg-sky-700 disabled:cursor-not-allowed disabled:bg-sky-400/70 disabled:opacity-90"
+              >
+                <Stethoscope className="h-4 w-4 shrink-0" aria-hidden />
+                Visit
+              </button>
+            </span>
+          )}
+          {kebab}
+        </div>
+        {menu}
+
+        <AppointmentCancelModal
+          open={cancelOpen}
+          onClose={() => !mutating && setCancelOpen(false)}
+          onSubmit={submitCancel}
+          submitting={mutating}
+          error={cancelError}
+        />
+      </>
+    );
+  }
+
   return (
     <>
-      <div className="flex justify-end">
-        <button
-          type="button"
-          ref={buttonRef}
-          className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-md border border-slate-200 text-slate-500 hover:bg-slate-100 disabled:opacity-50"
-          aria-label="Appointment actions"
-          aria-haspopup="menu"
-          aria-expanded={open}
-          disabled={mutating}
-          onClick={(e) => {
-            e.stopPropagation();
-            setOpen((o) => !o);
-          }}
-        >
-          <span className="text-lg leading-none">&#8942;</span>
-        </button>
-      </div>
+      <div className="flex justify-end">{kebab}</div>
       {menu}
 
       <AppointmentCancelModal

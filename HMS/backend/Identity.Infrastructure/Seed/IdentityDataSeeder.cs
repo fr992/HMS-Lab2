@@ -50,7 +50,6 @@ public sealed class IdentityDataSeeder
         ("Encounters.Read", "Lexon encounter."),
         ("Encounters.Update", "Përditëson encounter gjatë vizitës."),
         ("Encounters.Close", "Mbyll vizitën."),
-        ("Diagnoses.Manage", "Menaxhon diagnozat e lidhura me encounter."),
         ("LabRequests.Create", "Krijon kërkesë laboratori nga vizita."),
         ("Diagnoses.Manage", "Menaxhon diagnozat e lidhura me encounter."),
         ("Prescriptions.Read", "Lexon recetat."),

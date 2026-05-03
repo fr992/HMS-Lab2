@@ -6,6 +6,7 @@ import {
   CheckCircle2,
   ChevronLeft,
   ChevronRight,
+  Clock3,
   List,
   Plus,
   RefreshCw,
@@ -19,17 +20,14 @@ import {
 } from "@/features/appointments/api/appointmentsApi";
 import AppointmentCalendar from "@/features/appointments/components/AppointmentCalendar";
 import AppointmentRowActions from "@/features/appointments/components/AppointmentRowActions";
-import AppointmentStatusBadge from "@/features/appointments/components/AppointmentStatusBadge";
 import CalendarDayModal from "@/features/appointments/components/CalendarDayModal";
 import { APPOINTMENT_STATUS } from "@/features/appointments/appointmentConstants";
 
-const STATUS_FILTERS = [
-  { value: "all", label: "All statuses" },
-  { value: APPOINTMENT_STATUS.SCHEDULED, label: "Scheduled" },
-  { value: APPOINTMENT_STATUS.CONFIRMED, label: "Confirmed" },
-  { value: APPOINTMENT_STATUS.COMPLETED, label: "Completed" },
-  { value: APPOINTMENT_STATUS.CANCELLED, label: "Cancelled" },
-  { value: APPOINTMENT_STATUS.NO_SHOW, label: "No show" },
+const LIST_SEGMENT_TABS = [
+  { value: "all", label: "All" },
+  { value: "upcoming", label: "Upcoming" },
+  { value: "completed", label: "Completed" },
+  { value: "cancelled", label: "Cancelled" },
 ];
 
 function startOfWeek(date) {
@@ -45,24 +43,6 @@ function addDays(date, days) {
   const next = new Date(date);
   next.setDate(next.getDate() + days);
   return next;
-}
-
-function isSameDay(a, b) {
-  return (
-    a.getFullYear() === b.getFullYear() &&
-    a.getMonth() === b.getMonth() &&
-    a.getDate() === b.getDate()
-  );
-}
-
-function formatRange(startIso, endIso) {
-  const start = new Date(startIso);
-  const end = new Date(endIso);
-  if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime())) return "-";
-  return `${start.toLocaleString(undefined, {
-    dateStyle: "medium",
-    timeStyle: "short",
-  })} - ${end.toLocaleTimeString(undefined, { timeStyle: "short" })}`;
 }
 
 function formatWeekLabel(weekStart) {
@@ -83,8 +63,205 @@ function formatWeekLabel(weekStart) {
   })}`;
 }
 
+function startOfMonth(date) {
+  const d = new Date(date);
+  d.setHours(0, 0, 0, 0);
+  d.setDate(1);
+  return d;
+}
+
+function addMonths(date, delta) {
+  const d = new Date(date);
+  d.setMonth(d.getMonth() + delta);
+  return d;
+}
+
+/**
+ * @param {"day" | "week" | "month"} mode
+ * @param {Date} focusDate
+ */
+function getScheduleFetchRange(mode, focusDate) {
+  const t = new Date(focusDate);
+  t.setHours(0, 0, 0, 0);
+  if (mode === "day") {
+    return { from: new Date(t), to: addDays(t, 1) };
+  }
+  if (mode === "week") {
+    const from = startOfWeek(t);
+    return { from, to: addDays(from, 7) };
+  }
+  const from = startOfMonth(t);
+  return { from, to: addMonths(from, 1) };
+}
+
+/**
+ * @param {"day" | "week" | "month"} mode
+ * @param {Date} focusDate
+ */
+function formatScheduleNavLabel(mode, focusDate) {
+  if (mode === "day") {
+    return focusDate.toLocaleDateString(undefined, {
+      weekday: "short",
+      month: "short",
+      day: "numeric",
+      year: "numeric",
+    });
+  }
+  if (mode === "week") {
+    return formatWeekLabel(startOfWeek(focusDate));
+  }
+  return focusDate.toLocaleDateString(undefined, {
+    month: "long",
+    year: "numeric",
+  });
+}
+
+function isSameDay(a, b) {
+  return (
+    a.getFullYear() === b.getFullYear() &&
+    a.getMonth() === b.getMonth() &&
+    a.getDate() === b.getDate()
+  );
+}
+
 function statusKey(status) {
   return String(status ?? "").trim().toLowerCase();
+}
+
+function formatListTime(iso) {
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return "—";
+  return d.toLocaleTimeString(undefined, {
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false,
+  });
+}
+
+function durationMinutes(startIso, endIso) {
+  const a = new Date(startIso).getTime();
+  const b = new Date(endIso).getTime();
+  if (!Number.isFinite(a) || !Number.isFinite(b)) return null;
+  return Math.max(0, Math.round((b - a) / 60000));
+}
+
+/** @returns {{ label: string, className: string } | null} */
+function appointmentTypePill(raw) {
+  const label = raw?.trim();
+  if (!label) return null;
+  const key = label.toLowerCase().replace(/[^a-z0-9]+/g, "_");
+  const styles = {
+    follow_up: "bg-slate-100 text-slate-800 ring-slate-200/80",
+    followup: "bg-slate-100 text-slate-800 ring-slate-200/80",
+    consultation: "bg-teal-50 text-teal-800 ring-teal-200/80",
+    check_up: "bg-sky-50 text-sky-800 ring-sky-200/80",
+    checkup: "bg-sky-50 text-sky-800 ring-sky-200/80",
+    emergency: "bg-rose-50 text-rose-800 ring-rose-200/80",
+    surgery_prep: "bg-orange-50 text-orange-900 ring-orange-200/80",
+  };
+  return {
+    label,
+    className: styles[key] ?? "bg-slate-100 text-slate-700 ring-slate-200/80",
+  };
+}
+
+function approvalPillForList(status) {
+  const k = statusKey(status);
+  if (k === APPOINTMENT_STATUS.CONFIRMED || k === APPOINTMENT_STATUS.COMPLETED) {
+    return { label: "Approved", className: "bg-sky-50 text-sky-800 ring-sky-200/80" };
+  }
+  if (k === APPOINTMENT_STATUS.SCHEDULED) {
+    return { label: "Pending", className: "bg-amber-50 text-amber-900 ring-amber-200/80" };
+  }
+  if (k === APPOINTMENT_STATUS.CANCELLED) {
+    return { label: "Cancelled", className: "bg-rose-50 text-rose-800 ring-rose-200/80" };
+  }
+  if (k === APPOINTMENT_STATUS.NO_SHOW) {
+    return { label: "No show", className: "bg-slate-100 text-slate-700 ring-slate-200/80" };
+  }
+  return null;
+}
+
+function visitStatusPillForList(appointment) {
+  const k = statusKey(appointment.status);
+  const now = Date.now();
+  const start = new Date(appointment.scheduledStart).getTime();
+  const end = new Date(appointment.scheduledEnd).getTime();
+
+  if (k === APPOINTMENT_STATUS.COMPLETED) {
+    return {
+      label: "Completed",
+      Icon: CheckCircle2,
+      className: "bg-emerald-50 text-emerald-800 ring-emerald-200/80",
+    };
+  }
+  if (k === APPOINTMENT_STATUS.CANCELLED) {
+    return {
+      label: "Cancelled",
+      Icon: XCircle,
+      className: "bg-rose-50 text-rose-800 ring-rose-200/80",
+    };
+  }
+  if (k === APPOINTMENT_STATUS.NO_SHOW) {
+    return {
+      label: "No show",
+      Icon: XCircle,
+      className: "bg-slate-100 text-slate-700 ring-slate-200/80",
+    };
+  }
+  if (k === APPOINTMENT_STATUS.CONFIRMED) {
+    if (now < start) {
+      return {
+        label: "Upcoming",
+        Icon: CalendarDays,
+        className: "bg-sky-50 text-sky-800 ring-sky-200/80",
+      };
+    }
+    if (now <= end) {
+      return {
+        label: "In progress",
+        Icon: Clock3,
+        className: "bg-sky-50 text-sky-900 ring-sky-200/80",
+      };
+    }
+    return {
+      label: "Visited",
+      Icon: CheckCircle2,
+      className: "bg-emerald-50 text-emerald-800 ring-emerald-200/80",
+    };
+  }
+  if (k === APPOINTMENT_STATUS.SCHEDULED) {
+    if (now < start) {
+      return {
+        label: "Upcoming",
+        Icon: CalendarDays,
+        className: "bg-sky-50 text-sky-800 ring-sky-200/80",
+      };
+    }
+    return {
+      label: "Pending",
+      Icon: Clock3,
+      className: "bg-amber-50 text-amber-900 ring-amber-200/80",
+    };
+  }
+  return {
+    label: "Upcoming",
+    Icon: CalendarDays,
+    className: "bg-slate-100 text-slate-700 ring-slate-200/80",
+  };
+}
+
+function matchesListSegment(appointment, segment) {
+  const k = statusKey(appointment.status);
+  if (segment === "all") return true;
+  if (segment === "completed") return k === APPOINTMENT_STATUS.COMPLETED;
+  if (segment === "cancelled") {
+    return k === APPOINTMENT_STATUS.CANCELLED || k === APPOINTMENT_STATUS.NO_SHOW;
+  }
+  if (segment === "upcoming") {
+    return k === APPOINTMENT_STATUS.SCHEDULED || k === APPOINTMENT_STATUS.CONFIRMED;
+  }
+  return true;
 }
 
 const SUMMARY_TONES = {
@@ -96,7 +273,7 @@ const SUMMARY_TONES = {
 
 function SummaryTile({ label, value, icon, tone = "slate" }) {
   return (
-    <div className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
+    <div className="flex h-full min-h-0 flex-col rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
       <div className="flex items-start justify-between gap-3">
         <div>
           <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
@@ -149,35 +326,105 @@ function ViewToggle({ view, onChange }) {
   );
 }
 
-function WeekNav({ weekStart, onChange }) {
+const CALENDAR_VIEW_OPTIONS = [
+  { value: "day", label: "Day" },
+  { value: "week", label: "Week" },
+  { value: "month", label: "Month" },
+];
+
+function ScheduleNav({ calendarView, focusDate, onViewChange, onFocusChange }) {
+  const viewBtn = (value) =>
+    [
+      "rounded-md px-3 py-2 text-sm font-medium transition",
+      calendarView === value
+        ? "bg-sky-700 text-white shadow-sm"
+        : "text-slate-600 hover:bg-slate-100 hover:text-slate-950",
+    ].join(" ");
+
+  function goPrev() {
+    const d = new Date(focusDate);
+    if (calendarView === "day") {
+      onFocusChange(addDays(d, -1));
+      return;
+    }
+    if (calendarView === "week") {
+      onFocusChange(addDays(startOfWeek(d), -7));
+      return;
+    }
+    onFocusChange(addMonths(startOfMonth(d), -1));
+  }
+
+  function goNext() {
+    const d = new Date(focusDate);
+    if (calendarView === "day") {
+      onFocusChange(addDays(d, 1));
+      return;
+    }
+    if (calendarView === "week") {
+      onFocusChange(addDays(startOfWeek(d), 7));
+      return;
+    }
+    onFocusChange(addMonths(startOfMonth(d), 1));
+  }
+
+  function goToday() {
+    const now = new Date();
+    if (calendarView === "month") {
+      onFocusChange(startOfMonth(now));
+      return;
+    }
+    if (calendarView === "week") {
+      onFocusChange(startOfWeek(now));
+      return;
+    }
+    onFocusChange(now);
+  }
+
   return (
-    <div className="flex flex-wrap items-center gap-2 xl:justify-end">
-      <button
-        type="button"
-        onClick={() => onChange(addDays(weekStart, -7))}
-        className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-600 shadow-sm transition hover:bg-slate-50"
-        aria-label="Previous week"
-      >
-        <ChevronLeft className="h-4 w-4" aria-hidden />
-      </button>
-      <div className="min-w-[13rem] rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-center text-sm font-semibold text-slate-900">
-        {formatWeekLabel(weekStart)}
+    <div className="flex w-full min-w-0 flex-col gap-2">
+      <div className="inline-flex w-fit max-w-full rounded-lg border border-slate-200 bg-white p-0.5 shadow-sm">
+        {CALENDAR_VIEW_OPTIONS.map((opt) => (
+          <button
+            key={opt.value}
+            type="button"
+            onClick={() => onViewChange(opt.value)}
+            className={viewBtn(opt.value)}
+            aria-pressed={calendarView === opt.value}
+          >
+            {opt.label}
+          </button>
+        ))}
       </div>
-      <button
-        type="button"
-        onClick={() => onChange(addDays(weekStart, 7))}
-        className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-600 shadow-sm transition hover:bg-slate-50"
-        aria-label="Next week"
-      >
-        <ChevronRight className="h-4 w-4" aria-hidden />
-      </button>
-      <button
-        type="button"
-        onClick={() => onChange(startOfWeek(new Date()))}
-        className="h-9 rounded-lg border border-slate-200 bg-white px-3 text-sm font-semibold text-slate-800 shadow-sm transition hover:bg-slate-50"
-      >
-        Today
-      </button>
+      <div className="flex w-full min-w-0 flex-col gap-2">
+        <div className="flex w-full min-w-0 items-stretch gap-1.5">
+          <button
+            type="button"
+            onClick={goPrev}
+            className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-600 shadow-sm transition hover:bg-slate-50"
+            aria-label="Previous"
+          >
+            <ChevronLeft className="h-4 w-4" aria-hidden />
+          </button>
+          <div className="flex min-h-10 min-w-[12rem] flex-1 items-center justify-center rounded-lg border border-slate-200 bg-slate-50 px-4 py-2 text-center text-sm font-semibold leading-snug text-slate-900 sm:min-w-[16rem]">
+            {formatScheduleNavLabel(calendarView, focusDate)}
+          </div>
+          <button
+            type="button"
+            onClick={goNext}
+            className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-600 shadow-sm transition hover:bg-slate-50"
+            aria-label="Next"
+          >
+            <ChevronRight className="h-4 w-4" aria-hidden />
+          </button>
+        </div>
+        <button
+          type="button"
+          onClick={goToday}
+          className="h-10 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm font-semibold text-slate-800 shadow-sm transition hover:bg-slate-50"
+        >
+          Today
+        </button>
+      </div>
     </div>
   );
 }
@@ -193,16 +440,27 @@ export default function AppointmentsListPage() {
     auth.userRole === "Doctor" ? "/doctor/encounters" : "/admin/encounters";
 
   const [view, setView] = useState("schedule");
-  const [weekStart, setWeekStart] = useState(() => startOfWeek(new Date()));
+  const [calendarView, setCalendarView] = useState("week");
+  const [scheduleFocus, setScheduleFocus] = useState(() => new Date());
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState(null);
   const [toast, setToast] = useState(null);
   const [search, setSearch] = useState("");
-  const [statusFilter, setStatusFilter] = useState("all");
+  const [listSegment, setListSegment] = useState("all");
   const [filterDate, setFilterDate] = useState("");
   const [selectedDay, setSelectedDay] = useState(null);
+
+  useEffect(() => {
+    setScheduleFocus((prev) => {
+      if (calendarView === "month") return startOfMonth(prev);
+      if (calendarView === "week") return startOfWeek(prev);
+      const d = new Date(prev);
+      d.setHours(0, 0, 0, 0);
+      return d;
+    });
+  }, [calendarView]);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -210,13 +468,16 @@ export default function AppointmentsListPage() {
     try {
       const filters =
         view === "schedule"
-          ? {
-              from: weekStart.toISOString(),
-              to: addDays(weekStart, 7).toISOString(),
-            }
+          ? (() => {
+              const { from, to } = getScheduleFetchRange(
+                calendarView,
+                scheduleFocus
+              );
+              return { from: from.toISOString(), to: to.toISOString() };
+            })()
           : filterDate
-          ? { date: filterDate }
-          : undefined;
+            ? { date: filterDate }
+            : undefined;
 
       const data = await fetchAppointments(filters);
       setItems(Array.isArray(data) ? data : []);
@@ -227,7 +488,7 @@ export default function AppointmentsListPage() {
       setLoading(false);
       setRefreshing(false);
     }
-  }, [filterDate, view, weekStart]);
+  }, [filterDate, view, scheduleFocus, calendarView]);
 
   useEffect(() => {
     const timer = window.setTimeout(() => {
@@ -244,12 +505,7 @@ export default function AppointmentsListPage() {
   const filteredItems = useMemo(() => {
     const term = search.trim().toLowerCase();
     return items.filter((appointment) => {
-      if (
-        statusFilter !== "all" &&
-        statusKey(appointment.status) !== statusFilter
-      ) {
-        return false;
-      }
+      if (!matchesListSegment(appointment, listSegment)) return false;
 
       if (!term) return true;
       const haystack = [
@@ -266,7 +522,7 @@ export default function AppointmentsListPage() {
 
       return haystack.includes(term);
     });
-  }, [items, search, statusFilter]);
+  }, [items, search, listSegment]);
 
   const counts = useMemo(() => {
     const next = {
@@ -290,6 +546,14 @@ export default function AppointmentsListPage() {
       isSameDay(new Date(appointment.scheduledStart), selectedDay)
     );
   }, [filteredItems, selectedDay]);
+
+  const sortedListItems = useMemo(() => {
+    if (view !== "list") return [];
+    return [...filteredItems].sort(
+      (a, b) =>
+        new Date(a.scheduledStart).getTime() - new Date(b.scheduledStart).getTime()
+    );
+  }, [filteredItems, view]);
 
   return (
     <div className="flex h-full min-h-0 flex-1 flex-col gap-5">
@@ -335,117 +599,165 @@ export default function AppointmentsListPage() {
         </div>
       </div>
 
-      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-        <SummaryTile
-          label={view === "schedule" ? "Week total" : "Showing"}
-          value={counts.total}
-          tone="slate"
-          icon={<CalendarClock className="h-4 w-4" aria-hidden />}
-        />
-        <SummaryTile
-          label="Scheduled"
-          value={counts.scheduled}
-          tone="sky"
-          icon={<CalendarDays className="h-4 w-4" aria-hidden />}
-        />
-        <SummaryTile
-          label="Confirmed"
-          value={counts.confirmed}
-          tone="emerald"
-          icon={<CheckCircle2 className="h-4 w-4" aria-hidden />}
-        />
-        <SummaryTile
-          label="Closed"
-          value={counts.completed + counts.cancelled + counts.no_show}
-          tone="rose"
-          icon={<XCircle className="h-4 w-4" aria-hidden />}
-        />
+      <div className="flex flex-col gap-4 lg:flex-row lg:items-stretch lg:gap-6">
+        <div className="grid w-full max-w-md shrink-0 grid-cols-2 gap-3 lg:h-full lg:w-80 lg:max-w-none lg:grid-rows-2 lg:auto-rows-fr">
+          <SummaryTile
+            label={
+              view === "schedule"
+                ? calendarView === "day"
+                  ? "Day total"
+                  : calendarView === "week"
+                    ? "Week total"
+                    : "Month total"
+                : "Showing"
+            }
+            value={counts.total}
+            tone="slate"
+            icon={<CalendarClock className="h-4 w-4" aria-hidden />}
+          />
+          <SummaryTile
+            label="Scheduled"
+            value={counts.scheduled}
+            tone="sky"
+            icon={<CalendarDays className="h-4 w-4" aria-hidden />}
+          />
+          <SummaryTile
+            label="Confirmed"
+            value={counts.confirmed}
+            tone="emerald"
+            icon={<CheckCircle2 className="h-4 w-4" aria-hidden />}
+          />
+          <SummaryTile
+            label="Closed"
+            value={counts.completed + counts.cancelled + counts.no_show}
+            tone="rose"
+            icon={<XCircle className="h-4 w-4" aria-hidden />}
+          />
+        </div>
+
+        <section
+          className={[
+            "flex min-h-0 min-w-0 flex-1 flex-col justify-center rounded-lg border border-slate-200 bg-white px-4 py-3 shadow-sm",
+            "w-full",
+          ].join(" ")}
+        >
+          {view === "list" ? (
+            <div className="flex flex-col gap-3">
+              <label className="block w-full">
+                <span className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                  Search
+                </span>
+                <span className="relative mt-1.5 block">
+                  <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+                  <input
+                    type="search"
+                    value={search}
+                    onChange={(event) => setSearch(event.target.value)}
+                    placeholder="Patient, doctor, department"
+                    className="h-10 w-full rounded-lg border border-slate-200 bg-white pl-9 pr-3 text-sm text-slate-900 shadow-sm outline-none transition placeholder:text-slate-400 focus:border-sky-500 focus:ring-2 focus:ring-sky-500/20"
+                  />
+                </span>
+              </label>
+              <div className="flex flex-wrap items-end gap-3">
+                <label className="block min-w-[10.5rem] flex-1">
+                  <span className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                    Day
+                  </span>
+                  <input
+                    type="date"
+                    value={filterDate}
+                    onChange={(event) => setFilterDate(event.target.value)}
+                    className="mt-1.5 h-10 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm text-slate-900 shadow-sm outline-none transition focus:border-sky-500 focus:ring-2 focus:ring-sky-500/20"
+                  />
+                </label>
+                <div className="grid w-full max-w-[15rem] shrink-0 grid-cols-2 gap-2 sm:w-[15rem]">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setSearch("");
+                      setListSegment("all");
+                      setFilterDate("");
+                    }}
+                    className="h-10 w-full rounded-lg border border-slate-200 bg-white px-2 text-sm font-semibold text-slate-800 shadow-sm transition hover:bg-slate-50"
+                  >
+                    Clear
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setFilterDate("");
+                      setListSegment("all");
+                    }}
+                    className="h-10 w-full rounded-lg border border-slate-200 bg-white px-2 text-sm font-semibold text-slate-800 shadow-sm transition hover:bg-slate-50"
+                  >
+                    Show all
+                  </button>
+                </div>
+              </div>
+            </div>
+          ) : (
+            <div className="flex flex-col gap-3">
+              <label className="block w-full">
+                <span className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                  Search
+                </span>
+                <span className="relative mt-1.5 block">
+                  <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+                  <input
+                    type="search"
+                    value={search}
+                    onChange={(event) => setSearch(event.target.value)}
+                    placeholder="Patient, doctor, department"
+                    className="h-10 w-full rounded-lg border border-slate-200 bg-white pl-9 pr-3 text-sm text-slate-900 shadow-sm outline-none transition placeholder:text-slate-400 focus:border-sky-500 focus:ring-2 focus:ring-sky-500/20"
+                  />
+                </span>
+              </label>
+              <div className="flex flex-wrap items-end gap-3">
+                <div className="min-w-0 flex-1">
+                  <ScheduleNav
+                    calendarView={calendarView}
+                    focusDate={scheduleFocus}
+                    onViewChange={setCalendarView}
+                    onFocusChange={setScheduleFocus}
+                  />
+                </div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setSearch("");
+                    setListSegment("all");
+                    setFilterDate("");
+                  }}
+                  className="h-10 shrink-0 rounded-lg border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-800 shadow-sm transition hover:bg-slate-50"
+                >
+                  Clear
+                </button>
+              </div>
+            </div>
+          )}
+        </section>
       </div>
 
-      <section className="rounded-lg border border-slate-200 bg-white px-4 py-3 shadow-sm">
-        <div className="grid gap-3 xl:grid-cols-[minmax(0,1fr)_auto] xl:items-end">
-          <div
-            className={
-              view === "list"
-                ? "grid gap-3 md:grid-cols-[minmax(16rem,1fr)_12rem_12rem_auto]"
-                : "grid gap-3 md:grid-cols-[minmax(16rem,1fr)_12rem_auto]"
-            }
-          >
-            <label className="block">
-              <span className="text-xs font-semibold uppercase tracking-wide text-slate-500">
-                Search
-              </span>
-              <span className="relative mt-1.5 block">
-                <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
-                <input
-                  type="search"
-                  value={search}
-                  onChange={(event) => setSearch(event.target.value)}
-                  placeholder="Patient, doctor, department"
-                  className="h-10 w-full rounded-lg border border-slate-200 bg-white pl-9 pr-3 text-sm text-slate-900 shadow-sm outline-none transition placeholder:text-slate-400 focus:border-sky-500 focus:ring-2 focus:ring-sky-500/20"
-                />
-              </span>
-            </label>
-
-            <label className="block">
-              <span className="text-xs font-semibold uppercase tracking-wide text-slate-500">
-                Status
-              </span>
-              <select
-                value={statusFilter}
-                onChange={(event) => setStatusFilter(event.target.value)}
-                className="mt-1.5 h-10 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm text-slate-900 shadow-sm outline-none transition focus:border-sky-500 focus:ring-2 focus:ring-sky-500/20"
-              >
-                {STATUS_FILTERS.map((option) => (
-                  <option key={option.value} value={option.value}>
-                    {option.label}
-                  </option>
-                ))}
-              </select>
-            </label>
-
-            {view === "list" ? (
-              <label className="block">
-                <span className="text-xs font-semibold uppercase tracking-wide text-slate-500">
-                  Day
-                </span>
-                <input
-                  type="date"
-                  value={filterDate}
-                  onChange={(event) => setFilterDate(event.target.value)}
-                  className="mt-1.5 h-10 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm text-slate-900 shadow-sm outline-none transition focus:border-sky-500 focus:ring-2 focus:ring-sky-500/20"
-                />
-              </label>
-            ) : (
-              null
-            )}
-
+      <div className="inline-flex rounded-xl border border-slate-200 bg-slate-100/80 p-1 shadow-sm">
+        {LIST_SEGMENT_TABS.map((tab) => {
+          const on = listSegment === tab.value;
+          return (
             <button
+              key={tab.value}
               type="button"
-              onClick={() => {
-                setSearch("");
-                setStatusFilter("all");
-                setFilterDate("");
-              }}
-              className="h-10 self-end rounded-lg border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-800 shadow-sm transition hover:bg-slate-50"
+              onClick={() => setListSegment(tab.value)}
+              className={[
+                "rounded-lg px-4 py-2 text-sm font-medium transition",
+                on
+                  ? "bg-white text-slate-900 shadow-sm ring-1 ring-slate-200/80"
+                  : "text-slate-600 hover:text-slate-900",
+              ].join(" ")}
             >
-              Clear
+              {tab.label}
             </button>
-          </div>
-
-          {view === "schedule" ? (
-            <WeekNav weekStart={weekStart} onChange={setWeekStart} />
-          ) : (
-            <button
-              type="button"
-              onClick={() => setFilterDate("")}
-              className="h-10 rounded-lg border border-slate-200 bg-white px-4 text-sm font-medium text-slate-800 shadow-sm transition hover:bg-slate-50"
-            >
-              Show all
-            </button>
-          )}
-        </div>
-      </section>
+          );
+        })}
+      </div>
 
       {toast && (
         <div
@@ -484,7 +796,8 @@ export default function AppointmentsListPage() {
         ) : view === "schedule" ? (
           <AppointmentCalendar
             appointments={filteredItems}
-            weekStart={weekStart}
+            calendarView={calendarView}
+            focusDate={scheduleFocus}
             canCreate={canEdit}
             onCreate={() => navigate("/appointments/new")}
             onDayClick={(date) => setSelectedDay(date)}
@@ -492,7 +805,7 @@ export default function AppointmentsListPage() {
               setSelectedDay(new Date(appointment.scheduledStart))
             }
           />
-        ) : filteredItems.length === 0 ? (
+        ) : sortedListItems.length === 0 ? (
           <div className="flex min-h-[18rem] items-center justify-center rounded-lg border border-slate-200 bg-white p-8 text-center shadow-sm">
             <div>
               <CalendarClock className="mx-auto h-8 w-8 text-slate-300" aria-hidden />
@@ -505,63 +818,82 @@ export default function AppointmentsListPage() {
             </div>
           </div>
         ) : (
-          <div className="overflow-auto rounded-lg border border-slate-200 bg-white shadow-sm">
-            <table className="w-full min-w-[760px] border-collapse text-left text-sm">
-              <thead>
-                <tr className="border-b border-slate-200 bg-slate-50 text-xs font-semibold uppercase tracking-wide text-slate-500">
-                  <th className="px-4 py-3">When</th>
-                  <th className="px-4 py-3">Patient</th>
-                  <th className="px-4 py-3">Doctor</th>
-                  <th className="px-4 py-3">Department</th>
-                  <th className="px-4 py-3">Status</th>
-                  <th className="px-4 py-3 text-right">Actions</th>
-                </tr>
-              </thead>
-              <tbody>
-                {filteredItems.map((appointment) => (
-                  <tr
-                    key={appointment.id}
-                    className="border-b border-slate-100 last:border-0 hover:bg-slate-50"
-                  >
-                    <td className="px-4 py-3 text-slate-800">
-                      {formatRange(
-                        appointment.scheduledStart,
-                        appointment.scheduledEnd
-                      )}
-                    </td>
-                    <td className="px-4 py-3">
-                      <Link
-                        to={`/patients/${appointment.patientProfileId}`}
-                        className="font-medium text-sky-800 hover:underline"
-                      >
-                        {appointment.patientName}
-                      </Link>
-                    </td>
-                    <td className="px-4 py-3 text-slate-700">
-                      {appointment.doctorName}
-                    </td>
-                    <td className="px-4 py-3 text-slate-600">
-                      {appointment.departmentName ?? "-"}
-                    </td>
-                    <td className="px-4 py-3">
-                      <AppointmentStatusBadge status={appointment.status} />
-                    </td>
-                    <td className="px-4 py-3">
-                      <AppointmentRowActions
-                        appointment={appointment}
-                        canManageStatus={canManageStatus}
-                        canEdit={canEdit}
-                        canVisit={canVisit}
-                        encounterBasePath={encounterBasePath}
-                        onMutated={load}
-                        onToast={showToast}
-                      />
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+          <ul className="flex flex-col gap-3">
+            {sortedListItems.map((appointment) => {
+              const typePill = appointmentTypePill(appointment.appointmentType);
+              const approval = approvalPillForList(appointment.status);
+              const visitPill = visitStatusPillForList(appointment);
+              const VisitIcon = visitPill.Icon;
+              const mins = durationMinutes(
+                appointment.scheduledStart,
+                appointment.scheduledEnd
+              );
+              return (
+                <li key={appointment.id}>
+                  <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6">
+                    <div className="flex flex-col gap-5 lg:flex-row lg:items-center lg:gap-0 lg:divide-x lg:divide-slate-200">
+                      <div className="flex shrink-0 flex-col justify-center lg:pr-6">
+                        <span className="text-base font-semibold tabular-nums text-slate-900">
+                          {formatListTime(appointment.scheduledStart)}
+                        </span>
+                        <span className="mt-1 text-sm text-slate-500">
+                          {mins != null ? `${mins} min` : "—"}
+                        </span>
+                      </div>
+
+                      <div className="flex min-w-0 flex-col justify-center lg:px-6">
+                        <Link
+                          to={`/patients/${appointment.patientProfileId}`}
+                          className="truncate text-base font-semibold text-slate-900 hover:text-sky-800 hover:underline"
+                        >
+                          {appointment.patientName}
+                        </Link>
+                        <p className="mt-1 truncate text-sm text-slate-500">
+                          {appointment.doctorName}
+                        </p>
+                      </div>
+
+                      <div className="flex min-w-0 flex-1 flex-wrap items-center gap-2 lg:px-6 lg:justify-end">
+                        {typePill && (
+                          <span
+                            className={`inline-flex rounded-full px-3 py-1 text-xs font-medium ring-1 ring-inset ${typePill.className}`}
+                          >
+                            {typePill.label}
+                          </span>
+                        )}
+                        {approval && (
+                          <span
+                            className={`inline-flex rounded-full px-3 py-1 text-xs font-medium ring-1 ring-inset ${approval.className}`}
+                          >
+                            {approval.label}
+                          </span>
+                        )}
+                        <span
+                          className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-medium ring-1 ring-inset ${visitPill.className}`}
+                        >
+                          <VisitIcon className="h-3.5 w-3.5 shrink-0" aria-hidden />
+                          {visitPill.label}
+                        </span>
+                      </div>
+
+                      <div className="flex shrink-0 items-center justify-start border-t border-slate-100 pt-4 lg:border-t-0 lg:pt-0 lg:pl-6">
+                        <AppointmentRowActions
+                          appointment={appointment}
+                          canManageStatus={canManageStatus}
+                          canEdit={canEdit}
+                          canVisit={canVisit}
+                          encounterBasePath={encounterBasePath}
+                          variant="card"
+                          onMutated={load}
+                          onToast={showToast}
+                        />
+                      </div>
+                    </div>
+                  </div>
+                </li>
+              );
+            })}
+          </ul>
         )}
       </div>
 
