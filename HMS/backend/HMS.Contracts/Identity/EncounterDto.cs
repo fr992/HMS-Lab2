@@ -21,4 +21,7 @@ public class EncounterDto
 
     public string Status { get; set; } = string.Empty;
     public string? Notes { get; set; }
+
+    public int DiagnosesCount { get; set; }
+    public int PrescriptionsCount { get; set; }
 }

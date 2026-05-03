@@ -15,6 +15,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { useAuth } from "@/auth/AuthContext";
 import { encountersApi } from "./api/encountersApi";
 import { useEncounterPanelStore } from "./encounterPanelStore";
+import DiagnosesSection from "./components/DiagnosesSection";
 
 const ENCOUNTER_TYPES = [
   { value: "outpatient", label: "Outpatient" },
@@ -22,12 +23,6 @@ const ENCOUNTER_TYPES = [
   { value: "follow_up", label: "Follow-up" },
 ];
 
-const DIAGNOSIS_TYPES = [
-  { value: "", label: "No type" },
-  { value: "primary", label: "Primary" },
-  { value: "secondary", label: "Secondary" },
-  { value: "provisional", label: "Provisional" },
-];
 
 const HISTORY_PAGE_SIZE = 5;
 
@@ -95,12 +90,7 @@ export default function EncounterPanelPage() {
     closeEncounter,
   } = useEncounterPanelStore();
 
-  const [diagnosisForm, setDiagnosisForm] = useState({
-    icdCode: "",
-    description: "",
-    type: "",
-    notes: "",
-  });
+  
   const [prescriptionForm, setPrescriptionForm] = useState({
     notes: "",
     medicationId: "",
@@ -118,7 +108,6 @@ export default function EncounterPanelPage() {
   });
   const [completingEncounter, setCompletingEncounter] = useState(false);
   const [completionNotice, setCompletionNotice] = useState(false);
-  const [diagnosisPage, setDiagnosisPage] = useState(1);
   const [prescriptionPage, setPrescriptionPage] = useState(1);
   const [medications, setMedications] = useState([]);
   const [medicationSearch, setMedicationSearch] = useState("");
@@ -173,36 +162,16 @@ export default function EncounterPanelPage() {
 
   if (error) return <div className="p-6 text-red-600">{error}</div>;
   if (!panel) return <div className="p-6">No encounter data found.</div>;
-
   const { encounter, patient, diagnoses, prescriptions } = panel;
+
   const isOpen = String(encounter.status ?? "").toLowerCase() === "open";
   const canUpdateEncounter = auth.hasPermission("Encounters.Update");
   const canCloseEncounter = auth.hasPermission("Encounters.Close");
   const listPath =
     auth.userRole === "Admin" ? "/admin/encounters" : "/doctor/encounters";
-  const diagnosisPaging = pageItems(diagnoses, diagnosisPage);
   const prescriptionPaging = pageItems(prescriptions, prescriptionPage);
   const filteredMedications = filterMedications(medications, medicationSearch);
 
-  async function handleCreateDiagnosis(e) {
-    e.preventDefault();
-
-    await createDiagnosis(encounterId, {
-      icdCode: diagnosisForm.icdCode || null,
-      description: diagnosisForm.description,
-      type: diagnosisForm.type || null,
-      notes: diagnosisForm.notes || null,
-      diagnosedAt: new Date().toISOString(),
-    });
-
-    setDiagnosisForm({
-      icdCode: "",
-      description: "",
-      type: "",
-      notes: "",
-    });
-    setDiagnosisPage(1);
-  }
 
   function beginEditEncounter() {
     setEncounterForm({
@@ -381,29 +350,13 @@ export default function EncounterPanelPage() {
         </CardContent>
       </Card>
 
-      <Card>
-        <CardHeader>
-          <CardTitle>Diagnoses</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          {isOpen && (
-            <DiagnosisForm
-              form={diagnosisForm}
-              saving={saving}
-              onChange={setDiagnosisForm}
-              onSubmit={handleCreateDiagnosis}
-            />
-          )}
-
-          <DiagnosisHistory
-            diagnoses={diagnoses}
-            visibleDiagnoses={diagnosisPaging.items}
-            page={diagnosisPaging.safePage}
-            totalPages={diagnosisPaging.totalPages}
-            onPageChange={setDiagnosisPage}
-          />
-        </CardContent>
-      </Card>
+      <DiagnosesSection
+          encounterId={encounterId}
+          diagnoses={diagnoses}
+          isOpen={isOpen}
+          saving={saving}
+          onCreateDiagnosis={createDiagnosis}
+      />
 
       <Card>
         <CardHeader>
@@ -507,45 +460,6 @@ function EncounterEditForm({ form, saving, onChange, onSubmit, onCancel }) {
   );
 }
 
-function DiagnosisForm({ form, saving, onChange, onSubmit }) {
-  return (
-    <form onSubmit={onSubmit} className="space-y-3 rounded-lg border p-4">
-      <div className="grid gap-3 md:grid-cols-3">
-        <Input
-          placeholder="ICD Code"
-          value={form.icdCode}
-          onChange={(e) => onChange({ ...form, icdCode: e.target.value })}
-        />
-        <select
-          value={form.type}
-          onChange={(e) => onChange({ ...form, type: e.target.value })}
-          className="h-9 w-full rounded-md border border-input bg-background px-3 text-sm text-slate-900"
-        >
-          {DIAGNOSIS_TYPES.map((type) => (
-            <option key={type.value || "none"} value={type.value}>
-              {type.label}
-            </option>
-          ))}
-        </select>
-        <Input
-          placeholder="Description *"
-          value={form.description}
-          onChange={(e) => onChange({ ...form, description: e.target.value })}
-          required
-        />
-      </div>
-      <Textarea
-        placeholder="Notes"
-        value={form.notes}
-        onChange={(e) => onChange({ ...form, notes: e.target.value })}
-      />
-      <Button type="submit" disabled={saving}>
-        {saving ? "Saving..." : "Add Diagnosis"}
-      </Button>
-    </form>
-  );
-}
-
 function PrescriptionForm({
   form,
   saving,
@@ -628,54 +542,6 @@ function PrescriptionForm({
   );
 }
 
-function DiagnosisHistory({
-  diagnoses,
-  visibleDiagnoses,
-  page,
-  totalPages,
-  onPageChange,
-}) {
-  if (diagnoses.length === 0) {
-    return <p className="text-sm text-muted-foreground">No diagnoses yet.</p>;
-  }
-
-  return (
-    <div className="overflow-hidden rounded-lg border border-slate-200">
-      <HistoryHeader
-        title="Diagnosis history"
-        count={diagnoses.length}
-        page={page}
-        totalPages={totalPages}
-        onPageChange={onPageChange}
-      />
-      <div className="divide-y divide-slate-100">
-        {visibleDiagnoses.map((diagnosis) => (
-          <details key={diagnosis.id} className="group bg-white">
-            <summary className="grid cursor-pointer list-none gap-3 px-4 py-3 hover:bg-slate-50 md:grid-cols-[minmax(0,1fr)_8rem_12rem] md:items-center">
-              <div className="min-w-0">
-                <p className="truncate text-sm font-medium text-slate-950">
-                  {diagnosis.description}
-                </p>
-                <p className="mt-1 truncate text-xs text-slate-500">
-                  ICD: {diagnosis.icdCode || "-"} | Type: {diagnosis.type || "-"}
-                </p>
-              </div>
-              <Badge variant="outline">{diagnosis.type || "Diagnosis"}</Badge>
-              <p className="truncate text-xs text-slate-500 md:text-right">
-                {diagnosis.createdByDoctorName}
-              </p>
-            </summary>
-            {diagnosis.notes && (
-              <div className="border-t border-slate-100 bg-slate-50 px-4 py-3 text-sm text-slate-700">
-                {diagnosis.notes}
-              </div>
-            )}
-          </details>
-        ))}
-      </div>
-    </div>
-  );
-}
 
 function PrescriptionHistory({
   prescriptions,

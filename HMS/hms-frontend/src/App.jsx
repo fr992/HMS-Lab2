@@ -19,6 +19,8 @@ import AppointmentRequestsPage from "@/features/appointmentRequests/AppointmentR
 import LandingPage from "@/pages/home/LandingPage";
 import EncountersListPage from "@/features/encounters/EncountersListPage";
 import EncounterPanelPage from "@/features/encounters/EncounterPanelPage";
+import PatientEncounterDiagnosesPage from "@/features/encounters/PatientEncounterDiagnosesPage";
+import PatientEncountersListPage from "@/features/encounters/PatientEncountersListPage";
 
 
 export default function App() {
@@ -137,6 +139,21 @@ export default function App() {
           >
             <Route index element={<EncountersListPage />} />
             <Route path=":encounterId" element={<EncounterPanelPage />} />
+          </Route>
+
+          <Route
+              path="/patient/encounters"
+              element={
+                <PermissionRoute requireRole="Patient">
+                  <AdminLayout />
+                </PermissionRoute>
+              }
+            >
+              <Route index element={<PatientEncountersListPage />} />
+              <Route
+                path=":encounterId/diagnoses"
+                element={<PatientEncounterDiagnosesPage />}
+              />
           </Route>
           
         </Routes>

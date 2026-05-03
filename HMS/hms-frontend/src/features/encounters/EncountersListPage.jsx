@@ -3,6 +3,8 @@ import { Link } from "react-router-dom";
 import {
   CalendarClock,
   ChevronDown,
+  FileText,
+  Pill,
   RefreshCw,
   Search,
   Stethoscope,
@@ -42,6 +44,57 @@ function statusClass(status) {
   }
 
   return "border-slate-200 bg-slate-50 text-slate-700";
+}
+
+function optionalCount(value) {
+  const count = Number(value);
+  return Number.isFinite(count) ? count : null;
+}
+
+function encounterCount(encounter, camelName, pascalName) {
+  return optionalCount(encounter[camelName] ?? encounter[pascalName]);
+}
+
+function countLabel(count, label) {
+  return `${count} ${label}${count === 1 ? "" : "s"}`;
+}
+
+function EncounterCounts({ encounter }) {
+  const diagnosesCount = encounterCount(
+    encounter,
+    "diagnosesCount",
+    "DiagnosesCount"
+  );
+  const prescriptionsCount = encounterCount(
+    encounter,
+    "prescriptionsCount",
+    "PrescriptionsCount"
+  );
+
+  if (diagnosesCount === null && prescriptionsCount === null) return null;
+
+  return (
+    <div className="mt-2 flex flex-wrap gap-1.5">
+      {diagnosesCount !== null && (
+        <Badge
+          variant="outline"
+          className="border-slate-200 bg-slate-50 text-slate-700"
+        >
+          <FileText className="h-3 w-3" aria-hidden />
+          {countLabel(diagnosesCount, "diagnosis")}
+        </Badge>
+      )}
+      {prescriptionsCount !== null && (
+        <Badge
+          variant="outline"
+          className="border-slate-200 bg-slate-50 text-slate-700"
+        >
+          <Pill className="h-3 w-3" aria-hidden />
+          {countLabel(prescriptionsCount, "prescription")}
+        </Badge>
+      )}
+    </div>
+  );
 }
 
 function groupByDoctor(encounters) {
@@ -109,6 +162,7 @@ function EncounterRow({ encounter, panelBasePath }) {
           <CalendarClock className="h-3.5 w-3.5 shrink-0" aria-hidden />
           <span className="truncate">{formatDate(encounter.startedAt)}</span>
         </p>
+        <EncounterCounts encounter={encounter} />
       </div>
 
       <div>

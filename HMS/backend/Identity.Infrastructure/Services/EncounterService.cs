@@ -110,6 +110,10 @@ public sealed class EncounterService : IEncounterService
 
                 Status = e.Status,
                 Notes = e.Notes,
+                DiagnosesCount = _db.Diagnoses
+                    .Count(d => d.EncounterId == e.Id),
+                PrescriptionsCount = _db.Prescriptions
+                    .Count(p => p.EncounterId == e.Id),
             })
             .FirstOrDefaultAsync(cancellationToken);
     }
@@ -166,6 +170,10 @@ public sealed class EncounterService : IEncounterService
 
                 Status = e.Status,
                 Notes = e.Notes,
+                DiagnosesCount = _db.Diagnoses
+                    .Count(d => d.EncounterId == e.Id),
+                PrescriptionsCount = _db.Prescriptions
+                    .Count(p => p.EncounterId == e.Id),
             })
             .ToListAsync(cancellationToken);
     }
@@ -289,7 +297,11 @@ public sealed class EncounterService : IEncounterService
                     EndedAt = e.EndedAt,
                     ClosedAt = e.ClosedAt,
                     Status = e.Status,
-                    Notes = e.Notes
+                    Notes = e.Notes,
+                    DiagnosesCount = _db.Diagnoses
+                        .Count(d => d.EncounterId == e.Id),
+                    PrescriptionsCount = _db.Prescriptions
+                        .Count(p => p.EncounterId == e.Id)
                 },
                 Patient = new PatientProfileDto
                 {
@@ -368,6 +380,66 @@ public sealed class EncounterService : IEncounterService
         .FirstOrDefaultAsync(cancellationToken);
 
         return panel;
+    }
+
+    public async Task<EncounterPanelDto?> GetPatientPanelAsync(
+        int id,
+        int? currentUserId,
+        CancellationToken cancellationToken)
+    {
+        if (currentUserId == null)
+            return null;
+
+        var allowed = await _db.Encounters
+            .AsNoTracking()
+            .AnyAsync(e =>
+                e.Id == id &&
+                e.PatientProfile.Person.UserId == currentUserId.Value,
+                cancellationToken);
+
+        if (!allowed)
+            return null;
+
+        return await GetPanelAsync(id, cancellationToken);
+    }
+
+    public async Task<List<EncounterDto>> GetPatientEncountersAsync(
+        int? currentUserId,
+        CancellationToken cancellationToken)
+    {
+        if (currentUserId == null)
+            return new List<EncounterDto>();
+
+        return await _db.Encounters
+            .AsNoTracking()
+            .Where(e => e.PatientProfile.Person.UserId == currentUserId.Value)
+            .OrderByDescending(e => e.StartedAt)
+            .Select(e => new EncounterDto
+            {
+                Id = e.Id,
+                EncounterNumber = e.EncounterNumber,
+
+                PatientProfileId = e.PatientProfileId,
+                PatientName = e.PatientProfile.Person.FullName,
+
+                DoctorProfileId = e.DoctorProfileId,
+                DoctorName = e.DoctorProfile.StaffProfile.Person.FullName,
+
+                AppointmentId = e.AppointmentId,
+                EncounterType = e.EncounterType,
+
+                StartedAt = e.StartedAt,
+                EndedAt = e.EndedAt,
+                ClosedAt = e.ClosedAt,
+
+                Status = e.Status,
+                Notes = e.Notes,
+                DiagnosesCount = _db.Diagnoses
+                    .Count(d => d.EncounterId == e.Id),
+                PrescriptionsCount = _db.Prescriptions
+                    .Count(p => p.EncounterId == e.Id)
+            })
+            .ToListAsync(cancellationToken);
     }
 
     private async Task ValidateAppointmentLinkAsync(

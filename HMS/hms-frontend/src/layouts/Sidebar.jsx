@@ -17,6 +17,8 @@ export default function Sidebar() {
   const canReadAppointments = auth.hasPermission("Appointments.Read");
   const canReadEncounters = auth.hasPermission("Encounters.Read");
   const isAdmin = auth.userRole === "Admin";
+  const isDoctor = auth.userRole === "Doctor";
+  const isPatient = auth.userRole === "Patient";
 
   const linkClass = (to) => {
     const on = pathname === to || (to !== "/admin" && pathname.startsWith(to));
@@ -95,7 +97,8 @@ export default function Sidebar() {
           </div>
         )}
 
-        {(canReadPatients ||
+        {(isPatient ||
+          canReadPatients ||
           (canReadAppointments && !isAdmin) ||
           (canReadEncounters && !isAdmin)) && (
           <div className="space-y-1">
@@ -109,8 +112,21 @@ export default function Sidebar() {
               </Link>
             )}
 
-            {canReadEncounters && !isAdmin && (
-              <Link className={linkClass("/doctor/encounters")} to="/doctor/encounters">
+            {isPatient && (
+              <Link
+                className={linkClass("/patient/encounters")}
+                to="/patient/encounters"
+              >
+                <ClipboardList className="h-4 w-4 shrink-0" aria-hidden />
+                My Encounters
+              </Link>
+            )}
+
+            {canReadEncounters && isDoctor && (
+              <Link
+                className={linkClass("/doctor/encounters")}
+                to="/doctor/encounters"
+              >
                 <Stethoscope className="h-4 w-4 shrink-0" aria-hidden />
                 Encounters
               </Link>

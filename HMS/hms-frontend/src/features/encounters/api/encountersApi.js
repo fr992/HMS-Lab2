@@ -4,6 +4,12 @@ export const encountersApi = {
   getPanel: (encounterId) =>
     apiClient.get(`/encounters/${encounterId}/panel`),
 
+  getPatientEncounterPanel: (encounterId) =>
+    apiClient.get(`/encounters/${encounterId}/patient-panel`),
+
+  getPatientEncounters: () =>
+    apiClient.get("/encounters/patient"),
+
   getActiveMedications: () =>
     apiClient.get("/admin/medications", { params: { isActive: true } }),
 

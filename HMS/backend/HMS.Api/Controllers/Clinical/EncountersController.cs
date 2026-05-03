@@ -2,6 +2,7 @@ using HMS.Api.Authorization;
 using HMS.Application.Abstractions.Identity;
 using HMS.Contracts.Identity;
 using Identity.Domain.Entities;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using System.Security.Claims;
 
@@ -136,6 +137,34 @@ public sealed class EncountersController : ControllerBase
         return Ok(result);
     }
 
+    [HttpGet("{id:int}/patient-panel")]
+    [Authorize]
+    public async Task<ActionResult<EncounterPanelDto>> GetPatientPanel(
+    int id,
+    CancellationToken cancellationToken)
+    {
+        var result = await _encounterService.GetPatientPanelAsync(
+            id,
+            CurrentUserId(),
+            cancellationToken);
+
+        if (result == null)
+            return NotFound();
+
+        return Ok(result);
+    }
+
+    [HttpGet("patient")]
+    [Authorize]
+    public async Task<ActionResult<List<EncounterDto>>> GetPatientEncounters(
+    CancellationToken cancellationToken)
+    {
+        var result = await _encounterService.GetPatientEncountersAsync(
+            CurrentUserId(),
+            cancellationToken);
+
+        return Ok(result);
+    }
     private int? CurrentUserId()
     {
         var value = User.FindFirstValue(ClaimTypes.NameIdentifier);
