@@ -9,11 +9,12 @@ import {
   UserRound,
   Users,
 } from "lucide-react";
-import { Link, useLocation } from "react-router-dom";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 
 export default function Sidebar() {
   const auth = useAuth();
   const { pathname } = useLocation();
+  const navigate = useNavigate();
   const canReadPatients = auth.hasPermission("Patients.Read");
   const canReadAppointments = auth.hasPermission("Appointments.Read");
   const canReadEncounters = auth.hasPermission("Encounters.Read");
@@ -30,6 +31,11 @@ export default function Sidebar() {
         ? "bg-sky-50 text-sky-800 ring-1 ring-inset ring-sky-100"
         : "text-slate-600 hover:bg-slate-100 hover:text-slate-950",
     ].join(" ");
+  };
+
+  const handleLogout = () => {
+    auth.logout();
+    navigate("/", { replace: true });
   };
 
   return (
@@ -172,7 +178,7 @@ export default function Sidebar() {
         <div className="mt-6 border-t border-slate-100 pt-3">
           <button
             type="button"
-            onClick={auth.logout}
+            onClick={handleLogout}
             className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-sm font-medium text-slate-600 hover:bg-slate-100 hover:text-slate-950"
           >
             <LogOut className="h-4 w-4 shrink-0" aria-hidden />
