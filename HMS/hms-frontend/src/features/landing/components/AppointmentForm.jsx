@@ -2,7 +2,15 @@ import { useMutation } from "@tanstack/react-query";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
 import { toast } from "sonner";
-import { X } from "lucide-react";
+import {
+  CalendarCheck,
+  CheckCircle2,
+  Clock3,
+  Phone,
+  Send,
+  ShieldCheck,
+  X,
+} from "lucide-react";
 import { useAppointmentStore } from "@/features/landing/appointmentStore";
 import { createAppointmentRequest } from "@/features/landing/api/appointmentRequestApi";
 import { appointmentRequestSchema } from "@/features/landing/schemas/appointmentRequestSchema";
@@ -28,6 +36,9 @@ const defaultValues = {
   reasonForVisit: "",
 };
 
+const dateInputClass =
+  "border-input flex h-10 w-full rounded-md border bg-white px-3 text-sm text-slate-950 transition outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50";
+
 export default function AppointmentForm() {
   const { submitted, setSubmitted, reset: resetSubmitted } = useAppointmentStore();
   const form = useForm({
@@ -52,134 +63,192 @@ export default function AppointmentForm() {
   });
 
   return (
-    <section id="appointment" className="bg-slate-900 py-24">
-      <div className="mx-auto max-w-3xl px-6">
-        {submitted ? (
-          <div className="mb-6 flex items-start justify-between rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-900">
-            <p>Request received. Our team will contact you shortly.</p>
-            <button
-              type="button"
-              onClick={resetSubmitted}
-              className="text-emerald-700 transition hover:text-emerald-900"
-              aria-label="Dismiss success message"
-            >
-              <X className="h-4 w-4" />
-            </button>
+    <section id="appointment" className="bg-slate-950 py-20 text-white sm:py-24">
+      <div className="mx-auto grid max-w-7xl gap-10 px-6 lg:grid-cols-[0.8fr_1.2fr] lg:px-8">
+        <div className="landing-reveal">
+          <p className="text-sm font-semibold text-sky-300">Appointment</p>
+          <h2 className="mt-3 max-w-md text-3xl font-semibold leading-tight sm:text-4xl">
+            Request care with the right clinic from the first step.
+          </h2>
+          <p className="mt-4 max-w-md text-sm leading-7 text-slate-300">
+            Share the essentials and the reception team will coordinate your
+            preferred date, clinic, and next available specialist.
+          </p>
+
+          <div className="mt-8 grid max-w-md gap-3">
+            <ContactSignal icon={CalendarCheck} title="Appointment review" text="Requests are checked by the reception workflow." />
+            <ContactSignal icon={Clock3} title="Business-day response" text="The team follows up after reviewing your details." />
+            <ContactSignal icon={Phone} title="Direct confirmation" text="You receive the final time by phone or email." />
           </div>
-        ) : null}
+        </div>
 
-        <Form {...form}>
-          <form onSubmit={handleSubmit} className="space-y-5 rounded-xl bg-white p-8">
-            <div className="grid gap-5 sm:grid-cols-2">
-              <FormField
-                control={form.control}
-                name="firstName"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>First Name</FormLabel>
-                    <FormControl>
-                      <Input placeholder="First Name" autoComplete="given-name" {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              <FormField
-                control={form.control}
-                name="lastName"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Last Name</FormLabel>
-                    <FormControl>
-                      <Input placeholder="Last Name" autoComplete="family-name" {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
+        <div className="landing-reveal landing-delay-2">
+          {submitted ? (
+            <div className="mb-4 flex items-start justify-between rounded-md border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-900">
+              <span className="flex items-start gap-2">
+                <CheckCircle2 className="mt-0.5 size-4 shrink-0" />
+                Request received. Our team will contact you shortly.
+              </span>
+              <button
+                type="button"
+                onClick={resetSubmitted}
+                className="text-emerald-700 transition hover:text-emerald-950"
+                aria-label="Dismiss success message"
+              >
+                <X className="size-4" />
+              </button>
             </div>
+          ) : null}
 
-            <div className="grid gap-5 sm:grid-cols-2">
-              <FormField
-                control={form.control}
-                name="email"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Email</FormLabel>
-                    <FormControl>
-                      <Input type="email" placeholder="you@example.com" autoComplete="email" {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              <FormField
-                control={form.control}
-                name="phone"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Phone Number</FormLabel>
-                    <FormControl>
-                      <Input type="tel" placeholder="+383..." autoComplete="tel" {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-            </div>
+          <Form {...form}>
+            <form
+              onSubmit={handleSubmit}
+              className="rounded-md border border-white/10 bg-white p-5 text-slate-950 shadow-2xl shadow-slate-950/30 sm:p-7"
+            >
+              <div className="mb-6 flex items-start gap-3 border-b border-slate-100 pb-5">
+                <span className="inline-flex size-10 items-center justify-center rounded-md bg-slate-950 text-white">
+                  <ShieldCheck className="size-4" />
+                </span>
+                <div>
+                  <h3 className="text-base font-semibold text-slate-950">Patient request</h3>
+                  <p className="mt-1 text-sm text-slate-500">Use your legal name and reachable contact details.</p>
+                </div>
+              </div>
 
-            <div className="grid gap-5 sm:grid-cols-2">
-              <FormField
-                control={form.control}
-                name="dateOfBirth"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Date of Birth</FormLabel>
-                    <FormControl>
-                      <input type="date" className="border-input flex h-8 w-full rounded-lg border px-3 text-sm" {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              <FormField
-                control={form.control}
-                name="preferredDate"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Preferred Appointment Date</FormLabel>
-                    <FormControl>
-                      <input type="date" className="border-input flex h-8 w-full rounded-lg border px-3 text-sm" {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-            </div>
+              <div className="grid gap-5 sm:grid-cols-2">
+                <FormField
+                  control={form.control}
+                  name="firstName"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>First Name</FormLabel>
+                      <FormControl>
+                        <Input placeholder="First Name" autoComplete="given-name" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="lastName"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Last Name</FormLabel>
+                      <FormControl>
+                        <Input placeholder="Last Name" autoComplete="family-name" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </div>
 
-            <FormField
-              control={form.control}
-              name="reasonForVisit"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Reason for Visit</FormLabel>
-                  <FormControl>
-                    <Textarea rows={4} maxLength={300} placeholder="Briefly describe your concern" {...field} />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
+              <div className="mt-5 grid gap-5 sm:grid-cols-2">
+                <FormField
+                  control={form.control}
+                  name="email"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Email</FormLabel>
+                      <FormControl>
+                        <Input type="email" placeholder="you@example.com" autoComplete="email" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="phone"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Phone Number</FormLabel>
+                      <FormControl>
+                        <Input type="tel" placeholder="+383 44 123 456" autoComplete="tel" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </div>
 
-            <Button type="submit" className="w-full" disabled={mutation.isPending}>
-              {mutation.isPending ? "Submitting…" : "Request Appointment"}
-            </Button>
-            <p className="text-center text-xs text-slate-500">
-              We'll review your request and contact you within one business day.
-            </p>
-          </form>
-        </Form>
+              <div className="mt-5 grid gap-5 sm:grid-cols-2">
+                <FormField
+                  control={form.control}
+                  name="dateOfBirth"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Date of Birth</FormLabel>
+                      <FormControl>
+                        <input type="date" className={dateInputClass} {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="preferredDate"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Preferred Appointment Date</FormLabel>
+                      <FormControl>
+                        <input type="date" className={dateInputClass} {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </div>
+
+              <div className="mt-5">
+                <FormField
+                  control={form.control}
+                  name="reasonForVisit"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Reason for Visit</FormLabel>
+                      <FormControl>
+                        <Textarea rows={4} maxLength={300} placeholder="Briefly describe your concern" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </div>
+
+              <Button
+                type="submit"
+                className="mt-6 h-11 w-full rounded-md bg-slate-950 text-white hover:bg-slate-800"
+                disabled={mutation.isPending}
+              >
+                <Send className="size-4" />
+                {mutation.isPending ? "Submitting..." : "Request Appointment"}
+              </Button>
+              <p className="mt-3 text-center text-xs text-slate-500">
+                We will review your request and contact you within one business day.
+              </p>
+            </form>
+          </Form>
+        </div>
       </div>
     </section>
+  );
+}
+
+function ContactSignal({ icon, title, text }) {
+  const Icon = icon;
+
+  return (
+    <div className="flex gap-3 rounded-md border border-white/10 bg-white/[0.06] p-4 text-sm backdrop-blur">
+      <span className="inline-flex size-9 shrink-0 items-center justify-center rounded-md bg-white/10 text-sky-200">
+        <Icon className="size-4" />
+      </span>
+      <div>
+        <p className="font-semibold text-white">{title}</p>
+        <p className="mt-1 leading-6 text-slate-300">{text}</p>
+      </div>
+    </div>
   );
 }

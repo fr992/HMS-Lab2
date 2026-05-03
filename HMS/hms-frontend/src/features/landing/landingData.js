@@ -1,41 +1,80 @@
+export const HERO_IMAGE_URL =
+  "https://images.unsplash.com/photo-1586773860418-d37222d8fce3?auto=format&fit=crop&w=2400&q=85";
+
 export const DIRECTORS = [
   {
     id: 1,
-    name: "Dr. X Personi",
-    title: "Chief Medical Officer",
-    specialty: "Cardiothoracic Surgery",
-    initials: "XP",
+    title: "Clinical Governance",
+    specialty: "Doctor-led review for high-risk cases, referrals, and care quality.",
+    initials: "CG",
+    accent: "sky",
   },
   {
     id: 2,
-    name: "Dr. Y Personi",
-    title: "Director of Neurology",
-    specialty: "Neurological Sciences",
-    initials: "YP",
+    title: "Specialty Coordination",
+    specialty: "Departments work from one shared patient record and care plan.",
+    initials: "SC",
+    accent: "emerald",
   },
   {
     id: 3,
-    name: "Dr. Z Personi",
-    title: "Head of Oncology",
-    specialty: "Clinical Oncology",
-    initials: "ZP",
+    title: "Nursing Operations",
+    specialty: "Ward activity, handoffs, and follow-up tasks stay visible to the team.",
+    initials: "NO",
+    accent: "amber",
   },
   {
     id: 4,
-    name: "Dr. Q Personi",
-    title: "Director of Pediatrics",
-    specialty: "Pediatric Medicine",
-    initials: "QP",
+    title: "Patient Experience",
+    specialty: "Front desk, appointments, and portal requests are managed in one flow.",
+    initials: "PX",
+    accent: "rose",
   },
 ];
 
 export const CLINICS = [
-  { id: 1, name: "Cardiology", icon: "♥", patients: "2,400+", description: "Advanced cardiac care and intervention" },
-  { id: 2, name: "Neurology", icon: "⬡", patients: "1,800+", description: "Comprehensive neurological diagnostics" },
-  { id: 3, name: "Oncology", icon: "◎", patients: "1,200+", description: "Integrated cancer treatment programs" },
-  { id: 4, name: "Pediatrics", icon: "✦", patients: "3,100+", description: "Dedicated care for children 0–18" },
-  { id: 5, name: "Orthopedics", icon: "⌖", patients: "2,900+", description: "Bone, joint and spine specialists" },
-  { id: 6, name: "Radiology", icon: "◈", patients: "4,200+", description: "High-resolution imaging & diagnosis" },
+  {
+    id: 1,
+    name: "Cardiology",
+    icon: "heart",
+    description: "Cardiac assessment, monitoring, and treatment planning.",
+    services: ["ECG", "Echo", "Follow-up"],
+  },
+  {
+    id: 2,
+    name: "Neurology",
+    icon: "brain",
+    description: "Neurological evaluation supported by imaging and lab work.",
+    services: ["Consults", "Imaging", "Rehab"],
+  },
+  {
+    id: 3,
+    name: "Oncology",
+    icon: "activity",
+    description: "Coordinated diagnostics, therapy planning, and monitoring.",
+    services: ["Screening", "Therapy", "Review"],
+  },
+  {
+    id: 4,
+    name: "Pediatrics",
+    icon: "sparkles",
+    description: "Dedicated care pathways for children and adolescents.",
+    services: ["Triage", "Vaccines", "Family care"],
+  },
+  {
+    id: 5,
+    name: "Orthopedics",
+    icon: "bone",
+    description: "Bone, joint, and spine care from diagnosis to recovery.",
+    services: ["Trauma", "Surgery", "Recovery"],
+  },
+  {
+    id: 6,
+    name: "Radiology",
+    icon: "scan",
+    description: "High-resolution imaging connected to clinical workflows.",
+    services: ["MRI", "CT", "Reports"],
+  },
 ];
 
 export const EQUIPMENT = [
@@ -45,11 +84,13 @@ export const EQUIPMENT = [
   { id: 4, name: "Linear Accelerator", category: "Radiation", year: 2023, detail: "Precision radiation therapy delivery" },
 ];
 
-export const STATS = [
-  { label: "Patients Annually", value: "42,000+" },
-  { label: "Medical Staff", value: "680+" },
-  { label: "Years of Service", value: "38" },
-  { label: "Specialties", value: "24" },
-];
-
 export const CLINIC_OPTIONS = CLINICS.map((c) => c.name);
+
+export const FALLBACK_LANDING_STATS = {
+  patients: 2,
+  staff: 3,
+  doctors: 3,
+  departments: 1,
+  specialties: 1,
+  appointments: 0,
+};

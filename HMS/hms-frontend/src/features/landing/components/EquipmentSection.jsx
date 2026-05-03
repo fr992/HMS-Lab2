@@ -1,49 +1,79 @@
+import { Activity, BadgeCheck, Cpu, Microscope, ScanLine } from "lucide-react";
 import { EQUIPMENT } from "@/features/landing/landingData";
 
 const CATEGORY_STYLES = {
-  Imaging: "bg-sky-50 text-sky-700",
-  Surgery: "bg-violet-50 text-violet-700",
-  Oncology: "bg-rose-50 text-rose-700",
-  Radiation: "bg-amber-50 text-amber-700",
+  Imaging: "bg-sky-50 text-sky-700 ring-sky-100",
+  Surgery: "bg-emerald-50 text-emerald-700 ring-emerald-100",
+  Oncology: "bg-rose-50 text-rose-700 ring-rose-100",
+  Radiation: "bg-amber-50 text-amber-700 ring-amber-100",
+};
+
+const CATEGORY_ICONS = {
+  Imaging: ScanLine,
+  Surgery: Cpu,
+  Oncology: Microscope,
+  Radiation: Activity,
 };
 
 export default function EquipmentSection() {
   return (
-    <section className="bg-white py-24">
-      <div className="mx-auto max-w-6xl px-6">
-        <div className="flex flex-col gap-14 lg:flex-row lg:items-start lg:gap-24">
-          <div className="max-w-sm shrink-0">
-            <p className="mb-2 text-xs font-semibold uppercase tracking-widest text-sky-500">Technology</p>
-            <h2 className="text-3xl font-bold tracking-tight text-slate-900">Advanced Equipment</h2>
-            <p className="mt-3 text-sm leading-relaxed text-slate-500">
-              We invest continuously in medical technology so our clinicians can diagnose faster and treat more precisely.
-            </p>
-          </div>
+    <section id="equipment" className="bg-white py-20 sm:py-24">
+      <div className="mx-auto grid max-w-7xl gap-10 px-6 lg:grid-cols-[0.8fr_1.4fr] lg:px-8">
+        <div className="landing-reveal">
+          <p className="text-sm font-semibold text-sky-700">Technology</p>
+          <h2 className="mt-3 max-w-md text-3xl font-semibold leading-tight text-slate-950 sm:text-4xl">
+            Equipment selected for precision and speed.
+          </h2>
+          <p className="mt-4 max-w-md text-sm leading-7 text-slate-600">
+            High-value diagnostic and surgical systems support the care teams
+            across imaging, oncology, surgery, and radiation therapy.
+          </p>
 
-          <div className="flex-1 divide-y divide-slate-100">
-            {EQUIPMENT.map((item) => (
-              <EquipmentRow key={item.id} item={item} />
-            ))}
+          <div className="mt-8 rounded-md border border-slate-200 bg-slate-50 p-5">
+            <div className="flex items-center gap-3">
+              <span className="inline-flex size-10 items-center justify-center rounded-md bg-slate-950 text-white">
+                <BadgeCheck className="size-4" />
+              </span>
+              <div>
+                <p className="text-3xl font-semibold leading-none text-slate-950">{EQUIPMENT.length}</p>
+                <p className="mt-1 text-xs font-semibold text-slate-500">Advanced systems listed</p>
+              </div>
+            </div>
           </div>
+        </div>
+
+        <div className="landing-reveal landing-delay-2 overflow-hidden rounded-md border border-slate-200 bg-white shadow-sm shadow-slate-950/[0.03]">
+          {EQUIPMENT.map((item, index) => (
+            <EquipmentRow key={item.id} item={item} index={index} />
+          ))}
         </div>
       </div>
     </section>
   );
 }
 
-function EquipmentRow({ item }) {
-  const categoryStyle = CATEGORY_STYLES[item.category] ?? "bg-slate-100 text-slate-600";
+function EquipmentRow({ item, index }) {
+  const Icon = CATEGORY_ICONS[item.category] ?? Activity;
+  const categoryStyle = CATEGORY_STYLES[item.category] ?? "bg-slate-100 text-slate-700 ring-slate-200";
+
   return (
-    <div className="flex items-start justify-between gap-4 py-5">
+    <div className="grid gap-4 border-b border-slate-100 p-5 last:border-b-0 sm:grid-cols-[auto_1fr_auto] sm:items-center">
+      <span className="flex h-11 w-11 items-center justify-center rounded-md bg-slate-950 text-sm font-semibold text-white">
+        {String(index + 1).padStart(2, "0")}
+      </span>
       <div>
-        <p className="text-sm font-semibold text-slate-900">{item.name}</p>
-        <p className="mt-0.5 text-xs text-slate-400">{item.detail}</p>
+        <div className="flex flex-wrap items-center gap-2">
+          <h3 className="text-base font-semibold text-slate-950">{item.name}</h3>
+          <span className={`inline-flex items-center gap-1.5 rounded-md px-2.5 py-1 text-xs font-semibold ring-1 ${categoryStyle}`}>
+            <Icon className="size-3.5" />
+            {item.category}
+          </span>
+        </div>
+        <p className="mt-2 text-sm leading-6 text-slate-600">{item.detail}</p>
       </div>
-      <div className="flex shrink-0 flex-col items-end gap-1.5">
-        <span className={`rounded-full px-2.5 py-0.5 text-xs font-medium ${categoryStyle}`}>
-          {item.category}
-        </span>
-        <span className="text-xs text-slate-400">Since {item.year}</span>
+      <div className="text-left sm:text-right">
+        <p className="text-xs font-semibold text-slate-500">In service</p>
+        <p className="mt-1 text-sm font-semibold text-slate-950">{item.year}</p>
       </div>
     </div>
   );
