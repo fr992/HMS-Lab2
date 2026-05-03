@@ -37,7 +37,7 @@ const defaultValues = {
 };
 
 const dateInputClass =
-  "border-input flex h-10 w-full rounded-md border bg-white px-3 text-sm text-slate-950 transition outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50";
+  "flex h-10 w-full rounded-md border border-cyan-100 bg-white px-3 text-sm text-cyan-950 transition outline-none focus-visible:border-teal-300 focus-visible:ring-3 focus-visible:ring-teal-100";
 
 export default function AppointmentForm() {
   const { submitted, setSubmitted, reset: resetSubmitted } = useAppointmentStore();
@@ -63,14 +63,14 @@ export default function AppointmentForm() {
   });
 
   return (
-    <section id="appointment" className="bg-slate-950 py-20 text-white sm:py-24">
+    <section id="appointment" className="bg-[#f7fbfd] py-20 text-cyan-950 sm:py-24">
       <div className="mx-auto grid max-w-7xl gap-10 px-6 lg:grid-cols-[0.8fr_1.2fr] lg:px-8">
         <div className="landing-reveal">
-          <p className="text-sm font-semibold text-sky-300">Appointment</p>
+          <p className="text-sm font-semibold text-blue-600">Appointment</p>
           <h2 className="mt-3 max-w-md text-3xl font-semibold leading-tight sm:text-4xl">
             Request care with the right clinic from the first step.
           </h2>
-          <p className="mt-4 max-w-md text-sm leading-7 text-slate-300">
+          <p className="mt-4 max-w-md text-sm leading-7 text-cyan-800/75">
             Share the essentials and the reception team will coordinate your
             preferred date, clinic, and next available specialist.
           </p>
@@ -103,15 +103,15 @@ export default function AppointmentForm() {
           <Form {...form}>
             <form
               onSubmit={handleSubmit}
-              className="rounded-md border border-white/10 bg-white p-5 text-slate-950 shadow-2xl shadow-slate-950/30 sm:p-7"
+              className="rounded-md border border-cyan-100 bg-white p-5 text-cyan-950 shadow-2xl shadow-cyan-950/10 sm:p-7"
             >
-              <div className="mb-6 flex items-start gap-3 border-b border-slate-100 pb-5">
-                <span className="inline-flex size-10 items-center justify-center rounded-md bg-slate-950 text-white">
+              <div className="mb-6 flex items-start gap-3 border-b border-cyan-100 pb-5">
+                <span className="inline-flex size-10 items-center justify-center rounded-md bg-blue-50 text-blue-700">
                   <ShieldCheck className="size-4" />
                 </span>
                 <div>
-                  <h3 className="text-base font-semibold text-slate-950">Patient request</h3>
-                  <p className="mt-1 text-sm text-slate-500">Use your legal name and reachable contact details.</p>
+                  <h3 className="text-base font-semibold text-cyan-950">Patient request</h3>
+                  <p className="mt-1 text-sm text-cyan-800/70">Use your legal name and reachable contact details.</p>
                 </div>
               </div>
 
@@ -220,13 +220,13 @@ export default function AppointmentForm() {
 
               <Button
                 type="submit"
-                className="mt-6 h-11 w-full rounded-md bg-slate-950 text-white hover:bg-slate-800"
+                className="mt-6 h-11 w-full rounded-md bg-blue-600 text-white shadow-lg shadow-blue-700/20 hover:bg-blue-500"
                 disabled={mutation.isPending}
               >
                 <Send className="size-4" />
                 {mutation.isPending ? "Submitting..." : "Request Appointment"}
               </Button>
-              <p className="mt-3 text-center text-xs text-slate-500">
+              <p className="mt-3 text-center text-xs text-cyan-800/65">
                 We will review your request and contact you within one business day.
               </p>
             </form>
@@ -241,13 +241,13 @@ function ContactSignal({ icon, title, text }) {
   const Icon = icon;
 
   return (
-    <div className="flex gap-3 rounded-md border border-white/10 bg-white/[0.06] p-4 text-sm backdrop-blur">
-      <span className="inline-flex size-9 shrink-0 items-center justify-center rounded-md bg-white/10 text-sky-200">
+    <div className="flex gap-3 rounded-md border border-cyan-100 bg-white p-4 text-sm shadow-sm shadow-cyan-950/[0.03]">
+      <span className="inline-flex size-9 shrink-0 items-center justify-center rounded-md bg-blue-50 text-blue-700">
         <Icon className="size-4" />
       </span>
       <div>
-        <p className="font-semibold text-white">{title}</p>
-        <p className="mt-1 leading-6 text-slate-300">{text}</p>
+        <p className="font-semibold text-cyan-950">{title}</p>
+        <p className="mt-1 leading-6 text-cyan-800/70">{text}</p>
       </div>
     </div>
   );

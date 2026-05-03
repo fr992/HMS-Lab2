@@ -1,56 +1,68 @@
 import { useQuery } from "@tanstack/react-query";
 import {
   Activity,
+  ArrowRight,
   BriefcaseMedical,
-  CalendarCheck,
-  ChevronRight,
-  ClipboardCheck,
+  CheckCircle2,
   HeartPulse,
-  ShieldCheck,
+  Sparkles,
   Stethoscope,
   UsersRound,
 } from "lucide-react";
 import {
   EQUIPMENT,
   FALLBACK_LANDING_STATS,
-  HERO_IMAGE_URL,
 } from "@/features/landing/landingData";
 import { fetchLandingStats } from "@/features/landing/api/landingStatsApi";
 
 const numberFormatter = new Intl.NumberFormat("en-US");
 
-const STAT_CARDS = [
+const SUMMARY_STATS = [
   {
     key: "patients",
-    label: "Registered patients",
-    icon: UsersRound,
-    tone: "border-sky-300/25 bg-sky-400/15 text-sky-100",
+    label: "Patients served",
     patientApproximation: true,
   },
   {
-    key: "staff",
-    label: "Medical staff",
-    icon: BriefcaseMedical,
-    tone: "border-emerald-300/25 bg-emerald-400/15 text-emerald-100",
+    key: "doctors",
+    label: "Specialists",
   },
   {
-    key: "specialties",
-    label: "Specialties",
-    icon: Stethoscope,
-    tone: "border-amber-300/25 bg-amber-300/15 text-amber-100",
+    key: "departments",
+    label: "Departments",
   },
   {
     key: "equipment",
     label: "Advanced systems",
-    icon: Activity,
-    tone: "border-rose-300/25 bg-rose-300/15 text-rose-100",
   },
 ];
 
-const HERO_SIGNALS = [
-  { label: "Same-day triage", icon: ClipboardCheck },
-  { label: "Integrated diagnostics", icon: HeartPulse },
-  { label: "Secure patient portal", icon: ShieldCheck },
+const SNAPSHOT_CARDS = [
+  {
+    key: "patients",
+    label: "Active Patients",
+    icon: UsersRound,
+    tone: "bg-blue-50 text-blue-700",
+    patientApproximation: true,
+  },
+  {
+    key: "doctors",
+    label: "Active Doctors",
+    icon: Stethoscope,
+    tone: "bg-teal-50 text-teal-700",
+  },
+  {
+    key: "staff",
+    label: "Medical Staff",
+    icon: BriefcaseMedical,
+    tone: "bg-emerald-50 text-emerald-700",
+  },
+  {
+    key: "equipment",
+    label: "Advanced Systems",
+    icon: HeartPulse,
+    tone: "bg-cyan-50 text-cyan-700",
+  },
 ];
 
 function normalizeStats(data) {
@@ -79,6 +91,12 @@ function formatExactCount(value) {
   return numberFormatter.format(Number(value) || 0);
 }
 
+function formatStat(item, stats) {
+  return item.patientApproximation
+    ? formatPatientCount(stats[item.key])
+    : formatExactCount(stats[item.key]);
+}
+
 export default function HeroSection() {
   const { data } = useQuery({
     queryKey: ["landing-stats"],
@@ -88,99 +106,106 @@ export default function HeroSection() {
   const stats = normalizeStats(data);
 
   return (
-    <section id="home" className="relative isolate overflow-hidden bg-slate-950 text-white">
-      <img
-        src={HERO_IMAGE_URL}
-        alt=""
-        className="absolute inset-0 h-full w-full object-cover"
-        loading="eager"
-      />
-      <div
-        className="absolute inset-0"
-        style={{
-          backgroundImage:
-            "linear-gradient(90deg, rgba(2, 6, 23, 0.94) 0%, rgba(15, 23, 42, 0.82) 46%, rgba(15, 23, 42, 0.44) 100%)",
-        }}
-      />
-      <div className="absolute inset-x-0 bottom-0 h-28 bg-gradient-to-t from-slate-950/75 to-transparent" />
-
-      <div className="relative mx-auto flex min-h-[calc(100svh-7rem)] max-w-7xl flex-col justify-center px-6 py-14 lg:px-8">
-        <div className="max-w-3xl">
-          <div className="landing-reveal inline-flex items-center gap-2 rounded-md border border-white/15 bg-white/10 px-3 py-1.5 text-xs font-semibold text-sky-100 backdrop-blur">
-            <ShieldCheck className="size-3.5" />
-            HMS Care Network | Established 1987
+    <section id="home" className="bg-[#f7fbfd]">
+      <div className="mx-auto grid min-h-[calc(100svh-5rem)] max-w-7xl items-center gap-12 px-6 py-20 lg:grid-cols-[1fr_0.95fr] lg:px-8 lg:py-24">
+        <div className="landing-reveal">
+          <div className="inline-flex items-center gap-2 rounded-full border border-blue-200 bg-blue-50 px-4 py-2 text-sm font-semibold text-blue-700">
+            <Sparkles className="size-4" />
+            Modern healthcare, organized around you
           </div>
 
-          <h1 className="landing-reveal landing-delay-1 mt-5 max-w-2xl text-5xl font-semibold leading-[1.02] text-white sm:text-6xl lg:text-7xl">
-            City Hospital
+          <h1 className="mt-8 max-w-3xl text-5xl font-semibold leading-[1.05] text-cyan-950 sm:text-6xl">
+            Premium care,{" "}
+            <span className="text-blue-600">close to home.</span>
           </h1>
 
-          <p className="landing-reveal landing-delay-2 mt-6 max-w-2xl text-base leading-7 text-slate-200 sm:text-lg">
-            Advanced specialty care with coordinated diagnostics, secure patient
-            records, and a clinical team built around faster decisions.
+          <p className="mt-6 max-w-2xl text-base leading-8 text-cyan-800/75 sm:text-lg">
+            City Hospital brings together specialist care, connected diagnostics,
+            and coordinated teams so every patient journey feels clear from the
+            first visit.
           </p>
 
-          <div className="landing-reveal landing-delay-3 mt-8 flex flex-wrap gap-3">
+          <div className="mt-9 flex flex-wrap gap-3">
             <a
               href="#appointment"
-              className="inline-flex h-11 items-center gap-2 rounded-md bg-white px-5 text-sm font-semibold text-slate-950 shadow-lg shadow-slate-950/20 transition hover:-translate-y-0.5 hover:bg-sky-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white"
+              className="inline-flex h-12 items-center gap-2 rounded-md bg-blue-600 px-6 text-sm font-semibold text-white shadow-lg shadow-blue-700/20 transition hover:-translate-y-0.5 hover:bg-blue-500"
             >
-              <CalendarCheck className="size-4" />
               Book an Appointment
+              <ArrowRight className="size-4" />
             </a>
             <a
-              href="#clinics"
-              className="inline-flex h-11 items-center gap-2 rounded-md border border-white/25 bg-white/10 px-5 text-sm font-semibold text-white backdrop-blur transition hover:-translate-y-0.5 hover:border-white/45 hover:bg-white/15 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white"
+              href="/login"
+              className="inline-flex h-12 items-center gap-2 rounded-md border border-cyan-200 bg-white px-6 text-sm font-semibold text-cyan-950 transition hover:-translate-y-0.5 hover:border-blue-200 hover:bg-blue-50"
             >
-              Explore Clinics
-              <ChevronRight className="size-4" />
+              Portal Login
             </a>
+          </div>
+
+          <div className="mt-10 grid gap-5 border-t border-cyan-100 pt-8 sm:grid-cols-4">
+            {SUMMARY_STATS.map((item) => (
+              <SummaryStat key={item.key} item={item} stats={stats} />
+            ))}
           </div>
         </div>
 
-        <div className="landing-reveal landing-delay-4 mt-12 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-          {STAT_CARDS.map((item) => (
-            <StatCard key={item.key} item={item} value={stats[item.key]} />
-          ))}
-        </div>
-
-        <div className="landing-reveal landing-delay-5 mt-5 flex flex-wrap gap-2 text-xs font-medium text-slate-200">
-          {HERO_SIGNALS.map((signal) => {
-            const Icon = signal.icon;
-
-            return (
-              <span
-                key={signal.label}
-                className="inline-flex items-center gap-2 rounded-md border border-white/10 bg-slate-950/35 px-3 py-2 backdrop-blur"
-              >
-                <Icon className="size-3.5 text-sky-200" />
-                {signal.label}
-              </span>
-            );
-          })}
-        </div>
+        <HospitalSnapshot stats={stats} />
       </div>
     </section>
   );
 }
 
-function StatCard({ item, value }) {
-  const Icon = item.icon;
-  const displayValue = item.patientApproximation
-    ? formatPatientCount(value)
-    : formatExactCount(value);
-
+function SummaryStat({ item, stats }) {
   return (
-    <div className="group rounded-md border border-white/10 bg-white/[0.08] p-4 shadow-2xl shadow-slate-950/20 backdrop-blur transition hover:-translate-y-1 hover:bg-white/[0.12]">
-      <div className="flex items-start justify-between gap-4">
+    <div>
+      <p className="text-3xl font-semibold leading-none text-cyan-950">
+        {formatStat(item, stats)}
+      </p>
+      <p className="mt-2 text-sm font-medium text-cyan-800/65">{item.label}</p>
+    </div>
+  );
+}
+
+function HospitalSnapshot({ stats }) {
+  return (
+    <div className="landing-reveal landing-delay-2 rounded-md border border-cyan-100 bg-white p-5 shadow-2xl shadow-cyan-950/10 sm:p-7">
+      <div className="mb-7 flex items-start justify-between gap-4">
         <div>
-          <p className="text-3xl font-semibold leading-none text-white">{displayValue}</p>
-          <p className="mt-2 text-xs font-medium text-slate-300">{item.label}</p>
+          <p className="text-sm font-medium text-cyan-800/60">Today&apos;s overview</p>
+          <h2 className="mt-1 text-2xl font-semibold text-cyan-950">
+            Live Hospital Snapshot
+          </h2>
         </div>
-        <span className={`inline-flex size-10 items-center justify-center rounded-md border ${item.tone}`}>
-          <Icon className="size-4" />
+        <span className="inline-flex size-12 items-center justify-center rounded-full bg-emerald-50 text-emerald-700">
+          <Activity className="size-5" />
         </span>
       </div>
+
+      <div className="grid gap-4 sm:grid-cols-2">
+        {SNAPSHOT_CARDS.map((item) => (
+          <SnapshotCard key={item.key} item={item} stats={stats} />
+        ))}
+      </div>
+
+      <div className="mt-5 flex items-center gap-3 rounded-md border border-blue-100 bg-blue-50 px-4 py-3 text-sm font-medium text-cyan-900">
+        <CheckCircle2 className="size-4 shrink-0 text-blue-600" />
+        Registry data refreshed from HMS records.
+      </div>
+    </div>
+  );
+}
+
+function SnapshotCard({ item, stats }) {
+  const Icon = item.icon;
+
+  return (
+    <div className="rounded-md border border-cyan-100 bg-[#fbfdff] p-4">
+      <span className={`inline-flex size-10 items-center justify-center rounded-md ${item.tone}`}>
+        <Icon className="size-5" />
+      </span>
+      <p className="mt-5 text-3xl font-semibold leading-none text-cyan-950">
+        {formatStat(item, stats)}
+      </p>
+      <p className="mt-2 text-sm font-medium text-cyan-800/65">{item.label}</p>
     </div>
   );
 }

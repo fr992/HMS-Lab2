@@ -31,11 +31,11 @@ export default function DirectorsSection() {
     <section id="leadership" className="bg-white py-20 sm:py-24">
       <div className="mx-auto grid max-w-7xl gap-10 px-6 lg:grid-cols-[0.85fr_1.4fr] lg:px-8">
         <div className="landing-reveal">
-          <p className="text-sm font-semibold text-sky-700">Leadership</p>
-          <h2 className="mt-3 max-w-md text-3xl font-semibold leading-tight text-slate-950 sm:text-4xl">
+          <p className="text-sm font-semibold text-blue-600">Leadership</p>
+          <h2 className="mt-3 max-w-md text-3xl font-semibold leading-tight text-cyan-950 sm:text-4xl">
             Clinical leadership with a clear operating rhythm.
           </h2>
-          <p className="mt-4 max-w-md text-sm leading-7 text-slate-600">
+          <p className="mt-4 max-w-md text-sm leading-7 text-cyan-800/75">
             Senior clinicians, nursing leads, and front-desk operations work from
             the same care record so every handoff has context.
           </p>
@@ -65,15 +65,15 @@ function DirectorCard({ director, icon, delayClass }) {
   const accent = ACCENT_STYLES[director.accent] ?? ACCENT_STYLES.sky;
 
   return (
-    <div className={`landing-reveal ${delayClass} group rounded-md border border-slate-200 bg-white p-5 shadow-sm shadow-slate-950/[0.03] transition hover:-translate-y-1 hover:border-slate-300 hover:shadow-xl hover:shadow-slate-950/[0.07]`}>
+    <div className={`landing-reveal ${delayClass} group rounded-md border border-cyan-100 bg-white p-5 shadow-sm shadow-cyan-950/[0.04] transition hover:-translate-y-1 hover:border-cyan-200 hover:shadow-xl hover:shadow-cyan-950/[0.08]`}>
       <div className="flex items-start justify-between gap-4">
         <span className={`inline-flex size-12 items-center justify-center rounded-md text-sm font-semibold ring-1 ${accent.avatar}`}>
           {director.initials}
         </span>
         <Icon className={`size-5 ${accent.icon}`} />
       </div>
-      <h3 className="mt-6 text-base font-semibold text-slate-950">{director.title}</h3>
-      <p className="mt-2 text-sm leading-6 text-slate-600">{director.specialty}</p>
+      <h3 className="mt-6 text-base font-semibold text-cyan-950">{director.title}</h3>
+      <p className="mt-2 text-sm leading-6 text-cyan-800/75">{director.specialty}</p>
       <span className={`mt-6 block h-1 w-12 rounded-full ${accent.bar}`} />
     </div>
   );
@@ -81,9 +81,9 @@ function DirectorCard({ director, icon, delayClass }) {
 
 function Signal({ label, value }) {
   return (
-    <div className="rounded-md border border-slate-200 bg-slate-50 p-4">
-      <p className="text-xs font-semibold text-slate-500">{label}</p>
-      <p className="mt-2 text-sm font-semibold text-slate-950">{value}</p>
+    <div className="rounded-md border border-cyan-100 bg-cyan-50/70 p-4">
+      <p className="text-xs font-semibold text-blue-600">{label}</p>
+      <p className="mt-2 text-sm font-semibold text-cyan-950">{value}</p>
     </div>
   );
 }

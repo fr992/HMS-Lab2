@@ -30,22 +30,22 @@ const CLINIC_TONES = [
 
 export default function ClinicsSection() {
   return (
-    <section id="clinics" className="bg-slate-50 py-20 sm:py-24">
+    <section id="clinics" className="bg-cyan-50/60 py-20 sm:py-24">
       <div className="mx-auto max-w-7xl px-6 lg:px-8">
         <div className="landing-reveal flex flex-col gap-5 md:flex-row md:items-end md:justify-between">
           <div className="max-w-2xl">
-            <p className="text-sm font-semibold text-sky-700">Departments</p>
-            <h2 className="mt-3 text-3xl font-semibold leading-tight text-slate-950 sm:text-4xl">
+            <p className="text-sm font-semibold text-blue-600">Departments</p>
+            <h2 className="mt-3 text-3xl font-semibold leading-tight text-cyan-950 sm:text-4xl">
               Clinics organized for fast, connected care.
             </h2>
-            <p className="mt-4 text-sm leading-7 text-slate-600">
+            <p className="mt-4 text-sm leading-7 text-cyan-800/75">
               Each clinic connects appointments, doctors, diagnostics, and
               follow-up into one clear patient pathway.
             </p>
           </div>
           <a
             href="#appointment"
-            className="inline-flex h-10 items-center gap-2 self-start rounded-md bg-slate-950 px-4 text-sm font-semibold text-white transition hover:-translate-y-0.5 hover:bg-slate-800 md:self-auto"
+            className="inline-flex h-10 items-center gap-2 self-start rounded-md bg-blue-600 px-4 text-sm font-semibold text-white shadow-lg shadow-blue-700/20 transition hover:-translate-y-0.5 hover:bg-blue-500 md:self-auto"
           >
             Request a Visit
             <ArrowUpRight className="size-4" />
@@ -66,22 +66,22 @@ function ClinicCard({ clinic, tone, index }) {
   const Icon = CLINIC_ICONS[clinic.icon] ?? HeartPulse;
 
   return (
-    <div className={`landing-reveal landing-delay-${Math.min(index + 1, 5)} group rounded-md border border-slate-200 bg-white p-5 shadow-sm shadow-slate-950/[0.03] transition hover:-translate-y-1 hover:border-slate-300 hover:shadow-xl hover:shadow-slate-950/[0.07]`}>
+    <div className={`landing-reveal landing-delay-${Math.min(index + 1, 5)} group rounded-md border border-cyan-100 bg-white p-5 shadow-sm shadow-cyan-950/[0.04] transition hover:-translate-y-1 hover:border-cyan-200 hover:shadow-xl hover:shadow-cyan-950/[0.08]`}>
       <div className="flex items-start justify-between gap-4">
         <span className={`inline-flex size-11 items-center justify-center rounded-md ring-1 ${tone}`}>
           <Icon className="size-5" />
         </span>
-        <ArrowUpRight className="size-4 text-slate-300 transition group-hover:text-slate-700" />
+        <ArrowUpRight className="size-4 text-cyan-300 transition group-hover:text-teal-700" />
       </div>
 
-      <h3 className="mt-5 text-base font-semibold text-slate-950">{clinic.name}</h3>
-      <p className="mt-2 min-h-12 text-sm leading-6 text-slate-600">{clinic.description}</p>
+      <h3 className="mt-5 text-base font-semibold text-cyan-950">{clinic.name}</h3>
+      <p className="mt-2 min-h-12 text-sm leading-6 text-cyan-800/75">{clinic.description}</p>
 
       <div className="mt-5 flex flex-wrap gap-2">
         {clinic.services.map((service) => (
           <span
             key={service}
-            className="inline-flex items-center gap-1.5 rounded-md border border-slate-200 bg-slate-50 px-2.5 py-1 text-xs font-medium text-slate-600"
+            className="inline-flex items-center gap-1.5 rounded-md border border-cyan-100 bg-cyan-50/70 px-2.5 py-1 text-xs font-medium text-cyan-800"
           >
             <CheckCircle2 className="size-3 text-emerald-600" />
             {service}

@@ -1,26 +1,26 @@
 import { Link, Outlet } from "react-router-dom";
-import { BriefcaseMedical, CalendarCheck, LogIn } from "lucide-react";
+import { BriefcaseMedical, Clock3, LogIn, MapPin, Phone } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
 const NAV_LINKS = [
-  { href: "#leadership", label: "Leadership" },
-  { href: "#clinics", label: "Clinics" },
-  { href: "#equipment", label: "Equipment" },
-  { href: "#appointment", label: "Appointment" },
+  { href: "#leadership", label: "Services" },
+  { href: "#clinics", label: "Departments" },
+  { href: "#equipment", label: "Technology" },
+  { href: "#appointment", label: "Book a Visit" },
 ];
 
 export default function MainLayout() {
   return (
-    <div className="min-h-screen bg-white text-slate-950">
-      <header className="sticky top-0 z-50 border-b border-slate-200/80 bg-white/90 backdrop-blur-xl">
-        <div className="mx-auto flex max-w-7xl flex-wrap items-center gap-3 px-6 py-3 lg:px-8">
+    <div className="min-h-screen bg-white text-cyan-950">
+      <header className="sticky top-0 z-50 border-b border-cyan-100 bg-white/90 backdrop-blur-xl">
+        <div className="mx-auto flex max-w-7xl flex-wrap items-center gap-3 px-6 py-4 lg:px-8">
           <a href="#home" className="flex items-center gap-3">
-            <span className="inline-flex size-9 items-center justify-center rounded-md bg-slate-950 text-white shadow-sm">
+            <span className="inline-flex size-9 items-center justify-center rounded-md bg-blue-600 text-white shadow-sm shadow-blue-700/20">
               <BriefcaseMedical className="size-4" />
             </span>
             <span className="flex flex-col leading-none">
-              <span className="text-sm font-semibold text-slate-950">HMS</span>
-              <span className="mt-1 text-xs font-medium text-slate-500">City Hospital</span>
+              <span className="text-sm font-semibold text-cyan-950">HMS</span>
+              <span className="mt-1 text-xs font-medium text-cyan-700">City Hospital</span>
             </span>
           </a>
 
@@ -32,7 +32,7 @@ export default function MainLayout() {
               <a
                 key={link.href}
                 href={link.href}
-                className="shrink-0 rounded-md px-3 py-2 text-sm font-medium text-slate-600 transition hover:bg-slate-100 hover:text-slate-950"
+                className="shrink-0 rounded-md px-3 py-2 text-sm font-medium text-cyan-700 transition hover:bg-cyan-50 hover:text-cyan-950"
               >
                 {link.label}
               </a>
@@ -40,17 +40,10 @@ export default function MainLayout() {
           </nav>
 
           <div className="ml-auto flex items-center gap-2">
-            <a
-              href="#appointment"
-              className="hidden h-9 items-center gap-2 rounded-md border border-slate-200 px-3 text-sm font-semibold text-slate-700 transition hover:border-sky-200 hover:bg-sky-50 hover:text-sky-700 md:inline-flex"
-            >
-              <CalendarCheck className="size-4" />
-              Request
-            </a>
-            <Button asChild size="lg" className="h-9 rounded-md bg-slate-950 px-3 text-white hover:bg-slate-800">
+            <Button asChild size="lg" className="h-10 rounded-full bg-blue-600 px-5 text-white shadow-sm shadow-blue-700/20 hover:bg-blue-500">
               <Link to="/login">
                 <LogIn className="size-4" />
-                Staff Login
+                Login
               </Link>
             </Button>
           </div>
@@ -61,18 +54,39 @@ export default function MainLayout() {
         <Outlet />
       </main>
 
-      <footer className="border-t border-slate-800 bg-slate-950 py-10 text-white">
-        <div className="mx-auto flex max-w-7xl flex-col gap-6 px-6 text-sm lg:flex-row lg:items-center lg:justify-between lg:px-8">
-          <div>
-            <p className="font-semibold">HMS City Hospital</p>
-            <p className="mt-1 text-slate-400">Copyright 2026. All rights reserved.</p>
+      <footer className="border-t border-cyan-100 bg-white">
+        <div className="mx-auto flex max-w-7xl flex-col gap-4 px-6 py-5 text-sm text-cyan-800 lg:flex-row lg:items-center lg:justify-between lg:px-8">
+          <div className="flex items-center gap-3">
+            <span className="inline-flex size-8 items-center justify-center rounded-md bg-blue-50 text-blue-600">
+              <BriefcaseMedical className="size-4" />
+            </span>
+            <div>
+              <p className="font-semibold text-cyan-950">HMS City Hospital</p>
+              <p className="mt-0.5 text-xs text-cyan-700/70">Copyright 2026. All rights reserved.</p>
+            </div>
           </div>
-          <div className="flex flex-wrap gap-2 text-slate-300">
+
+          <div className="flex flex-wrap items-center gap-x-5 gap-y-2 text-xs font-medium text-cyan-700/80">
+            <span className="inline-flex items-center gap-1.5">
+              <MapPin className="size-3.5 text-blue-600" />
+              City Hospital Campus
+            </span>
+            <span className="inline-flex items-center gap-1.5">
+              <Clock3 className="size-3.5 text-blue-600" />
+              24/7 Emergency Care
+            </span>
+            <span className="inline-flex items-center gap-1.5">
+              <Phone className="size-3.5 text-blue-600" />
+              +383 44 123 456
+            </span>
+          </div>
+
+          <div className="flex flex-wrap gap-1 text-sm font-medium text-cyan-700">
             {NAV_LINKS.map((link) => (
               <a
                 key={link.href}
                 href={link.href}
-                className="rounded-md px-3 py-2 transition hover:bg-white/10 hover:text-white"
+                className="rounded-md px-2.5 py-1.5 transition hover:bg-blue-50 hover:text-blue-700"
               >
                 {link.label}
               </a>

@@ -7,6 +7,7 @@ import {
   EyeOff,
   HeartPulse,
   LockKeyhole,
+  ShieldCheck,
   UserRound,
 } from "lucide-react";
 import { login } from "@/auth/authService";
@@ -15,7 +16,6 @@ import {
   getPrimaryRoleFromToken,
   getPermissionsFromToken,
 } from "@/auth/permissions";
-import { HERO_IMAGE_URL } from "@/features/landing/landingData";
 
 function defaultPathForSession(token) {
   const role = getPrimaryRoleFromToken(token);
@@ -31,7 +31,7 @@ function defaultPathForSession(token) {
 }
 
 const INPUT_CLASS =
-  "h-12 w-full rounded-md border border-slate-200 bg-white/95 px-4 text-sm text-slate-950 shadow-sm outline-none transition placeholder:text-slate-400 focus:border-sky-300 focus:ring-4 focus:ring-sky-100";
+  "h-12 w-full rounded-md border border-cyan-100 bg-white px-4 text-sm text-cyan-950 shadow-sm outline-none transition placeholder:text-cyan-800/35 focus:border-blue-300 focus:ring-4 focus:ring-blue-100";
 
 export default function LoginPage() {
   const [username, setUsername] = useState("");
@@ -64,76 +64,54 @@ export default function LoginPage() {
   }
 
   return (
-    <main className="relative isolate min-h-screen overflow-hidden bg-slate-950 text-white">
-      <img
-        src={HERO_IMAGE_URL}
-        alt=""
-        className="absolute inset-0 h-full w-full object-cover"
-      />
-      <div
-        className="absolute inset-0"
-        style={{
-          backgroundImage:
-            "linear-gradient(105deg, rgba(2, 6, 23, 0.97) 0%, rgba(15, 23, 42, 0.91) 48%, rgba(15, 23, 42, 0.54) 100%)",
-        }}
-      />
-      <div className="absolute inset-x-0 bottom-0 h-40 bg-gradient-to-t from-slate-950/90 to-transparent" />
-
-      <div className="relative mx-auto grid min-h-screen max-w-7xl gap-10 px-6 py-6 lg:grid-cols-[1fr_30rem] lg:px-8">
+    <main className="min-h-screen bg-[#f7fbfd] text-cyan-950">
+      <div className="mx-auto grid min-h-screen max-w-7xl gap-10 px-6 py-6 lg:grid-cols-[1fr_28rem] lg:px-8">
         <section className="flex flex-col justify-between">
           <Link
             to="/"
-            className="inline-flex w-fit items-center gap-2 rounded-md border border-white/15 bg-white/10 px-3 py-2 text-sm font-semibold text-white backdrop-blur transition hover:-translate-y-0.5 hover:border-white/30 hover:bg-white/15"
+            className="inline-flex w-fit items-center gap-2 rounded-full border border-cyan-200 bg-white px-4 py-2 text-sm font-semibold text-cyan-800 shadow-sm transition hover:-translate-y-0.5 hover:border-blue-200 hover:bg-blue-50 hover:text-blue-700"
           >
             <ArrowLeft className="size-4" />
             Back to Home
           </Link>
 
-          <div className="landing-reveal max-w-2xl py-14 lg:py-0">
-            <div className="inline-flex items-center gap-2 rounded-md border border-sky-200/20 bg-sky-300/10 px-3 py-1.5 text-xs font-semibold text-sky-100 backdrop-blur">
-              <HeartPulse className="size-3.5" />
+          <div className="landing-reveal max-w-2xl py-16 lg:py-0">
+            <div className="inline-flex items-center gap-2 rounded-full border border-blue-200 bg-blue-50 px-4 py-2 text-sm font-semibold text-blue-700">
+              <HeartPulse className="size-4" />
               HMS City Hospital
             </div>
-            <h1 className="mt-5 max-w-2xl text-5xl font-semibold leading-tight sm:text-6xl">
-              Hospital Management System
+            <h1 className="mt-8 max-w-2xl text-5xl font-semibold leading-[1.05] text-cyan-950 sm:text-6xl">
+              Hospital portal,{" "}
+              <span className="text-blue-600">ready when you are.</span>
             </h1>
-            <p className="mt-5 max-w-xl text-base leading-7 text-slate-200">
-              Sign in to continue to the City Hospital portal.
+            <p className="mt-6 max-w-xl text-base leading-8 text-cyan-800/75 sm:text-lg">
+              Continue to your secure HMS workspace with the same clean,
+              coordinated experience used across City Hospital.
             </p>
           </div>
 
-          <p className="hidden text-sm text-slate-400 lg:block">
+          <p className="hidden text-sm font-medium text-cyan-800/55 lg:block">
             HMS City Hospital | Portal Access
           </p>
         </section>
 
         <section className="flex items-center">
-          <div className="landing-reveal landing-delay-2 w-full overflow-hidden rounded-md border border-white/15 bg-white text-slate-950 shadow-2xl shadow-slate-950/40">
-            <div className="border-b border-slate-100 bg-slate-950 px-5 py-6 text-white sm:px-7">
-              <div className="flex items-start justify-between gap-4">
-                <div className="inline-flex size-12 items-center justify-center rounded-md bg-white text-slate-950 shadow-lg shadow-slate-950/20">
-                  <HeartPulse className="size-5" />
-                </div>
-                <span className="rounded-md border border-white/15 bg-white/10 px-2.5 py-1 text-xs font-semibold text-slate-200">
-                  HMS
-                </span>
-              </div>
-              <h2 className="mt-6 text-2xl font-semibold text-white">
-                Sign In
-              </h2>
-              <p className="mt-2 text-sm leading-6 text-slate-300">
-                Use your portal credentials.
-              </p>
-            </div>
-
-            <div className="p-5 sm:p-7">
-            <div className="mb-7 flex items-start justify-between gap-4">
+          <div className="landing-reveal landing-delay-2 w-full rounded-md border border-cyan-100 bg-white p-6 shadow-2xl shadow-cyan-950/10 sm:p-8">
+            <div className="mb-8 flex items-start justify-between gap-4">
               <div>
-                <p className="text-xs font-semibold text-slate-500">Welcome</p>
-                <p className="mt-1 text-sm leading-6 text-slate-600">
-                  Enter your username or email and password.
+                <span className="inline-flex size-12 items-center justify-center rounded-md bg-blue-50 text-blue-700">
+                  <ShieldCheck className="size-5" />
+                </span>
+                <h2 className="mt-6 text-2xl font-semibold text-cyan-950">
+                  Sign In
+                </h2>
+                <p className="mt-2 text-sm leading-6 text-cyan-800/65">
+                  Use your portal credentials.
                 </p>
               </div>
+              <span className="rounded-full border border-cyan-100 bg-cyan-50 px-3 py-1 text-xs font-semibold text-cyan-700">
+                HMS
+              </span>
             </div>
 
             <form onSubmit={handleLogin} className="space-y-5">
@@ -148,13 +126,13 @@ export default function LoginPage() {
 
               <div>
                 <label
-                  className="mb-2 block text-sm font-semibold text-slate-700"
+                  className="mb-2 block text-sm font-semibold text-cyan-900"
                   htmlFor="username"
                 >
                   Username or email
                 </label>
                 <div className="relative">
-                  <UserRound className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-slate-400" />
+                  <UserRound className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-blue-600/60" />
                   <input
                     id="username"
                     className={`${INPUT_CLASS} pl-10`}
@@ -169,13 +147,13 @@ export default function LoginPage() {
 
               <div>
                 <label
-                  className="mb-2 block text-sm font-semibold text-slate-700"
+                  className="mb-2 block text-sm font-semibold text-cyan-900"
                   htmlFor="password"
                 >
                   Password
                 </label>
                 <div className="relative">
-                  <LockKeyhole className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-slate-400" />
+                  <LockKeyhole className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-blue-600/60" />
                   <input
                     id="password"
                     type={showPassword ? "text" : "password"}
@@ -188,7 +166,7 @@ export default function LoginPage() {
                   <button
                     type="button"
                     onClick={() => setShowPassword((value) => !value)}
-                    className="absolute right-2 top-1/2 inline-flex size-8 -translate-y-1/2 items-center justify-center rounded-md text-slate-500 transition hover:bg-slate-100 hover:text-slate-900"
+                    className="absolute right-2 top-1/2 inline-flex size-8 -translate-y-1/2 items-center justify-center rounded-md text-cyan-700 transition hover:bg-blue-50 hover:text-blue-700"
                     aria-label={showPassword ? "Hide password" : "Show password"}
                     title={showPassword ? "Hide password" : "Show password"}
                   >
@@ -200,13 +178,12 @@ export default function LoginPage() {
               <button
                 type="submit"
                 disabled={submitting}
-                className="group inline-flex h-12 w-full items-center justify-center gap-2 rounded-md bg-slate-950 px-4 text-sm font-semibold text-white shadow-lg shadow-slate-950/15 transition hover:-translate-y-0.5 hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-60"
+                className="group inline-flex h-12 w-full items-center justify-center gap-2 rounded-md bg-blue-600 px-4 text-sm font-semibold text-white shadow-lg shadow-blue-700/20 transition hover:-translate-y-0.5 hover:bg-blue-500 disabled:cursor-not-allowed disabled:opacity-60"
               >
                 {submitting ? "Signing in..." : "Sign In"}
                 <ArrowRight className="size-4 transition group-hover:translate-x-0.5" />
               </button>
             </form>
-            </div>
           </div>
         </section>
       </div>
