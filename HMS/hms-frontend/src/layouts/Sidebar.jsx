@@ -1,17 +1,22 @@
+import { useState } from "react";
 import { useAuth } from "@/auth/AuthContext";
 import {
   CalendarDays,
   ClipboardList,
   LayoutDashboard,
   LogOut,
+  PanelLeftClose,
+  PanelLeftOpen,
   Pill,
   Stethoscope,
+  UserCog,
   UserRound,
   Users,
 } from "lucide-react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 
 export default function Sidebar() {
+  const [collapsed, setCollapsed] = useState(false);
   const auth = useAuth();
   const { pathname } = useLocation();
   const navigate = useNavigate();
@@ -26,10 +31,11 @@ export default function Sidebar() {
   const linkClass = (to) => {
     const on = pathname === to || (to !== "/admin" && pathname.startsWith(to));
     return [
-      "flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium transition",
+      "flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition",
+      collapsed ? "justify-center" : "",
       on
-        ? "bg-sky-50 text-sky-800 ring-1 ring-inset ring-sky-100"
-        : "text-slate-600 hover:bg-slate-100 hover:text-slate-950",
+        ? "bg-blue-600 text-white shadow-sm shadow-blue-950/25"
+        : "text-slate-300 hover:bg-slate-800/90 hover:text-white",
     ].join(" ");
   };
 
@@ -39,153 +45,254 @@ export default function Sidebar() {
   };
 
   return (
-    <aside className="w-64 shrink-0 border-r border-slate-200 bg-white">
-      <div className="border-b border-slate-200 px-4 py-4">
-        <div className="flex items-center gap-3">
-          <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-sky-700 text-sm font-semibold text-white">
-            HMS
-          </div>
-          <div className="min-w-0">
-            <p className="truncate text-sm font-semibold text-slate-950">
-              City Hospital
-            </p>
-            <p className="text-xs text-slate-500">Administration</p>
-          </div>
-        </div>
-        <div className="mt-4 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2">
-          <p className="truncate text-sm font-semibold text-slate-900">
-            {auth.userName ?? "User"}
-          </p>
-          {auth.userRole && (
-            <p className="text-xs text-slate-500">{auth.userRole}</p>
-          )}
-        </div>
-      </div>
-      <nav className="p-2">
-        {isAdmin && (
-          <div className="mb-4 space-y-1">
-            <p className="mb-1 px-2 text-xs font-semibold uppercase tracking-wide text-slate-400">
-              Administration
-            </p>
-            <Link className={linkClass("/admin/dashboard")} to="/admin/dashboard">
-              <LayoutDashboard className="h-4 w-4 shrink-0" aria-hidden />
-              Dashboard
-            </Link>
-            <Link className={linkClass("/admin/users")} to="/admin/users">
-              <Users className="h-4 w-4 shrink-0" aria-hidden />
-              Users
-            </Link>
-            {canReadAppointments && (
-              <Link
-                className={linkClass("/appointments")}
-                to="/appointments"
-              >
-                <CalendarDays className="h-4 w-4 shrink-0" aria-hidden />
-                Appointments
-              </Link>
-            )}
-            {canReadAppointments && (
-              <Link
-                className={linkClass("/appointment-requests")}
-                to="/appointment-requests"
-              >
-                <ClipboardList className="h-4 w-4 shrink-0" aria-hidden />
-                Online Requests
-              </Link>
-            )}
-            {canReadEncounters && (
-              <Link
-                className={linkClass("/admin/encounters")}
-                to="/admin/encounters"
-              >
-                <Stethoscope className="h-4 w-4 shrink-0" aria-hidden />
-                Encounters
-              </Link>
-            )}
-            {canReadMedications && (
-              <Link className={linkClass("/medications")} to="/medications">
-                <Pill className="h-4 w-4 shrink-0" aria-hidden />
-                Medications
-              </Link>
+    <aside
+      className={[
+        "flex h-full shrink-0 flex-col rounded-lg border border-slate-800 bg-slate-900 text-white shadow-sm transition-all duration-300",
+        collapsed ? "w-[4.5rem]" : "w-60",
+      ].join(" ")}
+    >
+      <div className="border-b border-slate-800 px-3 py-3.5">
+        <div
+          className={
+            collapsed
+              ? "flex flex-col items-center gap-2"
+              : "flex items-center justify-between gap-3"
+          }
+        >
+          <div
+            className={[
+              "flex min-w-0 items-center gap-3",
+              collapsed ? "justify-center" : "",
+            ].join(" ")}
+          >
+            <div className="flex size-10 items-center justify-center rounded-lg bg-blue-600 text-white shadow-lg shadow-blue-950/25">
+              <Stethoscope className="size-5" />
+            </div>
+            {!collapsed && (
+              <div className="min-w-0">
+                <p className="truncate text-base font-semibold leading-tight">
+                  HMS
+                </p>
+                <p className="text-xs font-medium text-slate-400">
+                  Hospital Management
+                </p>
+              </div>
             )}
           </div>
-        )}
 
-        {(isPatient ||
-          canReadPatients ||
-          (canReadAppointments && !isAdmin) ||
-          (canReadEncounters && !isAdmin) ||
-          (canReadMedications && !isAdmin)) && (
-          <div className="space-y-1">
-            <p className="mb-1 px-2 text-xs font-semibold uppercase tracking-wide text-slate-400">
-              Clinical
-            </p>
-            {canReadPatients && (
-              <Link className={linkClass("/patients")} to="/patients">
-                <UserRound className="h-4 w-4 shrink-0" aria-hidden />
-                Patients
-              </Link>
-            )}
-
-            {isPatient && (
-              <Link
-                className={linkClass("/patient/encounters")}
-                to="/patient/encounters"
-              >
-                <ClipboardList className="h-4 w-4 shrink-0" aria-hidden />
-                My Encounters
-              </Link>
-            )}
-
-            {canReadEncounters && isDoctor && (
-              <Link
-                className={linkClass("/doctor/encounters")}
-                to="/doctor/encounters"
-              >
-                <Stethoscope className="h-4 w-4 shrink-0" aria-hidden />
-                Encounters
-              </Link>
-            )}
-
-            {canReadMedications && !isPatient && (
-              <Link className={linkClass("/medications")} to="/medications">
-                <Pill className="h-4 w-4 shrink-0" aria-hidden />
-                Medications
-              </Link>
-            )}
-
-            {canReadAppointments && !isAdmin && (
-              <Link
-                className={linkClass("/appointments")}
-                to="/appointments"
-              >
-                <CalendarDays className="h-4 w-4 shrink-0" aria-hidden />
-                Appointments
-              </Link>
-            )}
-            {canReadAppointments && !isAdmin && (
-              <Link
-                className={linkClass("/appointment-requests")}
-                to="/appointment-requests"
-              >
-                <ClipboardList className="h-4 w-4 shrink-0" aria-hidden />
-                Online Requests
-              </Link>
-            )}
-          </div>
-        )}
-
-        <div className="mt-6 border-t border-slate-100 pt-3">
           <button
             type="button"
-            onClick={handleLogout}
-            className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-sm font-medium text-slate-600 hover:bg-slate-100 hover:text-slate-950"
+            onClick={() => setCollapsed((value) => !value)}
+            className="inline-flex size-8 items-center justify-center rounded-lg text-slate-300 transition hover:bg-slate-800 hover:text-white"
+            aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
+            title={collapsed ? "Expand sidebar" : "Collapse sidebar"}
           >
-            <LogOut className="h-4 w-4 shrink-0" aria-hidden />
-            Sign out
+            {collapsed ? (
+              <PanelLeftOpen className="size-4" />
+            ) : (
+              <PanelLeftClose className="size-4" />
+            )}
           </button>
         </div>
+      </div>
+
+      <nav className="scrollbar-none min-h-0 flex-1 overflow-y-auto px-2.5 py-4">
+        {isAdmin && (
+          <Section title="Overview" collapsed={collapsed}>
+            <NavLink
+              to="/admin/dashboard"
+              icon={LayoutDashboard}
+              label="Dashboard"
+              className={linkClass("/admin/dashboard")}
+              collapsed={collapsed}
+            />
+          </Section>
+        )}
+
+        {isAdmin &&
+          (canReadPatients || canReadAppointments || canReadEncounters) && (
+            <Section title="Patient Care" collapsed={collapsed}>
+              {canReadPatients && (
+                <NavLink
+                  to="/patients"
+                  icon={Users}
+                  label="Patients"
+                  className={linkClass("/patients")}
+                  collapsed={collapsed}
+                />
+              )}
+              {canReadAppointments && (
+                <NavLink
+                  to="/appointments"
+                  icon={CalendarDays}
+                  label="Appointments"
+                  className={linkClass("/appointments")}
+                  collapsed={collapsed}
+                />
+              )}
+              {canReadAppointments && (
+                <NavLink
+                  to="/appointment-requests"
+                  icon={ClipboardList}
+                  label="Online Requests"
+                  className={linkClass("/appointment-requests")}
+                  collapsed={collapsed}
+                />
+              )}
+              {canReadEncounters && (
+                <NavLink
+                  to="/admin/encounters"
+                  icon={Stethoscope}
+                  label="Encounters"
+                  className={linkClass("/admin/encounters")}
+                  collapsed={collapsed}
+                />
+              )}
+            </Section>
+          )}
+
+        {isAdmin && canReadMedications && (
+          <Section title="Operations" collapsed={collapsed}>
+            <NavLink
+              to="/medications"
+              icon={Pill}
+              label="Medications"
+              className={linkClass("/medications")}
+              collapsed={collapsed}
+            />
+          </Section>
+        )}
+
+        {!isAdmin &&
+          (isPatient ||
+            canReadPatients ||
+            canReadAppointments ||
+            canReadEncounters) && (
+          <Section title="Clinical" collapsed={collapsed}>
+            {canReadPatients && !isAdmin && (
+              <NavLink
+                to="/patients"
+                icon={UserRound}
+                label="Patients"
+                className={linkClass("/patients")}
+                collapsed={collapsed}
+              />
+            )}
+            {isPatient && (
+              <NavLink
+                to="/patient/encounters"
+                icon={ClipboardList}
+                label="My Encounters"
+                className={linkClass("/patient/encounters")}
+                collapsed={collapsed}
+              />
+            )}
+            {canReadEncounters && isDoctor && (
+              <NavLink
+                to="/doctor/encounters"
+                icon={Stethoscope}
+                label="Encounters"
+                className={linkClass("/doctor/encounters")}
+                collapsed={collapsed}
+              />
+            )}
+            {canReadAppointments && !isAdmin && (
+              <NavLink
+                to="/appointments"
+                icon={CalendarDays}
+                label="Appointments"
+                className={linkClass("/appointments")}
+                collapsed={collapsed}
+              />
+            )}
+            {canReadAppointments && !isAdmin && (
+              <NavLink
+                to="/appointment-requests"
+                icon={ClipboardList}
+                label="Online Requests"
+                className={linkClass("/appointment-requests")}
+                collapsed={collapsed}
+              />
+            )}
+          </Section>
+        )}
+
+        {!isAdmin && canReadMedications && (
+          <Section title="Operations" collapsed={collapsed}>
+            <NavLink
+              to="/medications"
+              icon={Pill}
+              label="Medications"
+              className={linkClass("/medications")}
+              collapsed={collapsed}
+            />
+          </Section>
+        )}
+
+        {isAdmin && (
+          <Section title="Administration" collapsed={collapsed}>
+            <NavLink
+              to="/admin/users"
+              icon={UserCog}
+              label="Users"
+              className={linkClass("/admin/users")}
+              collapsed={collapsed}
+            />
+          </Section>
+        )}
       </nav>
+
+      <div className="mt-auto border-t border-slate-800 p-3">
+        <div className={collapsed ? "mb-3 flex justify-center" : "mb-3 flex items-center gap-3"}>
+          <div className="flex size-10 items-center justify-center rounded-full bg-blue-950 text-sm font-semibold text-blue-200">
+            {(auth.userName ?? "U").slice(0, 2).toUpperCase()}
+          </div>
+          {!collapsed && (
+            <div className="min-w-0">
+              <p className="truncate text-sm font-semibold text-white">
+                {auth.userName ?? "User"}
+              </p>
+              <p className="text-xs text-slate-400">{auth.userRole ?? "Portal"}</p>
+            </div>
+          )}
+        </div>
+        <button
+          type="button"
+          onClick={handleLogout}
+          className={[
+            "flex w-full items-center rounded-lg px-3 py-2 text-sm font-medium text-slate-300 transition hover:bg-slate-800 hover:text-white",
+            collapsed ? "justify-center" : "gap-3",
+          ].join(" ")}
+          title="Sign out"
+        >
+          <LogOut className="size-4 shrink-0" aria-hidden />
+          {!collapsed && "Sign out"}
+        </button>
+      </div>
     </aside>
+  );
+}
+
+function Section({ title, children, collapsed }) {
+  return (
+    <div className="mb-5 space-y-1">
+      {!collapsed && (
+        <p className="mb-2 px-3 text-[0.68rem] font-semibold uppercase tracking-[0.14em] text-slate-500">
+          {title}
+        </p>
+      )}
+      {children}
+    </div>
+  );
+}
+
+function NavLink({ to, icon, label, className, collapsed }) {
+  const Icon = icon;
+
+  return (
+    <Link className={className} to={to} title={collapsed ? label : undefined}>
+      <Icon className="size-4 shrink-0" aria-hidden />
+      {!collapsed && <span className="truncate">{label}</span>}
+    </Link>
   );
 }

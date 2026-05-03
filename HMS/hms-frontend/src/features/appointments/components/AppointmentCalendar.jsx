@@ -459,7 +459,7 @@ export default function AppointmentCalendar({
 
   return (
     <div className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
-      <div className="overflow-x-auto">
+      <div className="scrollbar-none overflow-x-auto">
         <div
           className={`grid ${minWidth} sticky top-0 z-30 border-b border-slate-200 bg-white`}
           style={{

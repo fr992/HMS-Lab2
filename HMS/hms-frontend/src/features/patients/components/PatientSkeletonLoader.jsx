@@ -14,8 +14,8 @@ const SKELETON_HEADERS = [
 export function PatientTableSkeleton() {
   return (
     <div className="flex min-h-0 flex-1 flex-col">
-      <div className="min-h-0 flex-1 overflow-hidden rounded-2xl border border-slate-200/80 bg-white shadow-sm">
-        <div className="h-full min-h-[12rem] overflow-x-auto overflow-y-auto">
+      <div className="min-h-0 flex-1 overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm">
+        <div className="scrollbar-none h-full min-h-[12rem] overflow-x-auto overflow-y-auto">
           <table className="min-w-[70rem] w-full sm:min-w-[76rem]">
             <thead className="sticky top-0 z-10 border-b border-slate-200 bg-slate-50">
               <tr>

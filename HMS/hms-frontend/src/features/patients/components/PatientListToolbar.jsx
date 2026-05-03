@@ -91,7 +91,7 @@ export default function PatientListToolbar({
   }, [filterOpen, onCloseFilter]);
 
   return (
-    <section className="rounded-2xl border border-slate-200/80 bg-white p-5 shadow-sm sm:p-6">
+    <section className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm sm:p-6">
       <div>
         <h1 className="text-2xl font-semibold tracking-tight text-slate-900 sm:text-3xl">
           Patients
@@ -136,7 +136,7 @@ export default function PatientListToolbar({
               )}
             </button>
             {filterOpen && (
-              <div className="absolute right-0 top-full z-30 mt-2 w-[min(100vw-2rem,20rem)] rounded-2xl border border-slate-200/80 bg-white p-4 shadow-lg">
+              <div className="absolute right-0 top-full z-30 mt-2 w-[min(100vw-2rem,20rem)] rounded-lg border border-slate-200 bg-white p-4 shadow-lg">
                 <div>
                   <label
                     className={label}

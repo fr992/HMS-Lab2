@@ -116,6 +116,14 @@ function formatScheduleNavLabel(mode, focusDate) {
   });
 }
 
+function normalizeScheduleFocus(mode, value) {
+  if (mode === "month") return startOfMonth(value);
+  if (mode === "week") return startOfWeek(value);
+  const next = new Date(value);
+  next.setHours(0, 0, 0, 0);
+  return next;
+}
+
 function isSameDay(a, b) {
   return (
     a.getFullYear() === b.getFullYear() &&
@@ -334,7 +342,7 @@ const CALENDAR_VIEW_OPTIONS = [
 
 function StatusSegment({ value, onChange }) {
   return (
-    <div className="inline-flex max-w-full overflow-x-auto rounded-xl border border-slate-200 bg-slate-100/80 p-1 shadow-sm">
+    <div className="scrollbar-none inline-flex max-w-full overflow-x-auto rounded-lg border border-slate-200 bg-slate-100/80 p-1 shadow-sm">
       {LIST_SEGMENT_TABS.map((tab) => {
         const on = value === tab.value;
         return (
@@ -493,16 +501,6 @@ export default function AppointmentsListPage() {
   const [filterDate, setFilterDate] = useState("");
   const [selectedDay, setSelectedDay] = useState(null);
 
-  useEffect(() => {
-    setScheduleFocus((prev) => {
-      if (calendarView === "month") return startOfMonth(prev);
-      if (calendarView === "week") return startOfWeek(prev);
-      const d = new Date(prev);
-      d.setHours(0, 0, 0, 0);
-      return d;
-    });
-  }, [calendarView]);
-
   const load = useCallback(async () => {
     setLoading(true);
     setError(null);
@@ -530,6 +528,11 @@ export default function AppointmentsListPage() {
       setRefreshing(false);
     }
   }, [filterDate, view, scheduleFocus, calendarView]);
+
+  const handleCalendarViewChange = useCallback((nextView) => {
+    setCalendarView(nextView);
+    setScheduleFocus((previous) => normalizeScheduleFocus(nextView, previous));
+  }, []);
 
   useEffect(() => {
     const timer = window.setTimeout(() => {
@@ -775,7 +778,7 @@ export default function AppointmentsListPage() {
       <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-slate-200 bg-white/80 p-2 shadow-sm">
         <StatusSegment value={listSegment} onChange={setListSegment} />
         {view === "schedule" && (
-          <CalendarViewSegment value={calendarView} onChange={setCalendarView} />
+          <CalendarViewSegment value={calendarView} onChange={handleCalendarViewChange} />
         )}
       </div>
 

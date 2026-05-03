@@ -26,7 +26,7 @@ export default function MainLayout() {
 
           <nav
             aria-label="Landing page sections"
-            className="order-last flex w-full items-center gap-1 overflow-x-auto pt-2 sm:order-none sm:ml-6 sm:w-auto sm:flex-1 sm:justify-center sm:pt-0"
+            className="scrollbar-none order-last flex w-full items-center gap-1 overflow-x-auto pt-2 sm:order-none sm:ml-6 sm:w-auto sm:flex-1 sm:justify-center sm:pt-0"
           >
             {NAV_LINKS.map((link) => (
               <a

@@ -232,7 +232,7 @@ function AdminDoctorGroup({ group, isOpen, onToggle, panelBasePath }) {
 
       {isOpen && (
         <div className="border-t border-slate-100">
-          <div className="max-h-[25rem] overflow-y-auto">
+          <div className="scrollbar-none max-h-[25rem] overflow-y-auto">
             {group.encounters.map((encounter) => (
               <EncounterRow
                 key={encounter.id}

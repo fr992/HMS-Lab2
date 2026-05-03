@@ -565,7 +565,7 @@ function SearchableMedicationSelect({
       />
 
       {open && (
-        <div className="absolute z-50 max-h-56 w-full overflow-auto rounded-md border border-slate-200 bg-white shadow-lg">
+        <div className="scrollbar-none absolute z-50 max-h-56 w-full overflow-auto rounded-md border border-slate-200 bg-white shadow-lg">
           {loading && (
             <div className="px-3 py-2 text-sm text-slate-500">
               Loading medications...

@@ -281,7 +281,7 @@ export default function MedicationsPage() {
         </div>
       )}
 
-      <div className="min-h-0 flex-1 overflow-auto rounded-lg border border-slate-200 bg-white shadow-sm">
+      <div className="scrollbar-none min-h-0 flex-1 overflow-auto rounded-lg border border-slate-200 bg-white shadow-sm">
         {loading ? (
           <div className="flex min-h-[16rem] items-center justify-center text-sm text-slate-500">
             Loading medications...

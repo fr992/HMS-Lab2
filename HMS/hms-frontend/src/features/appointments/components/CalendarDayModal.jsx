@@ -273,7 +273,7 @@ export default function CalendarDayModal({
           </div>
         </div>
 
-        <div className="max-h-[60vh] overflow-y-auto p-5">
+        <div className="scrollbar-none max-h-[60vh] overflow-y-auto p-5">
           {sorted.length === 0 ? (
             <div className="rounded-lg border border-dashed border-slate-200 p-8 text-center">
               <p className="text-sm font-medium text-slate-900">

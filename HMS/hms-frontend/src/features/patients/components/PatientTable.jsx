@@ -116,7 +116,7 @@ export default function PatientTable({
 
   return (
     <div className="flex min-h-0 flex-1 flex-col">
-      <div className="min-h-0 flex-1 overflow-x-auto overflow-y-auto rounded-2xl border border-slate-200/80 bg-white shadow-sm">
+      <div className="scrollbar-none min-h-0 flex-1 overflow-x-auto overflow-y-auto rounded-lg border border-slate-200 bg-white shadow-sm">
         <table className="min-w-[70rem] w-full table-auto border-collapse text-left sm:min-w-[76rem]">
           <caption className="sr-only">Patient directory</caption>
           <thead className="sticky top-0 z-20 border-b border-slate-200 bg-slate-50 text-left text-xs font-semibold tracking-wide text-slate-600">

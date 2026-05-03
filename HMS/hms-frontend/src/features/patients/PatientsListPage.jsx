@@ -168,7 +168,7 @@ export default function PatientsListPage() {
           />
         )}
         {listStatus === "ready" && items.length > 0 && filteredPatients.length === 0 && (
-          <div className="rounded-2xl border border-slate-200/80 bg-white p-8 text-center shadow-sm">
+          <div className="rounded-lg border border-slate-200 bg-white p-8 text-center shadow-sm">
             <p className="text-sm font-medium text-slate-900">No matches</p>
             <p className="mt-1 text-sm text-slate-600">
               Try a different search or clear filters to see all patients.

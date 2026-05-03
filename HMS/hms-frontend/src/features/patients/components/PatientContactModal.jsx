@@ -141,7 +141,7 @@ export default function PatientContactModal({
         aria-label="Close"
         onClick={saving ? undefined : onClose}
       />
-      <div className="relative max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-lg bg-white p-5 shadow-lg">
+      <div className="scrollbar-none relative max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-lg bg-white p-5 shadow-lg">
         <h2 className="text-lg font-semibold text-slate-900">
           Emergency contacts
         </h2>
