@@ -1,5 +1,5 @@
 import { useMemo } from "react";
-import { CalendarPlus, Clock3, Stethoscope, UserRound } from "lucide-react";
+import { CalendarPlus } from "lucide-react";
 import { APPOINTMENT_STATUS } from "@/features/appointments/appointmentConstants";
 
 const STATUS_META = {
@@ -41,6 +41,20 @@ const STATUS_META = {
 };
 
 const WEEKDAY_LABELS = ["Mo", "Tu", "We", "Th", "Fr", "Sa", "Su"];
+const WORK_START_HOUR = 8;
+const WORK_END_HOUR = 18;
+const SLOT_MINUTES = 30;
+const SLOT_HEIGHT_REM = 3.25;
+const TIME_SLOTS = Array.from(
+  { length: ((WORK_END_HOUR - WORK_START_HOUR) * 60) / SLOT_MINUTES + 1 },
+  (_, index) => {
+    const total = WORK_START_HOUR * 60 + index * SLOT_MINUTES;
+    const hour = Math.floor(total / 60);
+    const minute = total % 60;
+    return `${String(hour).padStart(2, "0")}:${String(minute).padStart(2, "0")}`;
+  }
+);
+const SCHEDULE_SLOT_COUNT = TIME_SLOTS.length - 1;
 
 function addDays(date, days) {
   const next = new Date(date);
@@ -110,6 +124,34 @@ function formatTimeRange(startIso, endIso) {
   return `${start} - ${end}`;
 }
 
+function appointmentGridPosition(appointment) {
+  const start = new Date(appointment.scheduledStart);
+  const end = new Date(appointment.scheduledEnd);
+  if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime())) return null;
+
+  const dayStartMinutes = WORK_START_HOUR * 60;
+  const dayEndMinutes = WORK_END_HOUR * 60;
+  const startMinutes =
+    start.getHours() * 60 + start.getMinutes() - dayStartMinutes;
+  const durationMinutes = Math.max(0, (end.getTime() - start.getTime()) / 60000);
+  const absoluteStart = start.getHours() * 60 + start.getMinutes();
+  const absoluteEnd = absoluteStart + durationMinutes;
+
+  if (absoluteEnd <= dayStartMinutes || absoluteStart >= dayEndMinutes) {
+    return null;
+  }
+
+  const clampedStart = Math.max(0, startMinutes);
+  const clampedEnd = Math.min(
+    dayEndMinutes - dayStartMinutes,
+    startMinutes + durationMinutes
+  );
+  const rowStart = Math.floor(clampedStart / SLOT_MINUTES) + 1;
+  const rowSpan = Math.max(1, Math.ceil((clampedEnd - clampedStart) / SLOT_MINUTES));
+
+  return { rowStart, rowSpan };
+}
+
 function statusMeta(status) {
   const key = String(status ?? "").trim().toLowerCase();
   return (
@@ -155,6 +197,48 @@ function useAppointmentsByDay(appointments) {
   }, [appointments]);
 }
 
+function ScheduleAppointmentCard({ appointment, onAppointmentClick, showTime }) {
+  const meta = statusMeta(appointment.status);
+
+  return (
+    <button
+      type="button"
+      onClick={() => onAppointmentClick(appointment)}
+      className={`group relative z-10 h-full min-h-0 w-full max-w-full overflow-hidden rounded-lg border ${meta.border} ${meta.bg} px-2.5 py-2 text-left shadow-sm transition hover:z-20 hover:-translate-y-0.5 hover:border-sky-300 hover:bg-white hover:shadow-md`}
+    >
+      <span className={`absolute inset-y-2 left-0 w-1 rounded-r-full ${meta.dot}`} />
+      <span className="block min-w-0 max-w-full pl-2">
+        <span
+          className={[
+            "flex min-w-0 max-w-full gap-2",
+            showTime ? "items-center justify-between" : "items-start",
+          ].join(" ")}
+        >
+          {showTime && (
+            <span className="min-w-0 truncate text-[11px] font-semibold tabular-nums text-slate-700">
+              {formatTimeRange(appointment.scheduledStart, appointment.scheduledEnd)}
+            </span>
+          )}
+          <span className={showTime ? "shrink-0" : "min-w-0 max-w-full"}>
+            <CompactStatusBadge status={appointment.status} />
+          </span>
+        </span>
+        <span className="mt-1 block min-w-0 max-w-full truncate text-sm font-semibold leading-5 text-slate-950">
+          {appointment.patientName}
+        </span>
+        <span className="block min-w-0 max-w-full truncate text-xs leading-5 text-slate-600">
+          Dr. {appointment.doctorName}
+        </span>
+        {(appointment.appointmentType || appointment.reason) && (
+          <span className="mt-1 block min-w-0 max-w-full truncate text-[11px] font-medium leading-4 text-slate-500">
+            {appointment.appointmentType || appointment.reason}
+          </span>
+        )}
+      </span>
+    </button>
+  );
+}
+
 function AppointmentDayColumn({
   day,
   items,
@@ -163,93 +247,78 @@ function AppointmentDayColumn({
   onAppointmentClick,
   canCreate,
   onCreate,
+  calendarView,
 }) {
   const isToday = isSameDay(day, today);
+  const isDayView = calendarView === "day";
+  const positionedItems = items
+    .map((appointment) => ({
+      appointment,
+      position: appointmentGridPosition(appointment),
+    }))
+    .filter((item) => item.position);
 
   return (
     <section
       className={[
-        "flex min-h-[26rem] min-w-0 flex-col",
-        isToday ? "bg-sky-50/20" : "bg-white",
+        "relative min-w-0 border-r border-slate-100 last:border-r-0",
+        isToday ? "bg-sky-50 border-sky-200" : "bg-white",
       ]
         .filter(Boolean)
         .join(" ")}
     >
-      <div className="flex min-h-0 flex-1 flex-col gap-2 p-2.5">
-        {items.length === 0 ? (
+      <div
+        className="grid"
+        style={{
+          gridTemplateRows: `repeat(${SCHEDULE_SLOT_COUNT}, minmax(${SLOT_HEIGHT_REM}rem, ${SLOT_HEIGHT_REM}rem))`,
+        }}
+      >
+        {Array.from({ length: SCHEDULE_SLOT_COUNT }, (_, index) => (
           <button
+            key={`${dateKey(day)}-${index}`}
             type="button"
             onClick={() => onDayClick(day)}
-            className="flex min-h-[11rem] flex-1 items-center justify-center rounded-md border border-dashed border-slate-200 bg-slate-50/50 text-sm font-medium text-slate-400 transition hover:border-sky-200 hover:bg-sky-50/70 hover:text-sky-700"
+            className="min-h-0 border border-slate-100 bg-transparent transition hover:bg-sky-50/60"
+            aria-label={`Open ${formatDay(day)} at ${TIME_SLOTS[index]}`}
+          />
+        ))}
+      </div>
+
+      <div
+        className="pointer-events-none absolute inset-0 grid py-1.5"
+        style={{
+          gridTemplateRows: `repeat(${SCHEDULE_SLOT_COUNT}, minmax(${SLOT_HEIGHT_REM}rem, ${SLOT_HEIGHT_REM}rem))`,
+        }}
+      >
+        {positionedItems.map(({ appointment, position }) => (
+          <div
+            key={appointment.id}
+            className={[
+              "pointer-events-auto min-h-0 min-w-0 max-w-full",
+              isDayView ? "px-3" : "px-2",
+            ].join(" ")}
+            style={{
+              gridRow: `${position.rowStart} / span ${position.rowSpan}`,
+            }}
           >
-            No visits
-          </button>
-        ) : (
-          items.map((appointment) => {
-            const meta = statusMeta(appointment.status);
-            return (
-              <button
-                key={appointment.id}
-                type="button"
-                onClick={() => onAppointmentClick(appointment)}
-                className={`group relative min-w-0 overflow-hidden rounded-md border ${meta.border} ${meta.bg} p-3 text-left shadow-sm transition hover:-translate-y-0.5 hover:border-sky-300 hover:bg-white hover:shadow-md`}
-              >
-                <span
-                  className={`absolute inset-y-0 left-0 w-1 ${meta.dot}`}
-                />
-                <span className="block min-w-0 pl-2">
-                  <span className="flex min-w-0 items-center gap-1.5 text-[11px] font-semibold text-slate-700">
-                    <Clock3
-                      className="h-3.5 w-3.5 shrink-0 text-slate-400"
-                      aria-hidden
-                    />
-                    <span className="truncate">
-                      {formatTimeRange(
-                        appointment.scheduledStart,
-                        appointment.scheduledEnd
-                      )}
-                    </span>
-                  </span>
-                  <span className="mt-1.5 block">
-                    <CompactStatusBadge status={appointment.status} />
-                  </span>
-                  <span className="mt-2 flex min-w-0 items-center gap-1.5 text-sm font-semibold text-slate-950">
-                    <UserRound
-                      className="h-3.5 w-3.5 shrink-0 text-slate-400"
-                      aria-hidden
-                    />
-                    <span className="truncate">{appointment.patientName}</span>
-                  </span>
-                  <span className="mt-1 flex min-w-0 items-center gap-1.5 text-xs text-slate-600">
-                    <Stethoscope
-                      className="h-3.5 w-3.5 shrink-0 text-slate-400"
-                      aria-hidden
-                    />
-                    <span className="truncate">Dr. {appointment.doctorName}</span>
-                  </span>
-                  {appointment.appointmentType && (
-                    <span className="mt-2 inline-flex max-w-full rounded-full bg-white/70 px-2 py-0.5 text-[11px] font-medium text-slate-600 ring-1 ring-inset ring-slate-200">
-                      <span className="truncate">
-                        {appointment.appointmentType}
-                      </span>
-                    </span>
-                  )}
-                </span>
-              </button>
-            );
-          })
-        )}
+            <ScheduleAppointmentCard
+              appointment={appointment}
+              onAppointmentClick={onAppointmentClick}
+              showTime={isDayView}
+            />
+          </div>
+        ))}
       </div>
 
       {canCreate && (
-        <div className="border-t border-slate-100 p-2">
+        <div className="absolute bottom-2 right-2 z-20">
           <button
             type="button"
             onClick={() => onCreate(day)}
-            className="flex h-9 w-full items-center justify-center gap-2 rounded-md text-sm font-semibold text-sky-700 transition hover:bg-sky-50"
+            className="flex h-8 items-center justify-center gap-1.5 rounded-lg border border-sky-200 bg-white/95 px-2.5 text-xs font-semibold text-sky-700 shadow-sm transition hover:bg-sky-50"
           >
-            <CalendarPlus className="h-4 w-4" aria-hidden />
-            Add visit
+            <CalendarPlus className="h-3.5 w-3.5" aria-hidden />
+            Add
           </button>
         </div>
       )}
@@ -257,13 +326,7 @@ function AppointmentDayColumn({
   );
 }
 
-function MonthCalendar({
-  appointments,
-  focusDate,
-  onDayClick,
-  appointmentsByDay,
-  today,
-}) {
+function MonthCalendar({ focusDate, onDayClick, appointmentsByDay, today }) {
   const monthStart = startOfMonth(focusDate);
   const year = monthStart.getFullYear();
   const month = monthStart.getMonth();
@@ -352,31 +415,37 @@ export default function AppointmentCalendar({
   appointments,
   calendarView,
   focusDate,
+  weekStart,
   onDayClick,
   onAppointmentClick,
   canCreate,
   onCreate,
+  onMutated,
+  onToast,
 }) {
   const today = new Date();
   const appointmentsByDay = useAppointmentsByDay(appointments);
+  void onMutated;
+  void onToast;
 
   const days = useMemo(() => {
+    const baseDate = focusDate ?? weekStart ?? new Date();
     if (calendarView === "day") {
-      const d = new Date(focusDate);
+      const d = new Date(baseDate);
       d.setHours(0, 0, 0, 0);
       return [d];
     }
     if (calendarView === "week") {
-      const from = startOfWeek(focusDate);
+      const from = weekStart ? new Date(weekStart) : startOfWeek(baseDate);
+      from.setHours(0, 0, 0, 0);
       return Array.from({ length: 7 }, (_, index) => addDays(from, index));
     }
     return [];
-  }, [calendarView, focusDate]);
+  }, [calendarView, focusDate, weekStart]);
 
   if (calendarView === "month") {
     return (
       <MonthCalendar
-        appointments={appointments}
         focusDate={focusDate}
         onDayClick={onDayClick}
         appointmentsByDay={appointmentsByDay}
@@ -386,17 +455,20 @@ export default function AppointmentCalendar({
   }
 
   const colCount = days.length;
-  const minWidth = calendarView === "day" ? "min-w-0" : "min-w-[980px]";
+  const minWidth = calendarView === "day" ? "min-w-[900px]" : "min-w-[900px]";
 
   return (
-    <div className="overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm">
+    <div className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
       <div className="overflow-x-auto">
         <div
-          className={`grid ${minWidth} divide-x divide-slate-200 border-b border-slate-200 bg-slate-50`}
+          className={`grid ${minWidth} sticky top-0 z-30 border-b border-slate-200 bg-white`}
           style={{
-            gridTemplateColumns: `repeat(${colCount}, minmax(0, 1fr))`,
+            gridTemplateColumns: `5rem repeat(${colCount}, minmax(0, 1fr))`,
           }}
         >
+          <div className="sticky left-0 z-40 border-r border-slate-200 bg-white px-3 py-3 text-xs font-semibold uppercase tracking-wide text-slate-500">
+            Time
+          </div>
           {days.map((day) => {
             const items = appointmentsByDay.get(dateKey(day)) ?? [];
             const isToday = isSameDay(day, today);
@@ -407,8 +479,8 @@ export default function AppointmentCalendar({
                 type="button"
                 onClick={() => onDayClick(day)}
                 className={[
-                  "min-w-0 px-3 py-3 text-left transition hover:bg-white",
-                  isToday ? "bg-sky-50" : "",
+                  "min-w-0 border-r border-slate-200 bg-white px-3 py-3 text-left transition last:border-r-0 hover:bg-slate-50",
+                  isToday ? "bg-sky-50 border-sky-200" : "",
                 ]
                   .filter(Boolean)
                   .join(" ")}
@@ -442,11 +514,31 @@ export default function AppointmentCalendar({
         </div>
 
         <div
-          className={`grid ${minWidth} divide-x divide-slate-200`}
+          className={`grid ${minWidth}`}
           style={{
-            gridTemplateColumns: `repeat(${colCount}, minmax(0, 1fr))`,
+            gridTemplateColumns: `5rem repeat(${colCount}, minmax(0, 1fr))`,
           }}
         >
+          <div className="sticky left-0 z-20 border-r border-slate-200 bg-white">
+            <div
+              className="relative grid"
+              style={{
+                gridTemplateRows: `repeat(${SCHEDULE_SLOT_COUNT}, minmax(${SLOT_HEIGHT_REM}rem, ${SLOT_HEIGHT_REM}rem))`,
+              }}
+            >
+              {TIME_SLOTS.slice(0, -1).map((slot) => (
+                <div
+                  key={slot}
+                  className="border-b border-slate-100 px-3 pt-1.5 text-xs font-medium tabular-nums text-slate-500"
+                >
+                  {slot}
+                </div>
+              ))}
+              <div className="absolute bottom-1 left-3 text-xs font-medium tabular-nums text-slate-500">
+                {TIME_SLOTS[TIME_SLOTS.length - 1]}
+              </div>
+            </div>
+          </div>
           {days.map((day) => {
             const items = appointmentsByDay.get(dateKey(day)) ?? [];
 
@@ -460,6 +552,7 @@ export default function AppointmentCalendar({
                 onAppointmentClick={onAppointmentClick}
                 canCreate={canCreate}
                 onCreate={onCreate}
+                calendarView={calendarView}
               />
             );
           })}

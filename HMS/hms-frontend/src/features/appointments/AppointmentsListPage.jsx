@@ -332,15 +332,38 @@ const CALENDAR_VIEW_OPTIONS = [
   { value: "month", label: "Month" },
 ];
 
-function ScheduleNav({ calendarView, focusDate, onViewChange, onFocusChange }) {
-  const viewBtn = (value) =>
-    [
-      "rounded-md px-3 py-2 text-sm font-medium transition",
-      calendarView === value
-        ? "bg-sky-700 text-white shadow-sm"
-        : "text-slate-600 hover:bg-slate-100 hover:text-slate-950",
-    ].join(" ");
+function StatusSegment({ value, onChange }) {
+  return (
+    <div className="inline-flex max-w-full overflow-x-auto rounded-xl border border-slate-200 bg-slate-100/80 p-1 shadow-sm">
+      {LIST_SEGMENT_TABS.map((tab) => {
+        const on = value === tab.value;
+        return (
+          <button
+            key={tab.value}
+            type="button"
+            onClick={() => onChange(tab.value)}
+            className={[
+              "shrink-0 rounded-lg text-sm font-medium transition",
+              "px-4 py-2",
+              on
+                ? "bg-white text-slate-900 shadow-sm ring-1 ring-slate-200/80"
+                : "text-slate-600 hover:text-slate-900",
+            ].join(" ")}
+          >
+            {tab.label}
+          </button>
+        );
+      })}
+    </div>
+  );
+}
 
+function ScheduleNav({
+  calendarView,
+  focusDate,
+  onFocusChange,
+  onClear,
+}) {
   function goPrev() {
     const d = new Date(focusDate);
     if (calendarView === "day") {
@@ -381,50 +404,68 @@ function ScheduleNav({ calendarView, focusDate, onViewChange, onFocusChange }) {
   }
 
   return (
-    <div className="flex w-full min-w-0 flex-col gap-2">
-      <div className="inline-flex w-fit max-w-full rounded-lg border border-slate-200 bg-white p-0.5 shadow-sm">
-        {CALENDAR_VIEW_OPTIONS.map((opt) => (
-          <button
-            key={opt.value}
-            type="button"
-            onClick={() => onViewChange(opt.value)}
-            className={viewBtn(opt.value)}
-            aria-pressed={calendarView === opt.value}
-          >
-            {opt.label}
-          </button>
-        ))}
-      </div>
-      <div className="flex w-full min-w-0 flex-col gap-2">
-        <div className="flex w-full min-w-0 items-stretch gap-1.5">
-          <button
-            type="button"
-            onClick={goPrev}
-            className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-600 shadow-sm transition hover:bg-slate-50"
-            aria-label="Previous"
-          >
-            <ChevronLeft className="h-4 w-4" aria-hidden />
-          </button>
-          <div className="flex min-h-10 min-w-[12rem] flex-1 items-center justify-center rounded-lg border border-slate-200 bg-slate-50 px-4 py-2 text-center text-sm font-semibold leading-snug text-slate-900 sm:min-w-[16rem]">
-            {formatScheduleNavLabel(calendarView, focusDate)}
-          </div>
-          <button
-            type="button"
-            onClick={goNext}
-            className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-600 shadow-sm transition hover:bg-slate-50"
-            aria-label="Next"
-          >
-            <ChevronRight className="h-4 w-4" aria-hidden />
-          </button>
+    <div className="flex min-w-0 flex-wrap items-center gap-3">
+      <div className="flex min-w-0 shrink-0 items-center gap-1.5">
+        <button
+          type="button"
+          onClick={goPrev}
+          className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-600 shadow-sm transition hover:bg-slate-50"
+          aria-label="Previous"
+        >
+          <ChevronLeft className="h-4 w-4" aria-hidden />
+        </button>
+        <div className="flex h-10 min-w-[12rem] shrink-0 items-center justify-center rounded-lg border border-slate-200 bg-slate-50 px-4 text-center text-sm font-semibold leading-snug text-slate-900 sm:min-w-[16rem]">
+          {formatScheduleNavLabel(calendarView, focusDate)}
         </div>
         <button
           type="button"
-          onClick={goToday}
-          className="h-10 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm font-semibold text-slate-800 shadow-sm transition hover:bg-slate-50"
+          onClick={goNext}
+          className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-600 shadow-sm transition hover:bg-slate-50"
+          aria-label="Next"
         >
-          Today
+          <ChevronRight className="h-4 w-4" aria-hidden />
         </button>
       </div>
+      <button
+        type="button"
+        onClick={goToday}
+        className="h-10 shrink-0 rounded-lg border border-slate-200 bg-white px-3 text-sm font-semibold text-slate-800 shadow-sm transition hover:bg-slate-50"
+      >
+        Today
+      </button>
+      <button
+        type="button"
+        onClick={onClear}
+        className="h-10 shrink-0 rounded-lg border border-slate-200 bg-white px-3 text-sm font-semibold text-slate-800 shadow-sm transition hover:bg-slate-50"
+      >
+        Clear
+      </button>
+    </div>
+  );
+}
+
+function CalendarViewSegment({ value, onChange }) {
+  return (
+    <div className="inline-flex rounded-xl border border-slate-200 bg-slate-100/80 p-1 shadow-sm">
+      {CALENDAR_VIEW_OPTIONS.map((opt) => {
+        const on = value === opt.value;
+        return (
+          <button
+            key={opt.value}
+            type="button"
+            onClick={() => onChange(opt.value)}
+            className={[
+              "rounded-lg px-4 py-2 text-sm font-medium transition",
+              on
+                ? "bg-white text-slate-900 shadow-sm ring-1 ring-slate-200/80"
+                : "text-slate-600 hover:text-slate-900",
+            ].join(" ")}
+            aria-pressed={on}
+          >
+            {opt.label}
+          </button>
+        );
+      })}
     </div>
   );
 }
@@ -717,46 +758,25 @@ export default function AppointmentsListPage() {
                   <ScheduleNav
                     calendarView={calendarView}
                     focusDate={scheduleFocus}
-                    onViewChange={setCalendarView}
                     onFocusChange={setScheduleFocus}
+                    onClear={() => {
+                      setSearch("");
+                      setListSegment("all");
+                      setFilterDate("");
+                    }}
                   />
                 </div>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setSearch("");
-                    setListSegment("all");
-                    setFilterDate("");
-                  }}
-                  className="h-10 shrink-0 rounded-lg border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-800 shadow-sm transition hover:bg-slate-50"
-                >
-                  Clear
-                </button>
               </div>
             </div>
           )}
         </section>
       </div>
 
-      <div className="inline-flex rounded-xl border border-slate-200 bg-slate-100/80 p-1 shadow-sm">
-        {LIST_SEGMENT_TABS.map((tab) => {
-          const on = listSegment === tab.value;
-          return (
-            <button
-              key={tab.value}
-              type="button"
-              onClick={() => setListSegment(tab.value)}
-              className={[
-                "rounded-lg px-4 py-2 text-sm font-medium transition",
-                on
-                  ? "bg-white text-slate-900 shadow-sm ring-1 ring-slate-200/80"
-                  : "text-slate-600 hover:text-slate-900",
-              ].join(" ")}
-            >
-              {tab.label}
-            </button>
-          );
-        })}
+      <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-slate-200 bg-white/80 p-2 shadow-sm">
+        <StatusSegment value={listSegment} onChange={setListSegment} />
+        {view === "schedule" && (
+          <CalendarViewSegment value={calendarView} onChange={setCalendarView} />
+        )}
       </div>
 
       {toast && (
@@ -804,6 +824,8 @@ export default function AppointmentsListPage() {
             onAppointmentClick={(appointment) =>
               setSelectedDay(new Date(appointment.scheduledStart))
             }
+            onMutated={load}
+            onToast={showToast}
           />
         ) : sortedListItems.length === 0 ? (
           <div className="flex min-h-[18rem] items-center justify-center rounded-lg border border-slate-200 bg-white p-8 text-center shadow-sm">

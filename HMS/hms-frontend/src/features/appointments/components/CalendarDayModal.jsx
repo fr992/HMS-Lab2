@@ -14,6 +14,19 @@ import {
   patchAppointmentStatus,
 } from "@/features/appointments/api/appointmentsApi";
 
+const WORK_START_HOUR = 8;
+const WORK_END_HOUR = 18;
+const SLOT_MINUTES = 30;
+const TIME_SLOTS = Array.from(
+  { length: ((WORK_END_HOUR - WORK_START_HOUR) * 60) / SLOT_MINUTES + 1 },
+  (_, index) => {
+    const total = WORK_START_HOUR * 60 + index * SLOT_MINUTES;
+    const hour = Math.floor(total / 60);
+    const minute = total % 60;
+    return `${String(hour).padStart(2, "0")}:${String(minute).padStart(2, "0")}`;
+  }
+);
+
 function formatDateHeading(date) {
   return date.toLocaleDateString(undefined, {
     weekday: "long",
@@ -32,6 +45,20 @@ function formatTimeRange(startIso, endIso) {
     undefined,
     options
   )}`;
+}
+
+function slotKeyFromIso(iso) {
+  const date = new Date(iso);
+  if (Number.isNaN(date.getTime())) return null;
+  const minutes = date.getHours() * 60 + date.getMinutes();
+  const workStart = WORK_START_HOUR * 60;
+  const workEnd = WORK_END_HOUR * 60;
+  if (minutes < workStart || minutes > workEnd) return null;
+  const slotMinutes =
+    workStart + Math.floor((minutes - workStart) / SLOT_MINUTES) * SLOT_MINUTES;
+  const hour = Math.floor(slotMinutes / 60);
+  const minute = slotMinutes % 60;
+  return `${String(hour).padStart(2, "0")}:${String(minute).padStart(2, "0")}`;
 }
 
 function AppointmentActions({
@@ -188,6 +215,17 @@ export default function CalendarDayModal({
     [appointments]
   );
 
+  const appointmentsByTime = useMemo(() => {
+    const grouped = new Map(TIME_SLOTS.map((slot) => [slot, []]));
+    for (const appointment of sorted) {
+      const key = slotKeyFromIso(appointment.scheduledStart);
+      if (key && grouped.has(key)) {
+        grouped.get(key).push(appointment);
+      }
+    }
+    return grouped;
+  }, [sorted]);
+
   if (!date) return null;
 
   return (
@@ -200,7 +238,7 @@ export default function CalendarDayModal({
         if (event.target === overlayRef.current) onClose();
       }}
     >
-      <div className="max-h-[90vh] w-full max-w-2xl overflow-hidden rounded-lg border border-slate-200 bg-white shadow-xl">
+      <div className="max-h-[90vh] w-full max-w-3xl overflow-hidden rounded-xl border border-slate-200 bg-white shadow-xl">
         <div className="flex items-start justify-between gap-4 border-b border-slate-100 px-5 py-4">
           <div>
             <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
@@ -255,58 +293,77 @@ export default function CalendarDayModal({
               )}
             </div>
           ) : (
-            <ol className="space-y-3">
-              {sorted.map((appointment) => (
-                <li
-                  key={appointment.id}
-                  className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm"
-                >
-                  <div className="flex flex-wrap items-center justify-between gap-2">
-                    <p className="text-sm font-semibold text-slate-950">
-                      {formatTimeRange(
-                        appointment.scheduledStart,
-                        appointment.scheduledEnd
-                      )}
-                    </p>
-                    <AppointmentStatusBadge status={appointment.status} />
-                  </div>
-                  <div className="mt-3 grid gap-3 sm:grid-cols-[1fr_auto]">
-                    <div className="min-w-0">
-                      <p className="truncate text-sm font-semibold text-slate-950">
-                        {appointment.patientName}
-                      </p>
-                      <p className="mt-1 truncate text-sm text-slate-600">
-                        Dr. {appointment.doctorName}
-                        {appointment.departmentName
-                          ? `, ${appointment.departmentName}`
-                          : ""}
-                      </p>
-                      {appointment.appointmentType && (
-                        <p className="mt-2 text-xs font-medium uppercase tracking-wide text-slate-400">
-                          {appointment.appointmentType}
-                        </p>
-                      )}
-                      {appointment.reason && (
-                        <p className="mt-2 text-sm leading-6 text-slate-600">
-                          {appointment.reason}
-                        </p>
+            <div className="rounded-lg border border-slate-200 bg-white">
+              {TIME_SLOTS.map((slot) => {
+                const slotAppointments = appointmentsByTime.get(slot) ?? [];
+                return (
+                  <div
+                    key={slot}
+                    className="grid min-h-[4rem] grid-cols-[4.5rem_minmax(0,1fr)] border-b border-slate-100 last:border-b-0"
+                  >
+                    <div className="border-r border-slate-100 bg-slate-50/70 px-3 py-3 text-xs font-medium tabular-nums text-slate-500">
+                      {slot}
+                    </div>
+                    <div className="space-y-3 p-3">
+                      {slotAppointments.length === 0 ? (
+                        <div className="h-6 rounded-md border border-dashed border-slate-100" />
+                      ) : (
+                        slotAppointments.map((appointment) => (
+                          <article
+                            key={appointment.id}
+                            className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm"
+                          >
+                            <div className="flex flex-wrap items-center justify-between gap-2">
+                              <p className="text-sm font-semibold tabular-nums text-slate-950">
+                                {formatTimeRange(
+                                  appointment.scheduledStart,
+                                  appointment.scheduledEnd
+                                )}
+                              </p>
+                              <AppointmentStatusBadge status={appointment.status} />
+                            </div>
+                            <div className="mt-3 grid gap-3 sm:grid-cols-[1fr_auto]">
+                              <div className="min-w-0">
+                                <p className="truncate text-sm font-semibold text-slate-950">
+                                  {appointment.patientName}
+                                </p>
+                                <p className="mt-1 truncate text-sm text-slate-600">
+                                  Dr. {appointment.doctorName}
+                                  {appointment.departmentName
+                                    ? `, ${appointment.departmentName}`
+                                    : ""}
+                                </p>
+                                {appointment.appointmentType && (
+                                  <p className="mt-2 text-xs font-medium uppercase tracking-wide text-slate-400">
+                                    {appointment.appointmentType}
+                                  </p>
+                                )}
+                                {appointment.reason && (
+                                  <p className="mt-2 text-sm leading-6 text-slate-600">
+                                    {appointment.reason}
+                                  </p>
+                                )}
+                              </div>
+                            </div>
+
+                            <AppointmentActions
+                              appointment={appointment}
+                              canManageStatus={canManageStatus}
+                              canEdit={canEdit}
+                              canVisit={canVisit}
+                              encounterBasePath={encounterBasePath}
+                              onMutated={onMutated}
+                              onToast={onToast}
+                              onClose={onClose}
+                            />
+                          </article>
+                        ))
                       )}
                     </div>
                   </div>
-
-                  <AppointmentActions
-                    appointment={appointment}
-                    canManageStatus={canManageStatus}
-                    canEdit={canEdit}
-                    canVisit={canVisit}
-                    encounterBasePath={encounterBasePath}
-                    onMutated={onMutated}
-                    onToast={onToast}
-                    onClose={onClose}
-                  />
-                </li>
-              ))}
-            </ol>
+                );
+              })}
+            </div>
           )}
         </div>
 
