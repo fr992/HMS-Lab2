@@ -5,6 +5,13 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 
+const DIAGNOSIS_TYPES = [
+  { value: "", label: "Select diagnosis type (optional)" },
+  { value: "primary", label: "Primary" },
+  { value: "secondary", label: "Secondary" },
+  { value: "provisional", label: "Provisional" },
+];
+
 export default function DiagnosesSection({
   encounterId,
   diagnoses,
@@ -56,11 +63,17 @@ export default function DiagnosesSection({
                 onChange={(e) => setForm({ ...form, icdCode: e.target.value })}
               />
 
-              <Input
-                placeholder="Type"
+              <select
                 value={form.type}
                 onChange={(e) => setForm({ ...form, type: e.target.value })}
-              />
+                className="h-9 w-full rounded-md border border-input bg-background px-3 text-sm text-slate-900"
+              >
+                {DIAGNOSIS_TYPES.map((type) => (
+                  <option key={type.value || "none"} value={type.value}>
+                    {type.label}
+                  </option>
+                ))}
+              </select>
 
               <Input
                 placeholder="Description *"

@@ -2,7 +2,7 @@ import { APPOINTMENT_STATUS } from "./appointmentConstants";
 
 /**
  * Action model aligned with domain `AppointmentStatus` rules and product UX.
- * @typedef {{ id: string, label: string, kind: "status" | "cancel" | "view" | "edit", target?: string }} AppointmentRowAction
+ * @typedef {{ id: string, label: string, kind: "status" | "cancel" | "view" | "edit" | "visit", target?: string }} AppointmentRowAction
  */
 
 /** @type {Record<string, AppointmentRowAction[]>} */
@@ -23,6 +23,7 @@ const byStatus = {
     },
     { id: "edit", label: "Edit", kind: "edit" },
     { id: "view", label: "View", kind: "view" },
+    { id: "visit", label: "Visit", kind: "visit" },
   ],
   [APPOINTMENT_STATUS.CONFIRMED]: [
     {
@@ -40,16 +41,20 @@ const byStatus = {
     },
     { id: "edit", label: "Edit", kind: "edit" },
     { id: "view", label: "View", kind: "view" },
+    { id: "visit", label: "Visit", kind: "visit" },
   ],
   [APPOINTMENT_STATUS.COMPLETED]: [
     { id: "view", label: "View", kind: "view" },
+    { id: "visit", label: "Visit", kind: "visit" },
   ],
   [APPOINTMENT_STATUS.CANCELLED]: [
     { id: "view", label: "View", kind: "view" },
+    { id: "visit", label: "Visit", kind: "visit" },
   ],
   [APPOINTMENT_STATUS.NO_SHOW]: [
     { id: "cancel", label: "Cancel", kind: "cancel" },
     { id: "view", label: "View", kind: "view" },
+    { id: "visit", label: "Visit", kind: "visit" },
   ],
 };
 
@@ -70,5 +75,6 @@ export function isAppointmentActionVisible(action, perms) {
   if (action.kind === "status" || action.kind === "cancel")
     return perms.canManageStatus;
   if (action.kind === "edit") return perms.canEdit;
+  if (action.kind === "visit") return perms.canVisit;
   return true;
 }

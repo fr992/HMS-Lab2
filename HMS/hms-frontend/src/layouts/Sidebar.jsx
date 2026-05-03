@@ -4,6 +4,7 @@ import {
   ClipboardList,
   LayoutDashboard,
   LogOut,
+  Pill,
   Stethoscope,
   UserRound,
   Users,
@@ -16,6 +17,7 @@ export default function Sidebar() {
   const canReadPatients = auth.hasPermission("Patients.Read");
   const canReadAppointments = auth.hasPermission("Appointments.Read");
   const canReadEncounters = auth.hasPermission("Encounters.Read");
+  const canReadMedications = auth.hasPermission("Medications.Read");
   const isAdmin = auth.userRole === "Admin";
   const isDoctor = auth.userRole === "Doctor";
   const isPatient = auth.userRole === "Patient";
@@ -94,13 +96,20 @@ export default function Sidebar() {
                 Encounters
               </Link>
             )}
+            {canReadMedications && (
+              <Link className={linkClass("/medications")} to="/medications">
+                <Pill className="h-4 w-4 shrink-0" aria-hidden />
+                Medications
+              </Link>
+            )}
           </div>
         )}
 
         {(isPatient ||
           canReadPatients ||
           (canReadAppointments && !isAdmin) ||
-          (canReadEncounters && !isAdmin)) && (
+          (canReadEncounters && !isAdmin) ||
+          (canReadMedications && !isAdmin)) && (
           <div className="space-y-1">
             <p className="mb-1 px-2 text-xs font-semibold uppercase tracking-wide text-slate-400">
               Clinical
@@ -129,6 +138,13 @@ export default function Sidebar() {
               >
                 <Stethoscope className="h-4 w-4 shrink-0" aria-hidden />
                 Encounters
+              </Link>
+            )}
+
+            {canReadMedications && !isPatient && (
+              <Link className={linkClass("/medications")} to="/medications">
+                <Pill className="h-4 w-4 shrink-0" aria-hidden />
+                Medications
               </Link>
             )}
 

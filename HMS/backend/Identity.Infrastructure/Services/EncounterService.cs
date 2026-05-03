@@ -1,4 +1,4 @@
-﻿using HMS.Application.Abstractions.Identity;
+using HMS.Application.Abstractions.Identity;
 using HMS.Contracts.Identity;
 using HMS.Persistence;
 using Identity.Domain.Entities;
@@ -266,6 +266,15 @@ public sealed class EncounterService : IEncounterService
 
         ApplyStatusTransition(encounter, request.Status);
 
+        if (string.Equals(request.Status, EncounterStatus.Completed, StringComparison.Ordinal)
+            && encounter.AppointmentId.HasValue)
+        {
+            await MarkLinkedAppointmentCompletedAsync(
+                encounter.AppointmentId.Value,
+                actorUserId,
+                cancellationToken);
+        }
+
         encounter.UpdatedAt = DateTime.UtcNow;
         encounter.UpdatedById = actorUserId;
         encounter.UpdatedByUserId = actorUserId;
@@ -274,6 +283,29 @@ public sealed class EncounterService : IEncounterService
 
         return await GetByIdAsync(encounter.Id, cancellationToken)
             ?? throw new InvalidOperationException("Updated but not found.");
+    }
+
+    private async Task MarkLinkedAppointmentCompletedAsync(
+        int appointmentId,
+        int? actorUserId,
+        CancellationToken cancellationToken)
+    {
+        var appointment = await _db.Appointments
+            .FirstOrDefaultAsync(a => a.Id == appointmentId, cancellationToken);
+
+        if (appointment == null)
+            return;
+
+        if (string.Equals(appointment.Status, AppointmentStatus.Completed, StringComparison.Ordinal))
+            return;
+
+        if (string.Equals(appointment.Status, AppointmentStatus.Cancelled, StringComparison.Ordinal)
+            || string.Equals(appointment.Status, AppointmentStatus.NoShow, StringComparison.Ordinal))
+            return;
+
+        appointment.Status = AppointmentStatus.Completed;
+        appointment.UpdatedAt = DateTime.UtcNow;
+        appointment.UpdatedById = actorUserId;
     }
 
     public async Task<EncounterPanelDto?> GetPanelAsync(int id, CancellationToken cancellationToken)

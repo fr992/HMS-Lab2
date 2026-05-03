@@ -187,6 +187,10 @@ export default function AppointmentsListPage() {
   const navigate = useNavigate();
   const canManageStatus = auth.hasPermission("Appointments.ManageStatus");
   const canEdit = auth.hasPermission("Appointments.Create");
+  const canVisit =
+    auth.hasPermission("Encounters.Create") && auth.hasPermission("Encounters.Read");
+  const encounterBasePath =
+    auth.userRole === "Doctor" ? "/doctor/encounters" : "/admin/encounters";
 
   const [view, setView] = useState("schedule");
   const [weekStart, setWeekStart] = useState(() => startOfWeek(new Date()));
@@ -547,6 +551,8 @@ export default function AppointmentsListPage() {
                         appointment={appointment}
                         canManageStatus={canManageStatus}
                         canEdit={canEdit}
+                        canVisit={canVisit}
+                        encounterBasePath={encounterBasePath}
                         onMutated={load}
                         onToast={showToast}
                       />
@@ -564,6 +570,8 @@ export default function AppointmentsListPage() {
         appointments={selectedDayAppointments}
         canManageStatus={canManageStatus}
         canEdit={canEdit}
+        canVisit={canVisit}
+        encounterBasePath={encounterBasePath}
         canCreate={canEdit}
         onMutated={load}
         onToast={showToast}

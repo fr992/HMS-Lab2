@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import {
   ArrowLeft,
@@ -222,6 +222,7 @@ export default function EncounterPanelPage() {
       duration: "",
       instructions: "",
     });
+    setMedicationSearch("");
     setPrescriptionPage(1);
   }
 
@@ -474,38 +475,24 @@ function PrescriptionForm({
   return (
     <form onSubmit={onSubmit} className="space-y-3 rounded-lg border p-4">
       <div className="grid gap-3 md:grid-cols-4">
-        <div className="space-y-2">
-          <Input
-            placeholder="Search medication"
-            value={medicationSearch}
-            onChange={(e) => onMedicationSearchChange(e.target.value)}
-          />
-          <select
-            value={form.medicationId}
-            onChange={(e) => onChange({ ...form, medicationId: e.target.value })}
-            className="h-9 w-full rounded-md border border-input bg-background px-3 text-sm text-slate-900 disabled:opacity-60"
-            disabled={medicationsLoading || medications.length === 0}
-            required
-          >
-            <option value="">
-              {medicationsLoading ? "Loading medications..." : "Select medication"}
-            </option>
-            {medications.map((medication) => (
-              <option key={medication.id} value={medication.id}>
-                {medication.name}
-              </option>
-            ))}
-          </select>
-          {medicationsError && (
-            <p className="text-xs text-rose-600">{medicationsError}</p>
-          )}
-          {!medicationsLoading &&
-            !medicationsError &&
-            medicationSearch &&
-            medications.length === 0 && (
-              <p className="text-xs text-slate-500">No medications match.</p>
-            )}
-        </div>
+      <SearchableMedicationSelect
+        medications={medications}
+        value={form.medicationId}
+        searchValue={medicationSearch}
+        loading={medicationsLoading}
+        error={medicationsError}
+        onSearchChange={(value) => {
+          onMedicationSearchChange(value);
+
+          if (form.medicationId) {
+            onChange({ ...form, medicationId: "" });
+          }
+        }}
+        onSelect={(medication) => {
+          onChange({ ...form, medicationId: String(medication.id) });
+          onMedicationSearchChange(medication.name);
+        }}
+      />
         <Input
           placeholder="Dosage *"
           value={form.dosage}
@@ -539,6 +526,92 @@ function PrescriptionForm({
         {saving ? "Saving..." : "Add Prescription"}
       </Button>
     </form>
+  );
+}
+
+function SearchableMedicationSelect({
+  medications,
+  value,
+  searchValue,
+  loading,
+  error,
+  onSearchChange,
+  onSelect,
+}) {
+  const [open, setOpen] = useState(false);
+  const containerRef = useRef(null);
+
+  const selectedMedication = medications.find(
+    (medication) => String(medication.id) === String(value)
+  );
+
+  function handleBlur(e) {
+    if (!containerRef.current?.contains(e.relatedTarget)) {
+      setOpen(false);
+    }
+  }
+
+  return (
+    <div ref={containerRef} onBlur={handleBlur} className="relative space-y-2">
+      <Input
+        placeholder="Search medication *"
+        value={searchValue}
+        onFocus={() => setOpen(true)}
+        onChange={(e) => {
+          onSearchChange(e.target.value);
+          setOpen(true);
+        }}
+        required
+      />
+
+      {open && (
+        <div className="absolute z-50 max-h-56 w-full overflow-auto rounded-md border border-slate-200 bg-white shadow-lg">
+          {loading && (
+            <div className="px-3 py-2 text-sm text-slate-500">
+              Loading medications...
+            </div>
+          )}
+
+          {!loading &&
+            medications.map((medication) => (
+              <button
+                key={medication.id}
+                type="button"
+                onMouseDown={(e) => e.preventDefault()}
+                onClick={() => {
+                  onSelect(medication);
+                  setOpen(false);
+                }}
+                className="block w-full px-3 py-2 text-left text-sm hover:bg-slate-100"
+              >
+                <div className="font-medium text-slate-900">
+                  {medication.name}
+                </div>
+
+                {medication.description && (
+                  <div className="text-xs text-slate-500">
+                    {medication.description}
+                  </div>
+                )}
+              </button>
+            ))}
+
+          {!loading && medications.length === 0 && (
+            <div className="px-3 py-2 text-sm text-slate-500">
+              No medications match.
+            </div>
+          )}
+        </div>
+      )}
+
+      {error && <p className="text-xs text-rose-600">{error}</p>}
+
+      {selectedMedication && (
+        <p className="text-xs text-slate-500">
+          Selected: {selectedMedication.name}
+        </p>
+      )}
+    </div>
   );
 }
 

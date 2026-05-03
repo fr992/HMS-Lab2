@@ -8,6 +8,7 @@ import {
 import {
   patchAppointmentStatus,
   getApiErrorMessage,
+  openOrCreateEncounterFromAppointment,
 } from "@/features/appointments/api/appointmentsApi";
 import { APPOINTMENT_STATUS } from "@/features/appointments/appointmentConstants";
 import AppointmentCancelModal from "@/features/appointments/components/AppointmentCancelModal";
@@ -21,6 +22,8 @@ const PAD_PX = 8;
  * @param {object} props.appointment — AppointmentDto
  * @param {boolean} props.canManageStatus
  * @param {boolean} props.canEdit
+ * @param {boolean} props.canVisit
+ * @param {string} props.encounterBasePath
  * @param {() => Promise<void>} props.onMutated — refetch list
  * @param {(msg: string, type?: 'success'|'error') => void} props.onToast
  */
@@ -28,6 +31,8 @@ export default function AppointmentRowActions({
   appointment,
   canManageStatus,
   canEdit,
+  canVisit,
+  encounterBasePath,
   onMutated,
   onToast,
 }) {
@@ -42,7 +47,7 @@ export default function AppointmentRowActions({
   const menuRef = useRef(null);
   const nudgedForOpenRef = useRef(false);
 
-  const perms = { canManageStatus, canEdit };
+  const perms = { canManageStatus, canEdit, canVisit };
   const allActions = getAppointmentRowActions(appointment.status);
   const actions = allActions.filter((a) => isAppointmentActionVisible(a, perms));
 
@@ -70,6 +75,22 @@ export default function AppointmentRowActions({
     if (action.kind === "edit") {
       setOpen(false);
       navigate(`/appointments/${appointment.id}/edit`);
+      return;
+    }
+    if (action.kind === "visit") {
+      setOpen(false);
+      void (async () => {
+        if (mutating) return;
+        setMutating(true);
+        try {
+          const encounter = await openOrCreateEncounterFromAppointment(appointment);
+          navigate(`${encounterBasePath}/${encounter.id}`);
+        } catch (e) {
+          onToast(getApiErrorMessage(e), "error");
+        } finally {
+          setMutating(false);
+        }
+      })();
       return;
     }
     if (action.kind === "cancel") {

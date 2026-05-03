@@ -1,4 +1,5 @@
 import api from "@/api/apiClient";
+import { getApiErrorMessage } from "@/features/patients/patientsApi";
 export { getApiErrorMessage } from "@/features/patients/patientsApi";
 
 /**
@@ -58,4 +59,51 @@ export async function patchAppointmentStatus(id, payload) {
 export async function updateAppointment(id, body) {
   const { data } = await api.put(`/receptionist/appointments/${id}`, body);
   return data;
+}
+
+async function createEncounterFromAppointment(appointment) {
+  const payload = {
+    patientProfileId: Number(appointment.patientProfileId),
+    doctorProfileId: Number(appointment.doctorProfileId),
+    appointmentId: Number(appointment.id),
+    encounterType: "outpatient",
+    startedAt: appointment.scheduledStart ?? new Date().toISOString(),
+    notes: appointment.reason ?? null,
+  };
+
+  const { data } = await api.post("/encounters", payload);
+  return data;
+}
+
+async function getEncounterByAppointment(appointment) {
+  const { data } = await api.get("/encounters", {
+    params: {
+      patientProfileId: Number(appointment.patientProfileId),
+      doctorProfileId: Number(appointment.doctorProfileId),
+    },
+  });
+
+  if (!Array.isArray(data)) return null;
+
+  return (
+    data.find((encounter) => Number(encounter.appointmentId) === Number(appointment.id)) ??
+    null
+  );
+}
+
+export async function openOrCreateEncounterFromAppointment(appointment) {
+  const existing = await getEncounterByAppointment(appointment);
+  if (existing?.id) return existing;
+
+  try {
+    return await createEncounterFromAppointment(appointment);
+  } catch (error) {
+    const message = getApiErrorMessage(error).toLowerCase();
+    if (!message.includes("already has an encounter")) throw error;
+
+    const linked = await getEncounterByAppointment(appointment);
+    if (linked?.id) return linked;
+
+    throw error;
+  }
 }

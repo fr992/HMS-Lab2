@@ -10,6 +10,7 @@ import {
 } from "@/features/appointments/appointmentRowActionModel";
 import {
   getApiErrorMessage,
+  openOrCreateEncounterFromAppointment,
   patchAppointmentStatus,
 } from "@/features/appointments/api/appointmentsApi";
 
@@ -37,6 +38,8 @@ function AppointmentActions({
   appointment,
   canManageStatus,
   canEdit,
+  canVisit,
+  encounterBasePath,
   onMutated,
   onToast,
   onClose,
@@ -47,7 +50,7 @@ function AppointmentActions({
   const [cancelError, setCancelError] = useState("");
 
   const actions = getAppointmentRowActions(appointment.status).filter((action) =>
-    isAppointmentActionVisible(action, { canManageStatus, canEdit })
+    isAppointmentActionVisible(action, { canManageStatus, canEdit, canVisit })
   );
 
   const patchStatus = async (target) => {
@@ -92,6 +95,22 @@ function AppointmentActions({
     if (action.kind === "edit") {
       onClose();
       navigate(`/appointments/${appointment.id}/edit`);
+      return;
+    }
+    if (action.kind === "visit") {
+      void (async () => {
+        if (mutating) return;
+        setMutating(true);
+        try {
+          const encounter = await openOrCreateEncounterFromAppointment(appointment);
+          onClose();
+          navigate(`${encounterBasePath}/${encounter.id}`);
+        } catch (error) {
+          onToast(getApiErrorMessage(error), "error");
+        } finally {
+          setMutating(false);
+        }
+      })();
       return;
     }
     if (action.kind === "cancel") {
@@ -142,6 +161,8 @@ export default function CalendarDayModal({
   appointments,
   canManageStatus,
   canEdit,
+  canVisit,
+  encounterBasePath,
   canCreate,
   onMutated,
   onToast,
@@ -277,6 +298,8 @@ export default function CalendarDayModal({
                     appointment={appointment}
                     canManageStatus={canManageStatus}
                     canEdit={canEdit}
+                    canVisit={canVisit}
+                    encounterBasePath={encounterBasePath}
                     onMutated={onMutated}
                     onToast={onToast}
                     onClose={onClose}

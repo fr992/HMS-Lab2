@@ -21,6 +21,7 @@ import EncountersListPage from "@/features/encounters/EncountersListPage";
 import EncounterPanelPage from "@/features/encounters/EncounterPanelPage";
 import PatientEncounterDiagnosesPage from "@/features/encounters/PatientEncounterDiagnosesPage";
 import PatientEncountersListPage from "@/features/encounters/PatientEncountersListPage";
+import MedicationsPage from "@/features/medications/MedicationsPage";
 
 
 export default function App() {
@@ -127,6 +128,17 @@ export default function App() {
             }
           >
             <Route index element={<AppointmentRequestsPage />} />
+          </Route>
+
+          <Route
+            path="/medications"
+            element={
+              <PermissionRoute anyPermission={["Medications.Read"]}>
+                <AdminLayout />
+              </PermissionRoute>
+            }
+          >
+            <Route index element={<MedicationsPage />} />
           </Route>
 
           <Route
