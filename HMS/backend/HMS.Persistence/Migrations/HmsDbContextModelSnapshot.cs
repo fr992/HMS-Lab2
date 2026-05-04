@@ -685,14 +685,16 @@ namespace HMS.Persistence.Migrations
 
                     b.HasIndex("CreatedByUserId");
 
-                    b.HasIndex("DoctorProfileId");
-
                     b.HasIndex("EncounterNumber")
                         .IsUnique();
 
-                    b.HasIndex("PatientProfileId");
+                    b.HasIndex("StartedAt");
 
                     b.HasIndex("UpdatedByUserId");
+
+                    b.HasIndex("DoctorProfileId", "StartedAt");
+
+                    b.HasIndex("PatientProfileId", "StartedAt");
 
                     b.ToTable("Encounters", (string)null);
                 });

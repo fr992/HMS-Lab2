@@ -95,10 +95,10 @@ public sealed class EncounterService : IEncounterService
                 EncounterNumber = e.EncounterNumber,
 
                 PatientProfileId = e.PatientProfileId,
-                PatientName = e.PatientProfile.Person.FullName,
+                PatientName = e.PatientProfile.Person.FirstName + " " + e.PatientProfile.Person.LastName,
 
                 DoctorProfileId = e.DoctorProfileId,
-                DoctorName = e.DoctorProfile.StaffProfile.Person.FullName,
+                DoctorName = e.DoctorProfile.StaffProfile.Person.FirstName + " " + e.DoctorProfile.StaffProfile.Person.LastName,
 
                 AppointmentId = e.AppointmentId,
 
@@ -155,10 +155,10 @@ public sealed class EncounterService : IEncounterService
                 EncounterNumber = e.EncounterNumber,
 
                 PatientProfileId = e.PatientProfileId,
-                PatientName = e.PatientProfile.Person.FullName,
+                PatientName = e.PatientProfile.Person.FirstName + " " + e.PatientProfile.Person.LastName,
 
                 DoctorProfileId = e.DoctorProfileId,
-                DoctorName = e.DoctorProfile.StaffProfile.Person.FullName,
+                DoctorName = e.DoctorProfile.StaffProfile.Person.FirstName + " " + e.DoctorProfile.StaffProfile.Person.LastName,
 
                 AppointmentId = e.AppointmentId,
 
@@ -320,9 +320,9 @@ public sealed class EncounterService : IEncounterService
                     Id = e.Id,
                     EncounterNumber = e.EncounterNumber,
                     PatientProfileId = e.PatientProfileId,
-                    PatientName = e.PatientProfile.Person.FullName,
+                    PatientName = e.PatientProfile.Person.FirstName + " " + e.PatientProfile.Person.LastName,
                     DoctorProfileId = e.DoctorProfileId,
-                    DoctorName = e.DoctorProfile.StaffProfile.Person.FullName,
+                    DoctorName = e.DoctorProfile.StaffProfile.Person.FirstName + " " + e.DoctorProfile.StaffProfile.Person.LastName,
                     AppointmentId = e.AppointmentId,
                     EncounterType = e.EncounterType,
                     StartedAt = e.StartedAt,
@@ -374,7 +374,7 @@ public sealed class EncounterService : IEncounterService
                         Id = d.Id,
                         EncounterId = d.EncounterId,
                         CreatedByDoctorId = d.CreatedByDoctorId,
-                        CreatedByDoctorName = d.CreatedByDoctor.StaffProfile.Person.FullName,
+                        CreatedByDoctorName = d.CreatedByDoctor.StaffProfile.Person.FirstName + " " + d.CreatedByDoctor.StaffProfile.Person.LastName,
                         IcdCode = d.IcdCode,
                         Description = d.Description,
                         Type = d.Type,
@@ -393,7 +393,7 @@ public sealed class EncounterService : IEncounterService
                         Id = p.Id,
                         EncounterId = p.EncounterId,
                         PrescribedByDoctorId = p.PrescribedByDoctorId,
-                        DoctorName = p.PrescribedByDoctor.StaffProfile.Person.FullName,
+                        DoctorName = p.PrescribedByDoctor.StaffProfile.Person.FirstName + " " + p.PrescribedByDoctor.StaffProfile.Person.LastName,
                         Notes = p.Notes,
                         Status = p.Status,
                         Items = p.Items.Select(i => new PrescriptionItemDto
@@ -452,10 +452,10 @@ public sealed class EncounterService : IEncounterService
                 EncounterNumber = e.EncounterNumber,
 
                 PatientProfileId = e.PatientProfileId,
-                PatientName = e.PatientProfile.Person.FullName,
+                PatientName = e.PatientProfile.Person.FirstName + " " + e.PatientProfile.Person.LastName,
 
                 DoctorProfileId = e.DoctorProfileId,
-                DoctorName = e.DoctorProfile.StaffProfile.Person.FullName,
+                DoctorName = e.DoctorProfile.StaffProfile.Person.FirstName + " " + e.DoctorProfile.StaffProfile.Person.LastName,
 
                 AppointmentId = e.AppointmentId,
                 EncounterType = e.EncounterType,

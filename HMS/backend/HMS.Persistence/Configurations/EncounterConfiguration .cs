@@ -19,6 +19,12 @@ public sealed class EncounterConfiguration : IEntityTypeConfiguration<Encounter>
         builder.HasIndex(e => e.EncounterNumber)
             .IsUnique();
 
+        builder.HasIndex(e => e.StartedAt);
+
+        builder.HasIndex(e => new { e.DoctorProfileId, e.StartedAt });
+
+        builder.HasIndex(e => new { e.PatientProfileId, e.StartedAt });
+
         builder.HasIndex(e => e.AppointmentId)
             .IsUnique()
             .HasFilter("[AppointmentId] IS NOT NULL");
