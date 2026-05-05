@@ -1,5 +1,8 @@
 using HMS.Api.Authorization;
+using HMS.Application.Abstractions.Identity;
+using HMS.Contracts.Identity;
 using Microsoft.AspNetCore.Mvc;
+using System.Security.Claims;
 
 namespace HMS.Api.Controllers.Lab;
 
@@ -7,17 +10,147 @@ namespace HMS.Api.Controllers.Lab;
 [Route("api/lab/results")]
 public sealed class LabResultsWorkflowController : ControllerBase
 {
-    [HttpPost]
-    [RequirePermission("LabResults.Create")]
-    public IActionResult Create([FromBody] object? request)
+    private static readonly HashSet<string> AllowedAttachmentContentTypes = new(StringComparer.OrdinalIgnoreCase)
     {
-        return Ok(new { created = false, note = "Lab results module not implemented yet." });
+        "application/pdf",
+        "image/jpeg",
+        "image/png",
+        "image/webp"
+    };
+
+    private const long MaxAttachmentBytes = 10 * 1024 * 1024;
+    private readonly ILabResultService _labResultService;
+    private readonly IWebHostEnvironment _environment;
+
+    public LabResultsWorkflowController(
+        ILabResultService labResultService,
+        IWebHostEnvironment environment)
+    {
+        _labResultService = labResultService;
+        _environment = environment;
+    }
+
+    [HttpPost]
+    [RequestSizeLimit(MaxAttachmentBytes + 1024 * 1024)]
+    [RequirePermission("LabResults.Create")]
+    public async Task<ActionResult<LabResultDto>> Create(
+        [FromForm] LabResultFormRequest request,
+        CancellationToken cancellationToken)
+    {
+        string? storedFileName = null;
+
+        try
+        {
+            if (request.Attachment is { Length: > 0 })
+                storedFileName = await SaveAttachmentAsync(request.Attachment, cancellationToken);
+
+            var result = await _labResultService.CreateAsync(
+                new CreateLabResultDto
+                {
+                    LabRequestItemId = request.LabRequestItemId,
+                    ResultValue = request.ResultValue,
+                    Unit = request.Unit,
+                    ReferenceRange = request.ReferenceRange,
+                    Interpretation = request.Interpretation,
+                    Notes = request.Notes,
+                    PerformedAt = request.PerformedAt,
+                    AttachmentFileName = request.Attachment?.FileName,
+                    AttachmentContentType = request.Attachment?.ContentType,
+                    AttachmentSizeBytes = request.Attachment?.Length,
+                    AttachmentStoragePath = storedFileName
+                },
+                CurrentUserId(),
+                cancellationToken);
+
+            return CreatedAtAction(
+                nameof(HMS.Api.Controllers.Reception.ReceptionLabResultsController.GetById),
+                "ReceptionLabResults",
+                new { id = result.Id },
+                result);
+        }
+        catch (InvalidOperationException ex)
+        {
+            DeleteAttachmentIfPresent(storedFileName);
+            return BadRequest(new { error = ex.Message });
+        }
     }
 
     [HttpPost("{id:int}/publish")]
     [RequirePermission("LabResults.Publish")]
-    public IActionResult Publish(int id)
+    public async Task<ActionResult<LabResultDto>> Publish(
+        int id,
+        CancellationToken cancellationToken)
     {
-        return Ok(new { id, published = false, note = "Lab results module not implemented yet." });
+        try
+        {
+            var result = await _labResultService.PublishAsync(
+                id,
+                CurrentUserId(),
+                cancellationToken);
+
+            return Ok(result);
+        }
+        catch (InvalidOperationException ex)
+        {
+            return BadRequest(new { error = ex.Message });
+        }
     }
+
+    private async Task<string> SaveAttachmentAsync(
+        IFormFile attachment,
+        CancellationToken cancellationToken)
+    {
+        if (attachment.Length > MaxAttachmentBytes)
+            throw new InvalidOperationException("Attachment cannot be larger than 10 MB.");
+
+        if (!AllowedAttachmentContentTypes.Contains(attachment.ContentType))
+            throw new InvalidOperationException("Attachment must be a PDF or image file.");
+
+        var extension = Path.GetExtension(attachment.FileName);
+        var storedFileName = $"{Guid.NewGuid():N}{extension}";
+        var folder = AttachmentFolder();
+        Directory.CreateDirectory(folder);
+
+        var fullPath = Path.Combine(folder, storedFileName);
+
+        await using var stream = System.IO.File.Create(fullPath);
+        await attachment.CopyToAsync(stream, cancellationToken);
+
+        return storedFileName;
+    }
+
+    private void DeleteAttachmentIfPresent(string? storedFileName)
+    {
+        if (string.IsNullOrWhiteSpace(storedFileName))
+            return;
+
+        var fullPath = Path.Combine(AttachmentFolder(), storedFileName);
+        if (System.IO.File.Exists(fullPath))
+            System.IO.File.Delete(fullPath);
+    }
+
+    private string AttachmentFolder()
+    {
+        return Path.Combine(_environment.ContentRootPath, "App_Data", "LabResults");
+    }
+
+    private int? CurrentUserId()
+    {
+        var value = User.FindFirstValue(ClaimTypes.NameIdentifier)
+            ?? User.FindFirstValue("sub");
+
+        return int.TryParse(value, out var id) ? id : null;
+    }
+}
+
+public sealed class LabResultFormRequest
+{
+    public int LabRequestItemId { get; set; }
+    public string ResultValue { get; set; } = string.Empty;
+    public string? Unit { get; set; }
+    public string? ReferenceRange { get; set; }
+    public string? Interpretation { get; set; }
+    public string? Notes { get; set; }
+    public DateTime? PerformedAt { get; set; }
+    public IFormFile? Attachment { get; set; }
 }

@@ -818,6 +818,89 @@ namespace HMS.Persistence.Migrations
                     b.ToTable("LabRequestItems", (string)null);
                 });
 
+            modelBuilder.Entity("Identity.Domain.Entities.LabResult", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("AttachmentContentType")
+                        .HasMaxLength(120)
+                        .HasColumnType("nvarchar(120)");
+
+                    b.Property<string>("AttachmentFileName")
+                        .HasMaxLength(260)
+                        .HasColumnType("nvarchar(260)");
+
+                    b.Property<long?>("AttachmentSizeBytes")
+                        .HasColumnType("bigint");
+
+                    b.Property<string>("AttachmentStoragePath")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int?>("CreatedById")
+                        .HasColumnType("int");
+
+                    b.Property<string>("Interpretation")
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.Property<int>("LabRequestItemId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("Notes")
+                        .HasMaxLength(2000)
+                        .HasColumnType("nvarchar(2000)");
+
+                    b.Property<DateTime>("PerformedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateTime?>("PublishedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("ReferenceRange")
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.Property<string>("ResultValue")
+                        .IsRequired()
+                        .HasMaxLength(1000)
+                        .HasColumnType("nvarchar(1000)");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
+                    b.Property<string>("Unit")
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int?>("UpdatedById")
+                        .HasColumnType("int");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("LabRequestItemId");
+
+                    b.HasIndex("PerformedAt");
+
+                    b.HasIndex("PublishedAt");
+
+                    b.HasIndex("Status");
+
+                    b.ToTable("LabResults", (string)null);
+                });
+
             modelBuilder.Entity("Identity.Domain.Entities.Medication", b =>
                 {
                     b.Property<int>("Id")
@@ -1425,6 +1508,17 @@ namespace HMS.Persistence.Migrations
                     b.Navigation("LabRequest");
                 });
 
+            modelBuilder.Entity("Identity.Domain.Entities.LabResult", b =>
+                {
+                    b.HasOne("Identity.Domain.Entities.LabRequestItem", "LabRequestItem")
+                        .WithMany("Results")
+                        .HasForeignKey("LabRequestItemId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("LabRequestItem");
+                });
+
             modelBuilder.Entity("Identity.Domain.Entities.Prescription", b =>
                 {
                     b.HasOne("Identity.Domain.Entities.Encounter", "Encounter")
@@ -1556,6 +1650,11 @@ namespace HMS.Persistence.Migrations
             modelBuilder.Entity("Identity.Domain.Entities.LabRequest", b =>
                 {
                     b.Navigation("Items");
+                });
+
+            modelBuilder.Entity("Identity.Domain.Entities.LabRequestItem", b =>
+                {
+                    b.Navigation("Results");
                 });
 
             modelBuilder.Entity("Identity.Domain.Entities.Permission", b =>

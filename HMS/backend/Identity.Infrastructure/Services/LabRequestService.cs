@@ -237,7 +237,36 @@ public sealed class LabRequestService : ILabRequestService
                     TestCode = i.TestCode,
                     TestName = i.TestName,
                     SpecimenType = i.SpecimenType,
-                    Notes = i.Notes
+                    Notes = i.Notes,
+                    Results = i.Results
+                        .OrderByDescending(r => r.PerformedAt)
+                        .ThenByDescending(r => r.Id)
+                        .Select(r => new LabResultDto
+                        {
+                            Id = r.Id,
+                            LabRequestItemId = r.LabRequestItemId,
+                            LabRequestId = r.LabRequestItem.LabRequestId,
+                            RequestNumber = r.LabRequestItem.LabRequest.RequestNumber,
+                            EncounterId = r.LabRequestItem.LabRequest.EncounterId,
+                            PatientProfileId = r.LabRequestItem.LabRequest.Encounter.PatientProfileId,
+                            PatientName = r.LabRequestItem.LabRequest.Encounter.PatientProfile.Person.FirstName + " " + r.LabRequestItem.LabRequest.Encounter.PatientProfile.Person.LastName,
+                            TestName = r.LabRequestItem.TestName,
+                            TestCode = r.LabRequestItem.TestCode,
+                            ResultValue = r.ResultValue,
+                            Unit = r.Unit,
+                            ReferenceRange = r.ReferenceRange,
+                            Interpretation = r.Interpretation,
+                            Notes = r.Notes,
+                            Status = r.Status,
+                            PerformedAt = r.PerformedAt,
+                            PublishedAt = r.PublishedAt,
+                            HasAttachment = r.AttachmentStoragePath != null,
+                            AttachmentFileName = r.AttachmentFileName,
+                            AttachmentContentType = r.AttachmentContentType,
+                            AttachmentSizeBytes = r.AttachmentSizeBytes,
+                            CreatedAt = r.CreatedAt,
+                            UpdatedAt = r.UpdatedAt
+                        }).ToList()
                 }).ToList()
         };
 

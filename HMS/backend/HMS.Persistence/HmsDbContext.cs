@@ -28,6 +28,7 @@ public class HmsDbContext : DbContext
     public DbSet<Medication> Medications => Set<Medication>();
     public DbSet<LabRequest> LabRequests => Set<LabRequest>();
     public DbSet<LabRequestItem> LabRequestItems => Set<LabRequestItem>();
+    public DbSet<LabResult> LabResults => Set<LabResult>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
