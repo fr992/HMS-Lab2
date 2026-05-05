@@ -3,6 +3,7 @@ import * as api from "./patientsApi";
 
 export const usePatientsStore = create((set) => ({
   items: [],
+  doctorGroups: { primaryPatients: [], interactedPatients: [] },
   listStatus: "idle",
   listError: null,
   lastActionError: null,
@@ -10,16 +11,40 @@ export const usePatientsStore = create((set) => ({
 
   clearFeedback: () => set({ lastActionError: null, lastActionSuccess: null }),
 
-  loadList: async () => {
+  loadList: async (scope = "all") => {
     set({ listStatus: "loading", listError: null });
     try {
+      if (scope === "doctor") {
+        const grouped = await api.fetchDoctorPatientsGrouped();
+        const primaryPatients = Array.isArray(grouped?.primaryPatients)
+          ? grouped.primaryPatients
+          : [];
+        const interactedPatients = Array.isArray(grouped?.interactedPatients)
+          ? grouped.interactedPatients
+          : [];
+
+        set({
+          items: [...primaryPatients, ...interactedPatients],
+          doctorGroups: { primaryPatients, interactedPatients },
+          listStatus: "ready",
+          listError: null,
+        });
+        return;
+      }
+
       const items = await api.fetchPatients();
-      set({ items, listStatus: "ready", listError: null });
+      set({
+        items,
+        doctorGroups: { primaryPatients: [], interactedPatients: [] },
+        listStatus: "ready",
+        listError: null,
+      });
     } catch (e) {
       set({
         listStatus: "error",
         listError: api.getApiErrorMessage(e),
         items: [],
+        doctorGroups: { primaryPatients: [], interactedPatients: [] },
       });
     }
   },

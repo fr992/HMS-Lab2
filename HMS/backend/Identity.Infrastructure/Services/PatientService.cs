@@ -5,6 +5,7 @@ using HMS.Persistence;
 using Identity.Domain.Entities;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
+using System.Linq.Expressions;
 
 
 namespace Identity.Infrastructure.Services.Patients;
@@ -226,45 +227,86 @@ namespace Identity.Infrastructure.Services.Patients;
         return await MapToDtoAsync(id, cancellationToken);
     }
 
+    public async Task<PatientProfileDto?> GetByIdForCurrentDoctorAsync(
+        int currentUserId,
+        int patientProfileId,
+        CancellationToken cancellationToken)
+    {
+        var doctorProfileId = await GetActiveDoctorProfileIdAsync(currentUserId, cancellationToken);
+        var isLinkedPatient = await PatientIdsForDoctor(doctorProfileId)
+            .AnyAsync(id => id == patientProfileId, cancellationToken);
+
+        if (!isLinkedPatient)
+            return null;
+
+        return await MapToDtoAsync(patientProfileId, cancellationToken);
+    }
+
     public async Task<List<PatientProfileDto>> GetAllAsync(CancellationToken cancellationToken)
     {
         return await _db.PatientProfiles
             .AsNoTracking()
-            .Select(p => new PatientProfileDto
-            {
-                // PatientProfile
-                Id = p.Id,
-                PatientNumber = p.PatientNumber,
-                InsuranceNumber = p.InsuranceNumber,
-                BloodType = p.BloodType,
-                PrimaryDoctorId = p.PrimaryDoctorId,
-                PrimaryDoctorName = p.PrimaryDoctor == null
-                    ? null
-                    : p.PrimaryDoctor.StaffProfile.Person.FirstName + " " + p.PrimaryDoctor.StaffProfile.Person.LastName,
-
-                // Person
-                PersonId = p.PersonId,
-                FirstName = p.Person.FirstName,
-                LastName = p.Person.LastName,
-                PersonalNumber = p.Person.PersonalNumber,
-                DateOfBirth = p.Person.DateOfBirth,
-                Gender = p.Person.Gender,
-                Phone = p.Person.Phone,
-                Address = p.Person.Address,
-                City = p.Person.City,
-                Country = p.Person.Country,
-
-                // User
-                UserId = p.Person.UserId,
-                UserName = p.Person.User != null ? p.Person.User.UserName : string.Empty,
-                Email = p.Person.User != null ? p.Person.User.Email : string.Empty,
-
-                // BaseEntity
-                CreatedAt = p.CreatedAt,
-                UpdatedAt = p.UpdatedAt
-            })
+            .Select(ProjectToDto())
             .ToListAsync(cancellationToken);
     }
+
+    public async Task<List<PatientProfileDto>> GetForCurrentDoctorAsync(
+        int currentUserId,
+        CancellationToken cancellationToken)
+    {
+        var doctorProfileId = await GetActiveDoctorProfileIdAsync(currentUserId, cancellationToken);
+        var patientIds = PatientIdsForDoctor(doctorProfileId);
+
+        return await _db.PatientProfiles
+            .AsNoTracking()
+            .Where(p => patientIds.Contains(p.Id))
+            .OrderBy(p => p.Person.LastName)
+            .ThenBy(p => p.Person.FirstName)
+            .Select(ProjectToDto())
+            .ToListAsync(cancellationToken);
+    }
+
+    public async Task<DoctorPatientsGroupedDto> GetGroupedForCurrentDoctorAsync(
+        int currentUserId,
+        CancellationToken cancellationToken)
+    {
+        var doctorProfileId = await GetActiveDoctorProfileIdAsync(currentUserId, cancellationToken);
+
+        var primaryPatients = await _db.PatientProfiles
+            .AsNoTracking()
+            .Where(p => p.PrimaryDoctorId == doctorProfileId)
+            .OrderBy(p => p.Person.LastName)
+            .ThenBy(p => p.Person.FirstName)
+            .Select(ProjectToDto())
+            .ToListAsync(cancellationToken);
+
+        var interactedPatientIds = _db.Appointments
+            .Where(a => a.DoctorProfileId == doctorProfileId)
+            .Select(a => a.PatientProfileId)
+            .Concat(
+                _db.Encounters
+                    .Where(e => e.DoctorProfileId == doctorProfileId)
+                    .Select(e => e.PatientProfileId)
+            )
+            .Distinct();
+
+        var interactedPatients = await _db.PatientProfiles
+            .AsNoTracking()
+            .Where(p =>
+                interactedPatientIds.Contains(p.Id)
+                && p.PrimaryDoctorId != doctorProfileId)
+            .OrderBy(p => p.Person.LastName)
+            .ThenBy(p => p.Person.FirstName)
+            .Select(ProjectToDto())
+            .ToListAsync(cancellationToken);
+
+        return new DoctorPatientsGroupedDto
+        {
+            PrimaryPatients = primaryPatients,
+            InteractedPatients = interactedPatients
+        };
+    }
+
     public async Task<PatientProfileDto> UpdateAsync(int id, UpdatePatientRequestDto request, int? actorUserId, CancellationToken cancellationToken)
     {
         var profile = await _db.PatientProfiles
@@ -331,6 +373,42 @@ namespace Identity.Infrastructure.Services.Patients;
         return $"PAT-{patientProfileId:D5}";
     }
 
+    private async Task<int> GetActiveDoctorProfileIdAsync(
+        int currentUserId,
+        CancellationToken cancellationToken)
+    {
+        var doctorProfileId = await _db.DoctorProfiles
+            .AsNoTracking()
+            .Where(d => d.IsActive && d.StaffProfile.Person.UserId == currentUserId)
+            .Select(d => (int?)d.Id)
+            .FirstOrDefaultAsync(cancellationToken);
+
+        if (!doctorProfileId.HasValue)
+            throw new InvalidOperationException("Current user is not linked to an active doctor profile.");
+
+        return doctorProfileId.Value;
+    }
+
+    private IQueryable<int> PatientIdsForDoctor(int doctorProfileId)
+    {
+        var primaryPatientIds = _db.PatientProfiles
+            .Where(p => p.PrimaryDoctorId == doctorProfileId)
+            .Select(p => p.Id);
+
+        var appointmentPatientIds = _db.Appointments
+            .Where(a => a.DoctorProfileId == doctorProfileId)
+            .Select(a => a.PatientProfileId);
+
+        var encounterPatientIds = _db.Encounters
+            .Where(e => e.DoctorProfileId == doctorProfileId)
+            .Select(e => e.PatientProfileId);
+
+        return primaryPatientIds
+            .Concat(appointmentPatientIds)
+            .Concat(encounterPatientIds)
+            .Distinct();
+    }
+
     private async Task ValidatePrimaryDoctorAsync(int? primaryDoctorId, CancellationToken cancellationToken)
     {
         if (!primaryDoctorId.HasValue)
@@ -347,33 +425,38 @@ namespace Identity.Infrastructure.Services.Patients;
         return await _db.PatientProfiles
             .AsNoTracking()
             .Where(p => p.Id == profileId)
-            .Select(p => new PatientProfileDto
-            {
-                Id = p.Id,
-                PatientNumber = p.PatientNumber,
-                InsuranceNumber = p.InsuranceNumber,
-                BloodType = p.BloodType,
-                PrimaryDoctorId = p.PrimaryDoctorId,
-                PrimaryDoctorName = p.PrimaryDoctor == null
-                    ? null
-                    : p.PrimaryDoctor.StaffProfile.Person.FirstName + " " + p.PrimaryDoctor.StaffProfile.Person.LastName,
-                PersonId = p.PersonId,
-                FirstName = p.Person.FirstName,
-                LastName = p.Person.LastName,
-                PersonalNumber = p.Person.PersonalNumber,
-                DateOfBirth = p.Person.DateOfBirth,
-                Gender = p.Person.Gender,
-                Phone = p.Person.Phone,
-                Address = p.Person.Address,
-                City = p.Person.City,
-                Country = p.Person.Country,
-                UserId = p.Person.UserId,
-                UserName = p.Person.User != null ? p.Person.User.UserName : string.Empty,
-                Email = p.Person.User != null ? p.Person.User.Email : string.Empty,
-                CreatedAt = p.CreatedAt,
-                UpdatedAt = p.UpdatedAt
-            })
+            .Select(ProjectToDto())
             .FirstAsync(cancellationToken);
+    }
+
+    private static Expression<Func<PatientProfile, PatientProfileDto>> ProjectToDto()
+    {
+        return p => new PatientProfileDto
+        {
+            Id = p.Id,
+            PatientNumber = p.PatientNumber,
+            InsuranceNumber = p.InsuranceNumber,
+            BloodType = p.BloodType,
+            PrimaryDoctorId = p.PrimaryDoctorId,
+            PrimaryDoctorName = p.PrimaryDoctor == null
+                ? null
+                : p.PrimaryDoctor.StaffProfile.Person.FirstName + " " + p.PrimaryDoctor.StaffProfile.Person.LastName,
+            PersonId = p.PersonId,
+            FirstName = p.Person.FirstName,
+            LastName = p.Person.LastName,
+            PersonalNumber = p.Person.PersonalNumber,
+            DateOfBirth = p.Person.DateOfBirth,
+            Gender = p.Person.Gender,
+            Phone = p.Person.Phone,
+            Address = p.Person.Address,
+            City = p.Person.City,
+            Country = p.Person.Country,
+            UserId = p.Person.UserId,
+            UserName = p.Person.User != null ? p.Person.User.UserName : string.Empty,
+            Email = p.Person.User != null ? p.Person.User.Email : string.Empty,
+            CreatedAt = p.CreatedAt,
+            UpdatedAt = p.UpdatedAt
+        };
     }
 
 }

@@ -68,7 +68,22 @@ public async Task<ActionResult<PatientProfileDto>> RegisterPatient(
     public async Task<ActionResult<PatientProfileDto>> GetById(
         int id, CancellationToken cancellationToken)
     {
-        var patient = await _patientService.GetByIdAsync(id, cancellationToken);
+        PatientProfileDto? patient;
+
+        try
+        {
+            patient = IsDoctorOnly()
+                ? await _patientService.GetByIdForCurrentDoctorAsync(
+                    CurrentUserId()
+                        ?? throw new UnauthorizedAccessException("User id claim is missing."),
+                    id,
+                    cancellationToken)
+                : await _patientService.GetByIdAsync(id, cancellationToken);
+        }
+        catch (InvalidOperationException ex)
+        {
+            return BadRequest(new { error = ex.Message });
+        }
 
         if (patient is null)
             return NotFound();
@@ -81,9 +96,19 @@ public async Task<ActionResult<PatientProfileDto>> RegisterPatient(
     public async Task<ActionResult<List<PatientProfileDto>>> GetAll(
     CancellationToken cancellationToken)
     {
+        if (IsDoctorOnly())
+            return Forbid();
+
         var patients = await _patientService.GetAllAsync(cancellationToken);
 
         return Ok(patients);
+    }
+
+    private bool IsDoctorOnly()
+    {
+        return User.IsInRole("Doctor")
+            && !User.IsInRole("Admin")
+            && !User.IsInRole("Receptionist");
     }
 
 

@@ -17,6 +17,11 @@ export async function fetchPatients() {
   return data;
 }
 
+export async function fetchDoctorPatientsGrouped() {
+  const { data } = await api.get("/clinical/doctor/patients/grouped");
+  return data;
+}
+
 /**
  * Optional list for primary doctor assignment. Backend may expose `GET /api/doctors` later.
  * @returns {Promise<{ id: number, fullName: string }[] | unknown>}

@@ -11,15 +11,52 @@ import ErrorState from "@/features/patients/components/ErrorState";
 import ConfirmDeleteModal from "@/features/patients/components/ConfirmDeleteModal";
 import PatientContactModal from "@/features/patients/components/PatientContactModal";
 
+function DoctorPatientSection({
+  title,
+  patients,
+  emptyMessage,
+  canUpdate,
+  canDelete,
+  onDelete,
+  onOpenContacts,
+}) {
+  return (
+    <section className="space-y-3">
+      <div className="flex items-center justify-between gap-3">
+        <h2 className="text-sm font-semibold text-slate-900">{title}</h2>
+        <span className="rounded-full bg-slate-100 px-2.5 py-1 text-xs font-medium text-slate-600">
+          {patients.length}
+        </span>
+      </div>
+
+      {patients.length > 0 ? (
+        <PatientTable
+          patients={patients}
+          canUpdate={canUpdate}
+          canDelete={canDelete}
+          onDelete={canDelete ? onDelete : undefined}
+          onOpenContacts={canUpdate ? onOpenContacts : undefined}
+        />
+      ) : (
+        <div className="rounded-lg border border-slate-200 bg-white p-8 text-center shadow-sm">
+          <p className="text-sm text-slate-600">{emptyMessage}</p>
+        </div>
+      )}
+    </section>
+  );
+}
+
 export default function PatientsListPage() {
   const auth = useAuth();
   const canRegister = auth.hasPermission("Patients.Register");
   const canUpdate = auth.hasPermission("Patients.Update");
   const canDelete = auth.hasPermission("Patients.Delete");
+  const isDoctor = auth.userRole === "Doctor";
 
   const loadList = usePatientsStore((s) => s.loadList);
   const clearFeedback = usePatientsStore((s) => s.clearFeedback);
   const items = usePatientsStore((s) => s.items);
+  const doctorGroups = usePatientsStore((s) => s.doctorGroups);
   const listStatus = usePatientsStore((s) => s.listStatus);
   const listError = usePatientsStore((s) => s.listError);
   const lastActionError = usePatientsStore((s) => s.lastActionError);
@@ -36,8 +73,8 @@ export default function PatientsListPage() {
 
   useEffect(() => {
     clearFeedback();
-    loadList();
-  }, [loadList, clearFeedback]);
+    loadList(isDoctor ? "doctor" : "all");
+  }, [loadList, clearFeedback, isDoctor]);
 
   const showDelete = useCallback((id) => setDeleteId(id), []);
   const row = deleteId != null ? items.find((p) => p.id === deleteId) : null;
@@ -50,6 +87,26 @@ export default function PatientsListPage() {
         hasPortal: filterHasPortal,
       }),
     [items, search, filterGender, filterHasPortal]
+  );
+
+  const filteredPrimaryPatients = useMemo(
+    () =>
+      applyPatientListFilters(doctorGroups.primaryPatients, {
+        search,
+        gender: filterGender,
+        hasPortal: filterHasPortal,
+      }),
+    [doctorGroups.primaryPatients, search, filterGender, filterHasPortal]
+  );
+
+  const filteredInteractedPatients = useMemo(
+    () =>
+      applyPatientListFilters(doctorGroups.interactedPatients, {
+        search,
+        gender: filterGender,
+        hasPortal: filterHasPortal,
+      }),
+    [doctorGroups.interactedPatients, search, filterGender, filterHasPortal]
   );
 
   const hasActiveFilters = useMemo(
@@ -134,12 +191,36 @@ export default function PatientsListPage() {
           <ErrorState
             message={listError}
             onRetry={() => {
-              loadList();
+              loadList(isDoctor ? "doctor" : "all");
             }}
           />
         )}
 
-        {listStatus === "ready" && items.length === 0 && (
+        {listStatus === "ready" && isDoctor && (
+          <div className="space-y-6">
+            <DoctorPatientSection
+              title="My Primary Patients"
+              patients={filteredPrimaryPatients}
+              emptyMessage="No primary patients assigned yet."
+              canUpdate={canUpdate}
+              canDelete={canDelete}
+              onDelete={showDelete}
+              onOpenContacts={(id) => setContactId(id)}
+            />
+
+            <DoctorPatientSection
+              title="Interacted Patients"
+              patients={filteredInteractedPatients}
+              emptyMessage="No interacted patients found yet."
+              canUpdate={canUpdate}
+              canDelete={canDelete}
+              onDelete={showDelete}
+              onOpenContacts={(id) => setContactId(id)}
+            />
+          </div>
+        )}
+
+        {listStatus === "ready" && !isDoctor && items.length === 0 && (
           <div className="flex min-h-[12rem] items-center">
             <EmptyState
               title="No patients yet"
@@ -158,7 +239,7 @@ export default function PatientsListPage() {
           </div>
         )}
 
-        {listStatus === "ready" && items.length > 0 && filteredPatients.length > 0 && (
+        {listStatus === "ready" && !isDoctor && items.length > 0 && filteredPatients.length > 0 && (
           <PatientTable
             patients={filteredPatients}
             canUpdate={canUpdate}
@@ -167,7 +248,7 @@ export default function PatientsListPage() {
             onOpenContacts={canUpdate ? (id) => setContactId(id) : undefined}
           />
         )}
-        {listStatus === "ready" && items.length > 0 && filteredPatients.length === 0 && (
+        {listStatus === "ready" && !isDoctor && items.length > 0 && filteredPatients.length === 0 && (
           <div className="rounded-lg border border-slate-200 bg-white p-8 text-center shadow-sm">
             <p className="text-sm font-medium text-slate-900">No matches</p>
             <p className="mt-1 text-sm text-slate-600">
