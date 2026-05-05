@@ -94,6 +94,8 @@ public sealed class IdentityDataSeeder
             "Prescriptions.Read", "Prescriptions.Create", "Prescriptions.Update", "Prescriptions.Delete",
 
             "Medications.Read", "Medications.Create", "Medications.Update", "Medications.Delete",
+
+            "LabRequests.Read", "LabRequests.Create", "LabRequests.UpdateStatus",
         }),
         ("Receptionist", new[]
         {

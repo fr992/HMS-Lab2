@@ -1,5 +1,8 @@
 using HMS.Api.Authorization;
+using HMS.Application.Abstractions.Identity;
+using HMS.Contracts.Identity;
 using Microsoft.AspNetCore.Mvc;
+using System.Security.Claims;
 
 namespace HMS.Api.Controllers.Lab;
 
@@ -7,17 +10,61 @@ namespace HMS.Api.Controllers.Lab;
 [Route("api/lab/requests")]
 public sealed class LabRequestsWorkflowController : ControllerBase
 {
+    private readonly ILabRequestService _labRequestService;
+
+    public LabRequestsWorkflowController(ILabRequestService labRequestService)
+    {
+        _labRequestService = labRequestService;
+    }
+
     [HttpGet]
     [RequirePermission("LabRequests.Read")]
-    public IActionResult List([FromQuery] string? status)
+    public async Task<ActionResult<List<LabRequestDto>>> List(
+        [FromQuery] string? status,
+        CancellationToken cancellationToken)
     {
-        return Ok(Array.Empty<object>());
+        try
+        {
+            var result = await _labRequestService.GetLabRequestsAsync(
+                status,
+                cancellationToken);
+
+            return Ok(result);
+        }
+        catch (InvalidOperationException ex)
+        {
+            return BadRequest(new { error = ex.Message });
+        }
     }
 
     [HttpPatch("{id:int}/status")]
     [RequirePermission("LabRequests.UpdateStatus")]
-    public IActionResult UpdateStatus(int id, [FromBody] object? request)
+    public async Task<ActionResult<LabRequestDto>> UpdateStatus(
+        int id,
+        [FromBody] UpdateLabRequestStatusDto request,
+        CancellationToken cancellationToken)
     {
-        return Ok(new { id, updated = false, note = "Lab requests workflow not implemented yet." });
+        try
+        {
+            var result = await _labRequestService.UpdateStatusAsync(
+                id,
+                request,
+                CurrentUserId(),
+                cancellationToken);
+
+            return Ok(result);
+        }
+        catch (InvalidOperationException ex)
+        {
+            return BadRequest(new { error = ex.Message });
+        }
+    }
+
+    private int? CurrentUserId()
+    {
+        var value = User.FindFirstValue(ClaimTypes.NameIdentifier)
+            ?? User.FindFirstValue("sub");
+
+        return int.TryParse(value, out var id) ? id : null;
     }
 }

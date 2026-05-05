@@ -699,6 +699,125 @@ namespace HMS.Persistence.Migrations
                     b.ToTable("Encounters", (string)null);
                 });
 
+            modelBuilder.Entity("Identity.Domain.Entities.LabRequest", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("ClinicalNotes")
+                        .HasMaxLength(2000)
+                        .HasColumnType("nvarchar(2000)");
+
+                    b.Property<DateTime?>("CollectedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateTime?>("CompletedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int?>("CreatedById")
+                        .HasColumnType("int");
+
+                    b.Property<int>("EncounterId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("Priority")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
+                    b.Property<string>("RequestNumber")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
+                    b.Property<DateTime>("RequestedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int>("RequestedByDoctorId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int?>("UpdatedById")
+                        .HasColumnType("int");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("EncounterId");
+
+                    b.HasIndex("RequestNumber")
+                        .IsUnique();
+
+                    b.HasIndex("RequestedAt");
+
+                    b.HasIndex("RequestedByDoctorId");
+
+                    b.HasIndex("Status");
+
+                    b.ToTable("LabRequests", (string)null);
+                });
+
+            modelBuilder.Entity("Identity.Domain.Entities.LabRequestItem", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int?>("CreatedById")
+                        .HasColumnType("int");
+
+                    b.Property<int>("LabRequestId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("Notes")
+                        .HasMaxLength(1000)
+                        .HasColumnType("nvarchar(1000)");
+
+                    b.Property<string>("SpecimenType")
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<string>("TestCode")
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
+                    b.Property<string>("TestName")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int?>("UpdatedById")
+                        .HasColumnType("int");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("LabRequestId");
+
+                    b.HasIndex("TestCode");
+
+                    b.ToTable("LabRequestItems", (string)null);
+                });
+
             modelBuilder.Entity("Identity.Domain.Entities.Medication", b =>
                 {
                     b.Property<int>("Id")
@@ -1276,6 +1395,36 @@ namespace HMS.Persistence.Migrations
                     b.Navigation("UpdatedByUser");
                 });
 
+            modelBuilder.Entity("Identity.Domain.Entities.LabRequest", b =>
+                {
+                    b.HasOne("Identity.Domain.Entities.Encounter", "Encounter")
+                        .WithMany("LabRequests")
+                        .HasForeignKey("EncounterId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("HMS.Domain.Entities.DoctorProfile", "RequestedByDoctor")
+                        .WithMany()
+                        .HasForeignKey("RequestedByDoctorId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("Encounter");
+
+                    b.Navigation("RequestedByDoctor");
+                });
+
+            modelBuilder.Entity("Identity.Domain.Entities.LabRequestItem", b =>
+                {
+                    b.HasOne("Identity.Domain.Entities.LabRequest", "LabRequest")
+                        .WithMany("Items")
+                        .HasForeignKey("LabRequestId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("LabRequest");
+                });
+
             modelBuilder.Entity("Identity.Domain.Entities.Prescription", b =>
                 {
                     b.HasOne("Identity.Domain.Entities.Encounter", "Encounter")
@@ -1400,6 +1549,13 @@ namespace HMS.Persistence.Migrations
             modelBuilder.Entity("Identity.Domain.Entities.Encounter", b =>
                 {
                     b.Navigation("Diagnoses");
+
+                    b.Navigation("LabRequests");
+                });
+
+            modelBuilder.Entity("Identity.Domain.Entities.LabRequest", b =>
+                {
+                    b.Navigation("Items");
                 });
 
             modelBuilder.Entity("Identity.Domain.Entities.Permission", b =>
