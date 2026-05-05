@@ -1,5 +1,6 @@
 import { Navigate } from "react-router-dom";
 import { useAuth } from "@/auth/AuthContext";
+import { getAccessToken } from "@/auth/session";
 
 /**
  * @param {object} props
@@ -15,8 +16,9 @@ export default function PermissionRoute({
   requireRole,
 }) {
   const auth = useAuth();
+  const token = getAccessToken();
 
-  if (!auth.isAuthenticated) {
+  if (!token || !auth.isAuthenticated) {
     return <Navigate to="/login" replace />;
   }
 

@@ -13,12 +13,12 @@ import {
   FlaskConical,
   GripVertical,
   LayoutDashboard,
-  Plus,
   Search,
   Stethoscope,
   Users,
 } from "lucide-react";
 import { useAuth } from "@/auth/AuthContext";
+import QuickAddMenu from "@/features/dashboard/QuickAddMenu";
 
 const METRIC_ORDER_KEY = "hms.dashboard.metricOrder";
 const WIDGET_ORDER_KEY = "hms.dashboard.widgetOrder";
@@ -158,6 +158,7 @@ function useChartLoadProgress(duration = 950) {
 
 export default function AdminDashboard() {
   const auth = useAuth();
+  const [search, setSearch] = useState("");
   const [metricOrder, setMetricOrder] = useState(() =>
     readOrder(METRIC_ORDER_KEY, defaultMetricOrder)
   );
@@ -212,10 +213,15 @@ export default function AdminDashboard() {
 
   return (
     <div className="min-h-full bg-slate-50">
-      <DashboardHeader userName={auth.userName} userRole={auth.userRole} />
+      <DashboardHeader
+        userName={auth.userName}
+        userRole={auth.userRole}
+        search={search}
+        onSearchChange={setSearch}
+      />
 
       <div className="space-y-6 p-4 sm:p-5 lg:p-6">
-        <section className="grid gap-3 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-6">
+        <section className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
           {metricOrder.map((id) => (
             <MetricCard
               key={id}
@@ -255,7 +261,7 @@ export default function AdminDashboard() {
                 onDragEnd={finishWidgetDrag}
                 onDrop={() => dropWidget(id)}
               >
-                <WidgetComponent />
+                <WidgetComponent search={search} />
               </DraggablePanel>
             );
           })}
@@ -265,7 +271,7 @@ export default function AdminDashboard() {
   );
 }
 
-function DashboardHeader({ userName, userRole }) {
+function DashboardHeader({ userName, userRole, search, onSearchChange }) {
   const displayName = userName ?? "Administrator";
   const displayRole = userRole ?? "Portal";
   const initials = getInitials(displayName, displayRole);
@@ -292,18 +298,19 @@ function DashboardHeader({ userName, userRole }) {
             <Search className="pointer-events-none absolute left-4 top-1/2 size-5 -translate-y-1/2 text-slate-400" />
             <input
               type="search"
+              value={search}
+              onChange={(event) => onSearchChange(event.target.value)}
               placeholder="Search patients, doctors..."
               className="h-11 w-full rounded-lg border border-slate-200 bg-slate-100 pl-12 pr-4 text-sm text-slate-900 outline-none transition focus:border-blue-200 focus:bg-white focus:ring-4 focus:ring-blue-50"
             />
           </label>
 
-          <button
-            type="button"
-            className="inline-flex h-11 items-center justify-center gap-2 rounded-lg bg-blue-600 px-4 text-sm font-semibold text-white shadow-sm shadow-blue-700/20 transition hover:bg-blue-500"
-          >
-            <Plus className="size-4" />
-            Quick Add
-          </button>
+          <QuickAddMenu
+            actions={[
+              { label: "Register Patient", to: "/patients/new", kind: "patient" },
+              { label: "New Appointment", to: "/appointments/new", kind: "appointment" },
+            ]}
+          />
 
           <button
             type="button"
@@ -713,7 +720,24 @@ function LiveAlerts() {
   );
 }
 
-function RecentPatients() {
+function matchesDashboardSearch(values, search) {
+  const normalized = String(search ?? "").trim().toLowerCase();
+  if (!normalized) return true;
+
+  return values
+    .filter(Boolean)
+    .some((value) => String(value).toLowerCase().includes(normalized));
+}
+
+function NoDashboardMatches({ message = "No matches found." }) {
+  return (
+    <div className="rounded-lg border border-slate-200 bg-slate-50 p-8 text-center">
+      <p className="text-sm text-slate-600">{message}</p>
+    </div>
+  );
+}
+
+function RecentPatients({ search }) {
   const patients = [
     ["MG", "Maria Garcia", "Cardiology", "Age 34", "Admitted", "2h ago"],
     ["JW", "James Wilson", "Neurology", "Age 56", "Discharged", "3h ago"],
@@ -721,6 +745,9 @@ function RecentPatients() {
     ["RK", "Robert Kim", "Orthopedics", "Age 71", "Admitted", "5h ago"],
     ["ED", "Emily Davis", "Pediatrics", "Age 42", "Waiting", "15m ago"],
   ];
+  const filteredPatients = patients.filter((patient) =>
+    matchesDashboardSearch(patient, search)
+  );
 
   return (
     <div>
@@ -728,8 +755,11 @@ function RecentPatients() {
         title="Recent Patients"
         action={<button className="text-sm font-semibold text-blue-600">View all</button>}
       />
+      {filteredPatients.length === 0 ? (
+        <NoDashboardMatches message="No recent patients match your search." />
+      ) : (
       <div className="divide-y divide-slate-200">
-        {patients.map(([initials, name, department, age, status, time]) => (
+        {filteredPatients.map(([initials, name, department, age, status, time]) => (
           <div key={name} className="grid gap-3 py-4 sm:grid-cols-[1fr_auto_auto] sm:items-center">
             <div className="flex items-center gap-4">
               <span className="flex size-10 items-center justify-center rounded-full bg-blue-50 text-sm font-semibold text-blue-700">
@@ -748,17 +778,21 @@ function RecentPatients() {
           </div>
         ))}
       </div>
+      )}
     </div>
   );
 }
 
-function TodaysSchedule() {
+function TodaysSchedule({ search }) {
   const schedule = [
     ["Follow-up", "Anna Thompson", "Dr. Patel", "09:00 AM"],
     ["Consultation", "Michael Brown", "Dr. Lee", "09:30 AM"],
     ["Check-up", "Lisa Wang", "Dr. Moreno", "10:00 AM"],
     ["Surgery Prep", "David Johnson", "Dr. Patel", "10:30 AM"],
   ];
+  const filteredSchedule = schedule.filter((item) =>
+    matchesDashboardSearch(item, search)
+  );
 
   return (
     <div>
@@ -766,8 +800,11 @@ function TodaysSchedule() {
         title="Today's Schedule"
         action={<button className="text-sm font-semibold text-blue-600">View</button>}
       />
+      {filteredSchedule.length === 0 ? (
+        <NoDashboardMatches message="No appointments match your search." />
+      ) : (
       <div className="space-y-3">
-        {schedule.map(([type, name, doctor, time]) => (
+        {filteredSchedule.map(([type, name, doctor, time]) => (
           <div key={`${name}-${time}`} className="rounded-lg border border-slate-200 p-4 transition hover:border-blue-200 hover:bg-blue-50/30">
             <div className="flex items-start justify-between gap-3">
               <div>
@@ -782,6 +819,7 @@ function TodaysSchedule() {
           </div>
         ))}
       </div>
+      )}
     </div>
   );
 }

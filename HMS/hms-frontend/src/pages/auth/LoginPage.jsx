@@ -22,7 +22,7 @@ function defaultPathForSession(token) {
   const perms = getPermissionsFromToken(token);
 
   if (role === "Admin") return "/admin/dashboard";
-  if (role === "Doctor") return "/doctor/encounters";
+  if (role === "Doctor") return "/doctor/dashboard";
   if (role === "Patient") return "/patient/encounters";
 
   if (perms.includes("Patients.Read")) return "/patients";

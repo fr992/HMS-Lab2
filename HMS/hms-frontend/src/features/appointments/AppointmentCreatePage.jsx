@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 import AppointmentForm from "@/features/appointments/components/AppointmentForm";
 import {
   createAppointment,
@@ -8,6 +8,8 @@ import {
 
 export default function AppointmentCreatePage() {
   const navigate = useNavigate();
+  const location = useLocation();
+  const returnTo = location.state?.returnTo;
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState(null);
 
@@ -38,7 +40,7 @@ export default function AppointmentCreatePage() {
             setSubmitting(true);
             try {
               const created = await createAppointment(body);
-              navigate(`/appointments/${created.id}`);
+              navigate(returnTo || `/appointments/${created.id}`);
             } catch (e) {
               setError(getApiErrorMessage(e));
             } finally {

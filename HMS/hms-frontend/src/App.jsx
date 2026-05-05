@@ -3,6 +3,7 @@ import LoginPage from "@/pages/auth/LoginPage";
 import AdminLayout from "@/layouts/AdminLayout";
 import MainLayout from "@/layouts/MainLayout";
 import DashboardPage from "@/features/dashboard/DashboardPage";
+import DoctorDashboardPage from "@/features/dashboard/DoctorDashboardPage";
 import UsersPage from "@/features/users/UsersPage";
 import PermissionRoute from "@/routes/PermissionRoute";
 import { AuthProvider } from "@/auth/AuthContext";
@@ -142,15 +143,37 @@ export default function App() {
           </Route>
 
           <Route
-            path="/doctor/encounters"
+            path="/doctor"
             element={
-              <PermissionRoute anyPermission={["Encounters.Read"]}>
+              <PermissionRoute requireRole="Doctor">
                 <AdminLayout />
               </PermissionRoute>
             }
           >
-            <Route index element={<EncountersListPage />} />
-            <Route path=":encounterId" element={<EncounterPanelPage />} />
+            <Route
+              path="dashboard"
+              element={
+                <PermissionRoute anyPermission={["Patients.Read"]}>
+                  <DoctorDashboardPage />
+                </PermissionRoute>
+              }
+            />
+            <Route
+              path="encounters"
+              element={
+                <PermissionRoute anyPermission={["Encounters.Read"]}>
+                  <EncountersListPage />
+                </PermissionRoute>
+              }
+            />
+            <Route
+              path="encounters/:encounterId"
+              element={
+                <PermissionRoute anyPermission={["Encounters.Read"]}>
+                  <EncounterPanelPage />
+                </PermissionRoute>
+              }
+            />
           </Route>
 
           <Route

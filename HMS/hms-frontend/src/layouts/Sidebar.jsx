@@ -169,6 +169,15 @@ export default function Sidebar() {
             canReadAppointments ||
             canReadEncounters) && (
           <Section title="Clinical" collapsed={collapsed}>
+            {isDoctor && (
+              <NavLink
+                to="/doctor/dashboard"
+                icon={LayoutDashboard}
+                label="Dashboard"
+                className={linkClass("/doctor/dashboard")}
+                collapsed={collapsed}
+              />
+            )}
             {canReadPatients && !isAdmin && (
               <NavLink
                 to="/patients"

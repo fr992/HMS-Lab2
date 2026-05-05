@@ -1,10 +1,12 @@
 import { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 import PatientForm from "@/features/patients/components/PatientForm";
 import { usePatientsStore } from "@/features/patients/patientsStore";
 
 export default function PatientCreatePage() {
   const navigate = useNavigate();
+  const location = useLocation();
+  const returnTo = location.state?.returnTo;
   const createPatient = usePatientsStore((s) => s.createPatient);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState(null);
@@ -38,7 +40,7 @@ export default function PatientCreatePage() {
             setSubmitting(true);
             const created = await createPatient(body);
             setSubmitting(false);
-            if (created) navigate(`/patients/${created.id}`);
+            if (created) navigate(returnTo || `/patients/${created.id}`);
             else {
               const st = usePatientsStore.getState();
               if (st.lastActionError) setError(st.lastActionError);
