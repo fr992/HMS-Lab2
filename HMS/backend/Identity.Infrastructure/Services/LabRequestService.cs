@@ -63,10 +63,23 @@ public sealed class LabRequestService : ILabRequestService
         if (!LabRequestPriority.IsValid(priority))
             throw new InvalidOperationException("Lab request priority must be routine, urgent, or stat.");
 
-        foreach (var item in request.Items)
+        var labTestIds = request.Items
+            .Select(item => item.LabTestId)
+            .Distinct()
+            .ToList();
+
+        if (labTestIds.Any(id => id <= 0))
+            throw new InvalidOperationException("Lab test is required for every requested analysis.");
+
+        var activeLabTestIds = await _db.LabTests
+            .Where(test => labTestIds.Contains(test.Id) && test.IsActive)
+            .Select(test => test.Id)
+            .ToListAsync(cancellationToken);
+
+        foreach (var labTestId in labTestIds)
         {
-            if (string.IsNullOrWhiteSpace(item.TestName))
-                throw new InvalidOperationException("Analysis name is required.");
+            if (!activeLabTestIds.Contains(labTestId))
+                throw new InvalidOperationException("Every requested analysis must reference an active lab test.");
         }
 
         var now = DateTime.UtcNow;
@@ -86,9 +99,8 @@ public sealed class LabRequestService : ILabRequestService
             UpdatedById = actorUserId,
             Items = request.Items.Select(i => new LabRequestItem
             {
-                TestCode = NormalizeOptional(i.TestCode),
-                TestName = i.TestName.Trim(),
-                SpecimenType = NormalizeOptional(i.SpecimenType),
+                LabTestId = i.LabTestId,
+                Status = LabRequestStatus.Requested,
                 Notes = NormalizeOptional(i.Notes),
                 CreatedAt = now,
                 UpdatedAt = now,
@@ -234,12 +246,13 @@ public sealed class LabRequestService : ILabRequestService
                 {
                     Id = i.Id,
                     LabRequestId = i.LabRequestId,
-                    TestCode = i.TestCode,
-                    TestName = i.TestName,
-                    SpecimenType = i.SpecimenType,
+                    LabTestId = i.LabTestId,
+                    TestCode = null,
+                    TestName = i.LabTest.Name,
+                    Status = i.Status,
                     Notes = i.Notes,
                     Results = i.Results
-                        .OrderByDescending(r => r.PerformedAt)
+                        .OrderByDescending(r => r.CreatedAt)
                         .ThenByDescending(r => r.Id)
                         .Select(r => new LabResultDto
                         {
@@ -250,20 +263,19 @@ public sealed class LabRequestService : ILabRequestService
                             EncounterId = r.LabRequestItem.LabRequest.EncounterId,
                             PatientProfileId = r.LabRequestItem.LabRequest.Encounter.PatientProfileId,
                             PatientName = r.LabRequestItem.LabRequest.Encounter.PatientProfile.Person.FirstName + " " + r.LabRequestItem.LabRequest.Encounter.PatientProfile.Person.LastName,
-                            TestName = r.LabRequestItem.TestName,
-                            TestCode = r.LabRequestItem.TestCode,
-                            ResultValue = r.ResultValue,
-                            Unit = r.Unit,
+                            TestName = r.LabRequestItem.LabTest.Name,
+                            TestCode = null,
+                            ResultData = r.ResultData,
                             ReferenceRange = r.ReferenceRange,
                             Interpretation = r.Interpretation,
-                            Notes = r.Notes,
-                            Status = r.Status,
-                            PerformedAt = r.PerformedAt,
-                            PublishedAt = r.PublishedAt,
-                            HasAttachment = r.AttachmentStoragePath != null,
-                            AttachmentFileName = r.AttachmentFileName,
-                            AttachmentContentType = r.AttachmentContentType,
-                            AttachmentSizeBytes = r.AttachmentSizeBytes,
+                            FileId = r.FileId,
+                            HasAttachment = r.FileId != null,
+                            AttachmentFileName = r.File != null ? r.File.OriginalFileName : null,
+                            AttachmentContentType = r.File != null ? r.File.ContentType : null,
+                            AttachmentSizeBytes = r.File != null ? r.File.SizeBytes : null,
+                            VerifiedByUserId = r.VerifiedByUserId,
+                            VerifiedByUserName = r.VerifiedByUser != null ? r.VerifiedByUser.UserName : null,
+                            VerifiedAt = r.VerifiedAt,
                             CreatedAt = r.CreatedAt,
                             UpdatedAt = r.UpdatedAt
                         }).ToList()

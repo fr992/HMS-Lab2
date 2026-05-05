@@ -12,12 +12,9 @@ public sealed class LabResultConfiguration : IEntityTypeConfiguration<LabResult>
 
         builder.HasKey(lr => lr.Id);
 
-        builder.Property(lr => lr.ResultValue)
+        builder.Property(lr => lr.ResultData)
             .IsRequired()
-            .HasMaxLength(1000);
-
-        builder.Property(lr => lr.Unit)
-            .HasMaxLength(100);
+            .HasMaxLength(4000);
 
         builder.Property(lr => lr.ReferenceRange)
             .HasMaxLength(200);
@@ -25,30 +22,24 @@ public sealed class LabResultConfiguration : IEntityTypeConfiguration<LabResult>
         builder.Property(lr => lr.Interpretation)
             .HasMaxLength(200);
 
-        builder.Property(lr => lr.Notes)
-            .HasMaxLength(2000);
-
-        builder.Property(lr => lr.Status)
-            .IsRequired()
-            .HasMaxLength(50);
-
-        builder.Property(lr => lr.AttachmentFileName)
-            .HasMaxLength(260);
-
-        builder.Property(lr => lr.AttachmentContentType)
-            .HasMaxLength(120);
-
-        builder.Property(lr => lr.AttachmentStoragePath)
-            .HasMaxLength(500);
-
         builder.HasIndex(lr => lr.LabRequestItemId);
-        builder.HasIndex(lr => lr.Status);
-        builder.HasIndex(lr => lr.PerformedAt);
-        builder.HasIndex(lr => lr.PublishedAt);
+        builder.HasIndex(lr => lr.FileId);
+        builder.HasIndex(lr => lr.VerifiedByUserId);
+        builder.HasIndex(lr => lr.VerifiedAt);
 
         builder.HasOne(lr => lr.LabRequestItem)
             .WithMany(i => i.Results)
             .HasForeignKey(lr => lr.LabRequestItemId)
             .OnDelete(DeleteBehavior.Cascade);
+
+        builder.HasOne(lr => lr.File)
+            .WithMany(file => file.LabResults)
+            .HasForeignKey(lr => lr.FileId)
+            .OnDelete(DeleteBehavior.SetNull);
+
+        builder.HasOne(lr => lr.VerifiedByUser)
+            .WithMany()
+            .HasForeignKey(lr => lr.VerifiedByUserId)
+            .OnDelete(DeleteBehavior.Restrict);
     }
 }

@@ -48,16 +48,14 @@ public sealed class LabResultsWorkflowController : ControllerBase
                 new CreateLabResultDto
                 {
                     LabRequestItemId = request.LabRequestItemId,
-                    ResultValue = request.ResultValue,
-                    Unit = request.Unit,
+                    ResultData = request.ResultData,
                     ReferenceRange = request.ReferenceRange,
                     Interpretation = request.Interpretation,
-                    Notes = request.Notes,
-                    PerformedAt = request.PerformedAt,
-                    AttachmentFileName = request.Attachment?.FileName,
-                    AttachmentContentType = request.Attachment?.ContentType,
-                    AttachmentSizeBytes = request.Attachment?.Length,
-                    AttachmentStoragePath = storedFileName
+                    FileOriginalName = request.Attachment?.FileName,
+                    FileStoredName = storedFileName,
+                    FileContentType = request.Attachment?.ContentType,
+                    FileSizeBytes = request.Attachment?.Length,
+                    FileStoragePath = storedFileName
                 },
                 CurrentUserId(),
                 cancellationToken);
@@ -146,11 +144,8 @@ public sealed class LabResultsWorkflowController : ControllerBase
 public sealed class LabResultFormRequest
 {
     public int LabRequestItemId { get; set; }
-    public string ResultValue { get; set; } = string.Empty;
-    public string? Unit { get; set; }
+    public string ResultData { get; set; } = string.Empty;
     public string? ReferenceRange { get; set; }
     public string? Interpretation { get; set; }
-    public string? Notes { get; set; }
-    public DateTime? PerformedAt { get; set; }
     public IFormFile? Attachment { get; set; }
 }

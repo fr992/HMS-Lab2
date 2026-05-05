@@ -30,8 +30,8 @@ public sealed class LabResultService : ILabResultService
         if (request.LabRequestItemId <= 0)
             throw new InvalidOperationException("Lab request item is required.");
 
-        if (string.IsNullOrWhiteSpace(request.ResultValue))
-            throw new InvalidOperationException("Result value is required.");
+        if (string.IsNullOrWhiteSpace(request.ResultData))
+            throw new InvalidOperationException("Result data is required.");
 
         var item = await _db.LabRequestItems
             .Include(i => i.LabRequest)
@@ -44,20 +44,39 @@ public sealed class LabResultService : ILabResultService
             throw new InvalidOperationException("Cannot add results to a cancelled lab request.");
 
         var now = DateTime.UtcNow;
+        HmsFile? file = null;
+
+        if (!string.IsNullOrWhiteSpace(request.FileStoragePath))
+        {
+            if (string.IsNullOrWhiteSpace(request.FileOriginalName) ||
+                string.IsNullOrWhiteSpace(request.FileStoredName) ||
+                string.IsNullOrWhiteSpace(request.FileContentType) ||
+                request.FileSizeBytes == null)
+            {
+                throw new InvalidOperationException("Complete file metadata is required when attaching a file.");
+            }
+
+            file = new HmsFile
+            {
+                OriginalFileName = request.FileOriginalName.Trim(),
+                StoredFileName = request.FileStoredName.Trim(),
+                ContentType = request.FileContentType.Trim(),
+                SizeBytes = request.FileSizeBytes.Value,
+                StoragePath = request.FileStoragePath.Trim(),
+                CreatedAt = now,
+                UpdatedAt = now,
+                CreatedById = actorUserId,
+                UpdatedById = actorUserId
+            };
+        }
+
         var labResult = new LabResult
         {
             LabRequestItemId = request.LabRequestItemId,
-            ResultValue = request.ResultValue.Trim(),
-            Unit = NormalizeOptional(request.Unit),
+            ResultData = request.ResultData.Trim(),
             ReferenceRange = NormalizeOptional(request.ReferenceRange),
             Interpretation = NormalizeOptional(request.Interpretation),
-            Notes = NormalizeOptional(request.Notes),
-            Status = LabResultStatus.Draft,
-            PerformedAt = request.PerformedAt ?? now,
-            AttachmentFileName = NormalizeOptional(request.AttachmentFileName),
-            AttachmentContentType = NormalizeOptional(request.AttachmentContentType),
-            AttachmentSizeBytes = request.AttachmentSizeBytes,
-            AttachmentStoragePath = NormalizeOptional(request.AttachmentStoragePath),
+            File = file,
             CreatedAt = now,
             UpdatedAt = now,
             CreatedById = actorUserId,
@@ -72,6 +91,10 @@ public sealed class LabResultService : ILabResultService
             item.LabRequest.UpdatedAt = now;
             item.LabRequest.UpdatedById = actorUserId;
         }
+
+        item.Status = LabRequestStatus.InProgress;
+        item.UpdatedAt = now;
+        item.UpdatedById = actorUserId;
 
         await _db.SaveChangesAsync(cancellationToken);
 
@@ -99,7 +122,7 @@ public sealed class LabResultService : ILabResultService
             query = query.Where(r => r.LabRequestItem.LabRequest.Encounter.PatientProfileId == patientProfileId.Value);
 
         return await query
-            .OrderByDescending(r => r.PerformedAt)
+            .OrderByDescending(r => r.CreatedAt)
             .ThenByDescending(r => r.Id)
             .Select(MapToDto)
             .ToListAsync(cancellationToken);
@@ -111,9 +134,9 @@ public sealed class LabResultService : ILabResultService
     {
         return await BaseQuery()
             .Where(r =>
-                r.Status == LabResultStatus.Published &&
+                r.VerifiedAt != null &&
                 r.LabRequestItem.LabRequest.Encounter.PatientProfile.Person.UserId == userId)
-            .OrderByDescending(r => r.PublishedAt)
+            .OrderByDescending(r => r.VerifiedAt)
             .ThenByDescending(r => r.Id)
             .Select(MapToDto)
             .ToListAsync(cancellationToken);
@@ -135,20 +158,23 @@ public sealed class LabResultService : ILabResultService
         if (labResult == null)
             throw new InvalidOperationException("Lab result not found.");
 
-        if (labResult.Status == LabResultStatus.Published)
-            throw new InvalidOperationException("Lab result is already published.");
+        if (labResult.VerifiedAt != null)
+            throw new InvalidOperationException("Lab result is already verified.");
 
         var now = DateTime.UtcNow;
-        labResult.Status = LabResultStatus.Published;
-        labResult.PublishedAt = now;
+        labResult.VerifiedByUserId = actorUserId;
+        labResult.VerifiedAt = now;
         labResult.UpdatedAt = now;
         labResult.UpdatedById = actorUserId;
+        labResult.LabRequestItem.Status = LabRequestStatus.Completed;
+        labResult.LabRequestItem.UpdatedAt = now;
+        labResult.LabRequestItem.UpdatedById = actorUserId;
 
         var labRequest = labResult.LabRequestItem.LabRequest;
         var allItemsHavePublishedResults = await _db.LabRequestItems
             .Where(i => i.LabRequestId == labRequest.Id)
             .AllAsync(
-                i => i.Results.Any(r => r.Status == LabResultStatus.Published || r.Id == labResult.Id),
+                i => i.Results.Any(r => r.VerifiedAt != null || r.Id == labResult.Id),
                 cancellationToken);
 
         if (allItemsHavePublishedResults)
@@ -175,7 +201,7 @@ public sealed class LabResultService : ILabResultService
         CancellationToken cancellationToken)
     {
         return await BaseQuery()
-            .Where(r => r.Id == id && r.AttachmentStoragePath != null)
+            .Where(r => r.Id == id && r.FileId != null)
             .Select(MapToAttachmentDto)
             .FirstOrDefaultAsync(cancellationToken);
     }
@@ -188,8 +214,8 @@ public sealed class LabResultService : ILabResultService
         return await BaseQuery()
             .Where(r =>
                 r.Id == id &&
-                r.Status == LabResultStatus.Published &&
-                r.AttachmentStoragePath != null &&
+                r.VerifiedAt != null &&
+                r.FileId != null &&
                 r.LabRequestItem.LabRequest.Encounter.PatientProfile.Person.UserId == userId)
             .Select(MapToAttachmentDto)
             .FirstOrDefaultAsync(cancellationToken);
@@ -210,20 +236,19 @@ public sealed class LabResultService : ILabResultService
             EncounterId = result.LabRequestItem.LabRequest.EncounterId,
             PatientProfileId = result.LabRequestItem.LabRequest.Encounter.PatientProfileId,
             PatientName = result.LabRequestItem.LabRequest.Encounter.PatientProfile.Person.FirstName + " " + result.LabRequestItem.LabRequest.Encounter.PatientProfile.Person.LastName,
-            TestName = result.LabRequestItem.TestName,
-            TestCode = result.LabRequestItem.TestCode,
-            ResultValue = result.ResultValue,
-            Unit = result.Unit,
+            TestName = result.LabRequestItem.LabTest.Name,
+            TestCode = null,
+            ResultData = result.ResultData,
             ReferenceRange = result.ReferenceRange,
             Interpretation = result.Interpretation,
-            Notes = result.Notes,
-            Status = result.Status,
-            PerformedAt = result.PerformedAt,
-            PublishedAt = result.PublishedAt,
-            HasAttachment = result.AttachmentStoragePath != null,
-            AttachmentFileName = result.AttachmentFileName,
-            AttachmentContentType = result.AttachmentContentType,
-            AttachmentSizeBytes = result.AttachmentSizeBytes,
+            FileId = result.FileId,
+            HasAttachment = result.FileId != null,
+            AttachmentFileName = result.File != null ? result.File.OriginalFileName : null,
+            AttachmentContentType = result.File != null ? result.File.ContentType : null,
+            AttachmentSizeBytes = result.File != null ? result.File.SizeBytes : null,
+            VerifiedByUserId = result.VerifiedByUserId,
+            VerifiedByUserName = result.VerifiedByUser != null ? result.VerifiedByUser.UserName : null,
+            VerifiedAt = result.VerifiedAt,
             CreatedAt = result.CreatedAt,
             UpdatedAt = result.UpdatedAt
         };
@@ -232,10 +257,11 @@ public sealed class LabResultService : ILabResultService
         result => new LabResultAttachmentDto
         {
             LabResultId = result.Id,
-            FileName = result.AttachmentFileName ?? "lab-result-attachment",
-            ContentType = result.AttachmentContentType ?? "application/octet-stream",
-            SizeBytes = result.AttachmentSizeBytes ?? 0,
-            StoragePath = result.AttachmentStoragePath!
+            FileId = result.FileId!.Value,
+            FileName = result.File!.OriginalFileName,
+            ContentType = result.File.ContentType,
+            SizeBytes = result.File.SizeBytes,
+            StoragePath = result.File.StoragePath
         };
 
     private static string? NormalizeOptional(string? value)

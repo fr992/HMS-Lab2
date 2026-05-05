@@ -11,18 +11,17 @@ public class LabResultDto
     public string PatientName { get; set; } = string.Empty;
     public string TestName { get; set; } = string.Empty;
     public string? TestCode { get; set; }
-    public string ResultValue { get; set; } = string.Empty;
-    public string? Unit { get; set; }
+    public string ResultData { get; set; } = string.Empty;
     public string? ReferenceRange { get; set; }
     public string? Interpretation { get; set; }
-    public string? Notes { get; set; }
-    public string Status { get; set; } = string.Empty;
-    public DateTime PerformedAt { get; set; }
-    public DateTime? PublishedAt { get; set; }
+    public int? FileId { get; set; }
     public bool HasAttachment { get; set; }
     public string? AttachmentFileName { get; set; }
     public string? AttachmentContentType { get; set; }
     public long? AttachmentSizeBytes { get; set; }
+    public int? VerifiedByUserId { get; set; }
+    public string? VerifiedByUserName { get; set; }
+    public DateTime? VerifiedAt { get; set; }
     public DateTime CreatedAt { get; set; }
     public DateTime UpdatedAt { get; set; }
 }
