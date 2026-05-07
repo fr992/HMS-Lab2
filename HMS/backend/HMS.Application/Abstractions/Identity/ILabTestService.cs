@@ -5,7 +5,7 @@ namespace HMS.Application.Abstractions.Identity;
 public interface ILabTestService
 {
     Task<List<LabTestDto>> GetLabTestsAsync(
-        bool includeInactive,
+        bool? isActive,
         CancellationToken cancellationToken);
 
     Task<LabTestDto?> GetByIdAsync(
@@ -22,4 +22,9 @@ public interface ILabTestService
         UpdateLabTestDto request,
         int? actorUserId,
         CancellationToken cancellationToken);
+
+    Task<bool> DeleteAsync(
+        int id,
+        CancellationToken cancellationToken
+        );
 }

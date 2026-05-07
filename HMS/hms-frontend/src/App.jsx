@@ -23,6 +23,7 @@ import EncounterPanelPage from "@/features/encounters/EncounterPanelPage";
 import PatientEncounterDiagnosesPage from "@/features/encounters/PatientEncounterDiagnosesPage";
 import PatientEncountersListPage from "@/features/encounters/PatientEncountersListPage";
 import MedicationsPage from "@/features/medications/MedicationsPage";
+import LabTestPage from "@/features/labtests/LabTests";
 
 
 export default function App() {
@@ -190,6 +191,18 @@ export default function App() {
                 element={<PatientEncounterDiagnosesPage />}
               />
           </Route>
+  
+          <Route
+              path="/admin/laboratory"
+              element={
+                <PermissionRoute requireRole="Admin">
+                  <AdminLayout />
+                </PermissionRoute>
+              }
+            >
+              <Route index element={<LabTestPage />} />
+            </Route>
+
           
         </Routes>
       </BrowserRouter>

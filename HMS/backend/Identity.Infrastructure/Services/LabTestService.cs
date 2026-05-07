@@ -3,6 +3,8 @@ using HMS.Contracts.Identity;
 using HMS.Persistence;
 using Identity.Domain.Entities;
 using Microsoft.EntityFrameworkCore;
+using System.ComponentModel;
+using System.Diagnostics;
 using System.Linq.Expressions;
 
 namespace Identity.Infrastructure.Services;
@@ -17,13 +19,17 @@ public sealed class LabTestService : ILabTestService
     }
 
     public async Task<List<LabTestDto>> GetLabTestsAsync(
-        bool includeInactive,
+        bool? isActive,
         CancellationToken cancellationToken)
     {
-        var query = _db.LabTests.AsNoTracking();
+        var query = _db.LabTests
+                   .AsNoTracking()
+                   .AsQueryable();
 
-        if (!includeInactive)
-            query = query.Where(test => test.IsActive);
+        if (isActive.HasValue)
+        {
+            query = query.Where(lt => lt.IsActive == isActive.Value);
+        }
 
         return await query
             .OrderBy(test => test.Name)
@@ -122,6 +128,24 @@ public sealed class LabTestService : ILabTestService
 
         return await GetByIdAsync(labTest.Id, cancellationToken)
             ?? throw new InvalidOperationException("Updated but not found.");
+    }
+
+
+    public async Task<bool> DeleteAsync(
+        int id,
+        CancellationToken cancellationToken)
+    {
+        var result = await _db.LabTests
+            .FirstOrDefaultAsync(lt => lt.Id == id, cancellationToken);
+
+        if (result == null)
+            return false;
+
+        _db.LabTests.Remove(result);
+
+        await _db.SaveChangesAsync(cancellationToken);
+
+        return true;
     }
 
     private static readonly Expression<Func<LabTest, LabTestDto>> MapToDto =

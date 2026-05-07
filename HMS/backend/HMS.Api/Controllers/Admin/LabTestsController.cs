@@ -20,10 +20,10 @@ public sealed class LabTestsController : ControllerBase
     [HttpGet]
     [RequirePermission("LabRequests.Read")]
     public async Task<ActionResult<List<LabTestDto>>> List(
-        [FromQuery] bool includeInactive,
+        [FromQuery] bool? isActive,
         CancellationToken cancellationToken)
     {
-        var result = await _labTestService.GetLabTestsAsync(includeInactive, cancellationToken);
+        var result = await _labTestService.GetLabTestsAsync(isActive, cancellationToken);
 
         return Ok(result);
     }

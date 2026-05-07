@@ -12,6 +12,7 @@ import {
   UserCog,
   UserRound,
   Users,
+  BriefcaseMedical,
 } from "lucide-react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 
@@ -245,6 +246,18 @@ export default function Sidebar() {
               icon={UserCog}
               label="Users"
               className={linkClass("/admin/users")}
+              collapsed={collapsed}
+            />
+          </Section>
+        )}
+
+        {isAdmin && (
+          <Section title="Laborator" collapsed={collapsed}>
+            <NavLink
+              to="/admin/laboratory"
+              icon={BriefcaseMedical}
+              label="Laborator"
+              className={linkClass("/admin/laboratory")}
               collapsed={collapsed}
             />
           </Section>
