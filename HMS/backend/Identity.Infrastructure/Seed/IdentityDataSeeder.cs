@@ -118,7 +118,8 @@ public sealed class IdentityDataSeeder
             "Medications.Read",
 
             "LabRequests.Create",
-            "NurseTasks.Assign"
+            "NurseTasks.Assign",
+            "LabResults.Create"
         }),
         ("Nurse", new[]
         {
