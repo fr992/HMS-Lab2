@@ -2,19 +2,16 @@ import apiClient from "@/api/apiClient";
 
 export async function createLabTest(body) {
   const payload = {
+    testCode: body.testCode?.trim() ? body.testCode.trim() : null,
     name: body.name,
+    specimenType: body.specimenType?.trim() ? body.specimenType.trim() : null,
     description: body.description?.trim() ? body.description.trim() : null,
-    price: body.Price,
+    price: body.price ?? null,
+    isActive: body.isActive ?? true,
   };
 
   const { data } = await apiClient.post("/admin/lab-tests", payload);
   return data;
-}
-
-
-export async function getLabTestsId(id) {
-    const response = await apiClient.get(`/lab-tests/${id}`);
-    return response.data;
 }
 
 export async function fetchLabTests(params = {}) {
@@ -23,20 +20,26 @@ export async function fetchLabTests(params = {}) {
     query.isActive = params.isActive;
   }
 
-   const { data } = await apiClient.get("/admin/lab-tests", { params: query });
+  const { data } = await apiClient.get("/admin/lab-tests", { params: query });
   return data;
 }
 
 export async function updateLabTest(id, body) {
   const payload = {
+    testCode: body.testCode?.trim() ? body.testCode.trim() : null,
     name: body.name,
+    specimenType: body.specimenType?.trim() ? body.specimenType.trim() : null,
     description: body.description?.trim() ? body.description.trim() : null,
     isActive: Boolean(body.isActive),
-    price: body.price,
+    price: body.price ?? null,
   };
 
   const { data } = await apiClient.put(`/admin/lab-tests/${id}`, payload);
   return data;
+}
+
+export async function deactivateLabTest(id) {
+  await apiClient.delete(`/admin/lab-tests/${id}`);
 }
 
 export function getApiErrorMessage(err) {

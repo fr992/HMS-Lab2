@@ -69,6 +69,60 @@ public sealed class LabRequestService : ILabRequestService
                 throw new InvalidOperationException("Analysis name is required.");
         }
 
+        var normalizedItems = request.Items
+            .Select(i => new
+            {
+                Source = i,
+                TestCode = NormalizeOptional(i.TestCode),
+                TestName = i.TestName.Trim()
+            })
+            .ToList();
+
+        var duplicateCatalogKeys = normalizedItems
+            .Select(i => i.TestCode ?? i.TestName)
+            .GroupBy(key => key, StringComparer.OrdinalIgnoreCase)
+            .Where(group => group.Count() > 1)
+            .Select(group => group.Key)
+            .ToList();
+
+        if (duplicateCatalogKeys.Count > 0)
+            throw new InvalidOperationException("Lab request contains duplicate tests.");
+
+        var requestedTestCodes = normalizedItems
+            .Select(i => i.TestCode)
+            .Where(code => code != null)
+            .Cast<string>()
+            .ToList();
+        var requestedTestNames = normalizedItems
+            .Select(i => i.TestName)
+            .ToList();
+
+        var catalogTests = await _db.LabTests
+            .AsNoTracking()
+            .Where(test =>
+                test.IsActive &&
+                ((test.TestCode != null && requestedTestCodes.Contains(test.TestCode)) ||
+                 requestedTestNames.Contains(test.Name)))
+            .ToListAsync(cancellationToken);
+
+        var catalogTestsByCode = catalogTests
+            .Where(test => test.TestCode != null)
+            .ToDictionary(test => test.TestCode!, StringComparer.OrdinalIgnoreCase);
+        var catalogTestsByName = catalogTests
+            .ToDictionary(test => test.Name, StringComparer.OrdinalIgnoreCase);
+
+        var matchedItems = normalizedItems.Select(item =>
+        {
+            var catalogTest = item.TestCode == null
+                ? catalogTestsByName.GetValueOrDefault(item.TestName)
+                : catalogTestsByCode.GetValueOrDefault(item.TestCode);
+
+            if (catalogTest == null)
+                throw new InvalidOperationException($"Lab test '{item.TestName}' is not active in the lab test catalog.");
+
+            return (Source: item.Source, CatalogTest: catalogTest);
+        }).ToList();
+
         var now = DateTime.UtcNow;
 
         var labRequest = new LabRequest
@@ -84,12 +138,12 @@ public sealed class LabRequestService : ILabRequestService
             UpdatedAt = now,
             CreatedById = actorUserId,
             UpdatedById = actorUserId,
-            Items = request.Items.Select(i => new LabRequestItem
+            Items = matchedItems.Select(i => new LabRequestItem
             {
-                TestCode = NormalizeOptional(i.TestCode),
-                TestName = i.TestName.Trim(),
-                SpecimenType = NormalizeOptional(i.SpecimenType),
-                Notes = NormalizeOptional(i.Notes),
+                TestCode = i.CatalogTest.TestCode,
+                TestName = i.CatalogTest.Name,
+                SpecimenType = i.CatalogTest.SpecimenType,
+                Notes = NormalizeOptional(i.Source.Notes),
                 CreatedAt = now,
                 UpdatedAt = now,
                 CreatedById = actorUserId,

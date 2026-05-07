@@ -3,8 +3,6 @@ using HMS.Contracts.Identity;
 using HMS.Persistence;
 using Identity.Domain.Entities;
 using Microsoft.EntityFrameworkCore;
-using System.ComponentModel;
-using System.Diagnostics;
 using System.Linq.Expressions;
 
 namespace Identity.Infrastructure.Services;
@@ -63,16 +61,23 @@ public sealed class LabTestService : ILabTestService
             throw new InvalidOperationException("Lab test name is required.");
 
         var name = request.Name.Trim();
+        var testCode = NormalizeOptional(request.TestCode);
+        ValidatePrice(request.Price);
         var exists = await _db.LabTests
-            .AnyAsync(test => test.Name == name, cancellationToken);
+            .AnyAsync(test =>
+                test.Name == name ||
+                (testCode != null && test.TestCode == testCode),
+                cancellationToken);
 
         if (exists)
-            throw new InvalidOperationException("A lab test with this name already exists.");
+            throw new InvalidOperationException("A lab test with this name or code already exists.");
 
         var now = DateTime.UtcNow;
         var labTest = new LabTest
         {
+            TestCode = testCode,
             Name = name,
+            SpecimenType = NormalizeOptional(request.SpecimenType),
             Description = NormalizeOptional(request.Description),
             Price = request.Price,
             IsActive = request.IsActive,
@@ -111,13 +116,20 @@ public sealed class LabTestService : ILabTestService
             throw new InvalidOperationException("Lab test not found.");
 
         var name = request.Name.Trim();
+        var testCode = NormalizeOptional(request.TestCode);
+        ValidatePrice(request.Price);
         var exists = await _db.LabTests
-            .AnyAsync(test => test.Id != id && test.Name == name, cancellationToken);
+            .AnyAsync(test =>
+                test.Id != id &&
+                (test.Name == name || (testCode != null && test.TestCode == testCode)),
+                cancellationToken);
 
         if (exists)
-            throw new InvalidOperationException("A lab test with this name already exists.");
+            throw new InvalidOperationException("A lab test with this name or code already exists.");
 
+        labTest.TestCode = testCode;
         labTest.Name = name;
+        labTest.SpecimenType = NormalizeOptional(request.SpecimenType);
         labTest.Description = NormalizeOptional(request.Description);
         labTest.Price = request.Price;
         labTest.IsActive = request.IsActive;
@@ -131,28 +143,31 @@ public sealed class LabTestService : ILabTestService
     }
 
 
-    public async Task<bool> DeleteAsync(
+    public async Task DeleteAsync(
         int id,
+        int? actorUserId,
         CancellationToken cancellationToken)
     {
-        var result = await _db.LabTests
+        var labTest = await _db.LabTests
             .FirstOrDefaultAsync(lt => lt.Id == id, cancellationToken);
 
-        if (result == null)
-            return false;
+        if (labTest == null)
+            throw new InvalidOperationException("Lab test not found.");
 
-        _db.LabTests.Remove(result);
+        labTest.IsActive = false;
+        labTest.UpdatedAt = DateTime.UtcNow;
+        labTest.UpdatedById = actorUserId;
 
         await _db.SaveChangesAsync(cancellationToken);
-
-        return true;
     }
 
     private static readonly Expression<Func<LabTest, LabTestDto>> MapToDto =
         test => new LabTestDto
         {
             Id = test.Id,
+            TestCode = test.TestCode,
             Name = test.Name,
+            SpecimenType = test.SpecimenType,
             Description = test.Description,
             Price = test.Price,
             IsActive = test.IsActive,
@@ -166,5 +181,11 @@ public sealed class LabTestService : ILabTestService
             return null;
 
         return value.Trim();
+    }
+
+    private static void ValidatePrice(decimal? price)
+    {
+        if (price is < 0)
+            throw new InvalidOperationException("Lab test price cannot be negative.");
     }
 }

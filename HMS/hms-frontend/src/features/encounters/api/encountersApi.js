@@ -13,6 +13,9 @@ export const encountersApi = {
   getActiveMedications: () =>
     apiClient.get("/admin/medications", { params: { isActive: true } }),
 
+  getActiveLabTests: () =>
+    apiClient.get("/admin/lab-tests", { params: { isActive: true } }),
+
   createDiagnosis: (encounterId, payload) =>
     apiClient.post(`/encounters/${encounterId}/diagnoses`, payload),
 
@@ -21,6 +24,9 @@ export const encountersApi = {
 
   createPrescription: (encounterId, payload) =>
     apiClient.post(`/encounters/${encounterId}/prescriptions`, payload),
+
+  createLabRequest: (encounterId, payload) =>
+    apiClient.post(`/encounters/${encounterId}/lab-requests`, payload),
 
   closeEncounter: (encounterId) =>
     apiClient.post(`/encounters/${encounterId}/close`),

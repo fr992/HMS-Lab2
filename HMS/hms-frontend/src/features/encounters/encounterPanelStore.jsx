@@ -107,6 +107,35 @@ createPrescription: async (encounterId, payload) => {
         `Failed to create prescription. Status: ${err?.response?.status}`,
       saving: false,
     });
+
+    throw err;
+  }
+},
+createLabRequest: async (encounterId, payload) => {
+  try {
+    set({ saving: true, error: "" });
+
+    await encountersApi.createLabRequest(encounterId, payload);
+
+    const response = await encountersApi.getPanel(encounterId);
+
+    set({
+      panel: response.data,
+      saving: false,
+    });
+  } catch (err) {
+    console.error("Create lab request error:", err);
+
+    set({
+      error:
+        err?.response?.data?.error ||
+        err?.response?.data?.message ||
+        err?.response?.data?.title ||
+        `Failed to create lab request. Status: ${err?.response?.status}`,
+      saving: false,
+    });
+
+    throw err;
   }
 },
 closeEncounter: async (encounterId) => {

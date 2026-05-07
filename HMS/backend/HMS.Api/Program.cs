@@ -66,6 +66,7 @@ builder.Services.AddScoped<IAppointmentRequestService, AppointmentRequestService
 builder.Services.AddScoped<IMedicationsService, MedicationsService>();
 builder.Services.AddScoped<IPrescriptionService, PrescriptionService>();
 builder.Services.AddScoped<ILabRequestService, LabRequestService>();
+builder.Services.AddScoped<ILabTestService, LabTestService>();
 builder.Services.AddScoped<IDoctorDashboardService, DoctorDashboardService>();
 
 

@@ -407,6 +407,40 @@ public sealed class EncounterService : IEncounterService
                             Route = i.Route,
                             Instructions = i.Instructions, 
                         }).ToList()
+                    }).ToList(),
+
+                LabRequests = _db.LabRequests
+                    .AsNoTracking()
+                    .Where(lr => lr.EncounterId == e.Id)
+                    .OrderByDescending(lr => lr.RequestedAt)
+                    .Select(lr => new LabRequestDto
+                    {
+                        Id = lr.Id,
+                        RequestNumber = lr.RequestNumber,
+                        EncounterId = lr.EncounterId,
+                        PatientProfileId = lr.Encounter.PatientProfileId,
+                        PatientName = lr.Encounter.PatientProfile.Person.FirstName + " " + lr.Encounter.PatientProfile.Person.LastName,
+                        RequestedByDoctorId = lr.RequestedByDoctorId,
+                        RequestedByDoctorName = lr.RequestedByDoctor.StaffProfile.Person.FirstName + " " + lr.RequestedByDoctor.StaffProfile.Person.LastName,
+                        Priority = lr.Priority,
+                        Status = lr.Status,
+                        ClinicalNotes = lr.ClinicalNotes,
+                        RequestedAt = lr.RequestedAt,
+                        CollectedAt = lr.CollectedAt,
+                        CompletedAt = lr.CompletedAt,
+                        CreatedAt = lr.CreatedAt,
+                        UpdatedAt = lr.UpdatedAt,
+                        Items = lr.Items
+                            .OrderBy(i => i.Id)
+                            .Select(i => new LabRequestItemDto
+                            {
+                                Id = i.Id,
+                                LabRequestId = i.LabRequestId,
+                                TestCode = i.TestCode,
+                                TestName = i.TestName,
+                                SpecimenType = i.SpecimenType,
+                                Notes = i.Notes
+                            }).ToList()
                     }).ToList()
             })
         .FirstOrDefaultAsync(cancellationToken);

@@ -25,6 +25,7 @@ export default function Sidebar() {
   const canReadAppointments = auth.hasPermission("Appointments.Read");
   const canReadEncounters = auth.hasPermission("Encounters.Read");
   const canReadMedications = auth.hasPermission("Medications.Read");
+  const canReadLabTests = auth.hasPermission("LabTests.Read");
   const isAdmin = auth.userRole === "Admin";
   const isDoctor = auth.userRole === "Doctor";
   const isPatient = auth.userRole === "Patient";
@@ -152,15 +153,26 @@ export default function Sidebar() {
             </Section>
           )}
 
-        {isAdmin && canReadMedications && (
+        {isAdmin && (canReadMedications || canReadLabTests) && (
           <Section title="Operations" collapsed={collapsed}>
-            <NavLink
-              to="/medications"
-              icon={Pill}
-              label="Medications"
-              className={linkClass("/medications")}
-              collapsed={collapsed}
-            />
+            {canReadMedications && (
+              <NavLink
+                to="/medications"
+                icon={Pill}
+                label="Medications"
+                className={linkClass("/medications")}
+                collapsed={collapsed}
+              />
+            )}
+            {canReadLabTests && (
+              <NavLink
+                to="/lab-tests"
+                icon={BriefcaseMedical}
+                label="Lab Tests"
+                className={linkClass("/lab-tests")}
+                collapsed={collapsed}
+              />
+            )}
           </Section>
         )}
 
@@ -227,15 +239,26 @@ export default function Sidebar() {
           </Section>
         )}
 
-        {!isAdmin && canReadMedications && (
+        {!isAdmin && (canReadMedications || canReadLabTests) && (
           <Section title="Operations" collapsed={collapsed}>
-            <NavLink
-              to="/medications"
-              icon={Pill}
-              label="Medications"
-              className={linkClass("/medications")}
-              collapsed={collapsed}
-            />
+            {canReadMedications && (
+              <NavLink
+                to="/medications"
+                icon={Pill}
+                label="Medications"
+                className={linkClass("/medications")}
+                collapsed={collapsed}
+              />
+            )}
+            {canReadLabTests && (
+              <NavLink
+                to="/lab-tests"
+                icon={BriefcaseMedical}
+                label="Lab Tests"
+                className={linkClass("/lab-tests")}
+                collapsed={collapsed}
+              />
+            )}
           </Section>
         )}
 
@@ -251,17 +274,6 @@ export default function Sidebar() {
           </Section>
         )}
 
-        {isAdmin && (
-          <Section title="Laborator" collapsed={collapsed}>
-            <NavLink
-              to="/admin/laboratory"
-              icon={BriefcaseMedical}
-              label="Laborator"
-              className={linkClass("/admin/laboratory")}
-              collapsed={collapsed}
-            />
-          </Section>
-        )}
       </nav>
 
       <div className="mt-auto border-t border-slate-800 p-3">

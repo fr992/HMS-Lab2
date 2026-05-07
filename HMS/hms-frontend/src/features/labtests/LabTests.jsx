@@ -1,9 +1,13 @@
 import { Plus, RefreshCw } from "lucide-react";
-import { useCallback, useState, useEffect, useMemo } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useAuth } from "@/auth/AuthContext";
-import { fetchLabTests, getApiErrorMessage, createLabTest, updateLabTest} from "@/features/labtests/api/labTests";
-
-
+import {
+  createLabTest,
+  deactivateLabTest,
+  fetchLabTests,
+  getApiErrorMessage,
+  updateLabTest,
+} from "@/features/labtests/api/labTests";
 
 const FILTER_OPTIONS = [
   { value: "all", label: "All" },
@@ -29,15 +33,27 @@ function toFilterParam(filter) {
   return "all";
 }
 
+function toNullablePrice(value) {
+  if (value === "") return null;
+
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : null;
+}
+
+function formatPrice(value) {
+  if (value == null) return "-";
+
+  return new Intl.NumberFormat(undefined, {
+    style: "currency",
+    currency: "USD",
+  }).format(value);
+}
 
 export default function LabTestsPage() {
-
-
-
   const auth = useAuth();
-  const canCreate = auth.hasPermission("LabRequests.Create");
-  const canUpdate = auth.hasPermission("LabRequests.Update");
-  const canDelete = auth.hasPermission("LabRequests.Delete");
+  const canCreate = auth.hasPermission("LabTests.Create");
+  const canUpdate = auth.hasPermission("LabTests.Update");
+  const canDelete = auth.hasPermission("LabTests.Delete");
 
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -50,7 +66,9 @@ export default function LabTestsPage() {
   const [editing, setEditing] = useState(null);
   const [formOpen, setFormOpen] = useState(false);
   const [form, setForm] = useState({
+    testCode: "",
     name: "",
+    specimenType: "",
     description: "",
     isActive: true,
     price: "",
@@ -88,7 +106,11 @@ export default function LabTestsPage() {
     if (!term) return items;
 
     return items.filter((item) =>
-      [item.name, item.description].filter(Boolean).join(" ").toLowerCase().includes(term)
+      [item.testCode, item.name, item.specimenType, item.description]
+        .filter(Boolean)
+        .join(" ")
+        .toLowerCase()
+        .includes(term)
     );
   }, [items, search]);
 
@@ -97,18 +119,23 @@ export default function LabTestsPage() {
     setFormOpen(false);
     setEditing(null);
     setForm({
+      testCode: "",
       name: "",
+      specimenType: "",
       description: "",
       isActive: true,
+      price: "",
     });
   }
 
   function beginEdit(item) {
-    // if (!canUpdate) return;
+    if (!canUpdate) return;
     setFormOpen(true);
     setEditing(item);
     setForm({
+      testCode: item.testCode ?? "",
       name: item.name ?? "",
+      specimenType: item.specimenType ?? "",
       description: item.description ?? "",
       isActive: Boolean(item.isActive),
       price: item.price != null ? String(item.price) : "",
@@ -129,17 +156,22 @@ export default function LabTestsPage() {
     try {
       if (editing) {
         await updateLabTest(editing.id, {
+          testCode: form.testCode,
           name,
+          specimenType: form.specimenType,
           description: form.description,
           isActive: form.isActive,
-          price: form.price ? parseFloat(form.price) : null,
+          price: toNullablePrice(form.price),
         });
         showToast("Lab test updated.");
       } else {
         await createLabTest({
+          testCode: form.testCode,
           name,
+          specimenType: form.specimenType,
           description: form.description,
-          price: form.price ? parseFloat(form.price) : null,
+          price: toNullablePrice(form.price),
+          isActive: true,
         });
         showToast("Lab test created.");
       }
@@ -186,13 +218,15 @@ export default function LabTestsPage() {
         </div>
 
         <div className="flex gap-2">
-          {(
+          {canCreate && (
             <button
-            type="button"
+              type="button"
               onClick={() => {
                 setEditing(null);
                 setForm({
+                  testCode: "",
                   name: "",
+                  specimenType: "",
                   description: "",
                   isActive: true,
                   price: "",
@@ -200,13 +234,17 @@ export default function LabTestsPage() {
                 setFormOpen(true);
               }}
               className="inline-flex h-10 items-center justify-center gap-2 rounded-lg bg-sky-600 px-4 text-sm font-medium text-white shadow-sm transition hover:bg-sky-700"
- >
+            >
               <Plus className="h-4 w-4" aria-hidden />
               Add lab test
             </button>
           )}
           <button
             type="button"
+            onClick={() => {
+              setRefreshing(true);
+              void load();
+            }}
             disabled={loading || refreshing}
             className="inline-flex h-10 items-center justify-center gap-2 rounded-lg border border-slate-200 bg-white px-4 text-sm font-medium text-slate-800 shadow-sm transition hover:bg-slate-50 disabled:opacity-60"
           >
@@ -229,7 +267,7 @@ export default function LabTestsPage() {
               type="search"
               value={search}
               onChange={(event) => setSearch(event.target.value)}
-              placeholder="Lab test name or description"
+              placeholder="Code, name, specimen, or description"
               className="mt-1.5 h-10 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm text-slate-900 shadow-sm outline-none transition placeholder:text-slate-400 focus:border-sky-500 focus:ring-2 focus:ring-sky-500/20"
             />
           </label>
@@ -286,17 +324,19 @@ export default function LabTestsPage() {
       <div className="scrollbar-none min-h-0 flex-1 overflow-auto rounded-lg border border-slate-200 bg-white shadow-sm">
         {loading ? (
           <div className="flex min-h-[16rem] items-center justify-center text-sm text-slate-500">
-            Loading medications...
+            Loading lab tests...
           </div>
         ) : filteredItems.length === 0 ? (
           <div className="flex min-h-[16rem] items-center justify-center p-8 text-center text-sm text-slate-500">
-            No medications found.
+            No lab tests found.
           </div>
         ) : (
           <table className="min-w-full divide-y divide-slate-200 text-sm">
             <thead className="bg-slate-50 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">
               <tr>
+                <th className="px-4 py-3">Code</th>
                 <th className="px-4 py-3">Name</th>
+                <th className="px-4 py-3">Specimen</th>
                 <th className="px-4 py-3">Description</th>
                 <th className="px-4 py-3">Status</th>
                 <th className="px-4 py-3">Price</th>
@@ -308,7 +348,9 @@ export default function LabTestsPage() {
                 const meta = statusMeta(item.isActive);
                 return (
                   <tr key={item.id} className="align-top">
+                    <td className="px-4 py-3 text-slate-600">{item.testCode || "-"}</td>
                     <td className="px-4 py-3 font-medium text-slate-900">{item.name}</td>
+                    <td className="px-4 py-3 text-slate-600">{item.specimenType || "-"}</td>
                     <td className="px-4 py-3 text-slate-600">{item.description || "-"}</td>
                     <td className="px-4 py-3">
                       <span
@@ -317,10 +359,10 @@ export default function LabTestsPage() {
                         {meta.label}
                       </span>
                     </td>
-                    <td className="px-4 py-3">{item.price != null ? `$${item.price.toFixed(2)}` : "-"}</td>
+                    <td className="px-4 py-3">{formatPrice(item.price)}</td>
                     <td className="px-4 py-3">
                       <div className="flex justify-end gap-2">
-                        {(
+                        {canUpdate && (
                           <button
                             type="button"
                             onClick={() => beginEdit(item)}
@@ -329,7 +371,7 @@ export default function LabTestsPage() {
                             Edit
                           </button>
                         )}
-                        {item.isActive && (
+                        {canDelete && item.isActive && (
                           <button
                             type="button"
                             onClick={() => void handleDeactivate(item)}
@@ -357,13 +399,24 @@ export default function LabTestsPage() {
         >
           <section className="w-full max-w-lg rounded-lg border border-slate-200 bg-white p-5 shadow-xl">
             <h2 className="text-sm font-semibold text-slate-900">
-              {editing ? `Edit #${editing.id}` : "Create medication"}
+              {editing ? `Edit #${editing.id}` : "Create lab test"}
             </h2>
             <p className="mt-1 text-xs text-slate-500">
               Fields align with backend lab test DTOs.
             </p>
 
             <form onSubmit={handleSubmit} className="mt-4 space-y-3">
+              <label className="block">
+                <span className="mb-1 block text-xs font-medium text-slate-600">Code</span>
+                <input
+                  type="text"
+                  value={form.testCode}
+                  onChange={(e) => setForm((prev) => ({ ...prev, testCode: e.target.value }))}
+                  className="h-10 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm text-slate-900 shadow-sm outline-none transition focus:border-sky-500 focus:ring-2 focus:ring-sky-500/20"
+                  placeholder="Optional test code"
+                />
+              </label>
+
               <label className="block">
                 <span className="mb-1 block text-xs font-medium text-slate-600">Name *</span>
                 <input
@@ -372,6 +425,21 @@ export default function LabTestsPage() {
                   onChange={(e) => setForm((prev) => ({ ...prev, name: e.target.value }))}
                   className="h-10 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm text-slate-900 shadow-sm outline-none transition focus:border-sky-500 focus:ring-2 focus:ring-sky-500/20"
                   required
+                />
+              </label>
+
+              <label className="block">
+                <span className="mb-1 block text-xs font-medium text-slate-600">
+                  Specimen type
+                </span>
+                <input
+                  type="text"
+                  value={form.specimenType}
+                  onChange={(e) =>
+                    setForm((prev) => ({ ...prev, specimenType: e.target.value }))
+                  }
+                  className="h-10 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm text-slate-900 shadow-sm outline-none transition focus:border-sky-500 focus:ring-2 focus:ring-sky-500/20"
+                  placeholder="Blood, urine, swab..."
                 />
               </label>
 
@@ -404,10 +472,7 @@ export default function LabTestsPage() {
                   step="0.01"
                 />
               </label>
-
-              
-
-              {editing && /* canUpdate &&*/ (
+              {editing && canUpdate && (
                 <label className="flex items-center gap-2 rounded-md border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-700">
                   <input
                     type="checkbox"
@@ -430,7 +495,7 @@ export default function LabTestsPage() {
                 </button>
                 <button
                   type="submit"
-                  // disabled={saving || /* (!canCreate && */ !editing || editing /* && !canUpdate)*/}
+                  disabled={saving || (!canCreate && !editing) || (editing && !canUpdate)}
                   className="inline-flex h-10 items-center justify-center rounded-lg bg-sky-600 px-4 text-sm font-medium text-white transition hover:bg-sky-700 disabled:opacity-60"
                 >
                   {saving ? "Saving..." : editing ? "Save changes" : "Create"}
