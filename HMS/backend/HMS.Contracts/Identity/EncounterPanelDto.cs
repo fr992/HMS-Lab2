@@ -12,5 +12,6 @@ namespace HMS.Contracts.Identity
         public PatientProfileDto Patient { get; set; } = default!;
         public List<PrescriptionDto> Prescriptions { get; set; } = new(); // []
         public List<DiagnosisDto> Diagnoses { get; set; } = new(); // [] ose kjo
+        public List<LabRequestDto> LabRequests { get; set; } = new();
     }
 }

@@ -23,8 +23,9 @@ public interface ILabTestService
         int? actorUserId,
         CancellationToken cancellationToken);
 
-    Task<bool> DeleteAsync(
+    Task DeleteAsync(
         int id,
+        int? actorUserId,
         CancellationToken cancellationToken
         );
 }

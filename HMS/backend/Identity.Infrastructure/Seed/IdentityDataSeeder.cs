@@ -60,6 +60,10 @@ public sealed class IdentityDataSeeder
         ("Medications.Create", "Krijon barna."),
         ("Medications.Update", "Përditëson barna."),
         ("Medications.Delete", "Fshin barna."),
+        ("LabTests.Read", "Lexon katalogun e testeve laboratorike."),
+        ("LabTests.Create", "Krijon teste laboratorike."),
+        ("LabTests.Update", "Përditëson teste laboratorike."),
+        ("LabTests.Delete", "Çaktivizon teste laboratorike."),
         ("NurseTasks.Assign", "Cakton detyra infermierit."),
         ("NurseTasks.Read", "Sheh detyrat e caktuara."),
         ("NurseTasks.Complete", "Shënon detyrën si të kryer."),
@@ -95,6 +99,8 @@ public sealed class IdentityDataSeeder
 
             "Medications.Read", "Medications.Create", "Medications.Update", "Medications.Delete",
 
+            "LabTests.Read", "LabTests.Create", "LabTests.Update", "LabTests.Delete",
+
             "LabRequests.Read", "LabRequests.Create", "LabRequests.UpdateStatus",
         }),
         ("Receptionist", new[]
@@ -102,7 +108,8 @@ public sealed class IdentityDataSeeder
             "Patients.Register", "Patients.Read", "Patients.Update", "Patients.Delete",
             "Appointments.Read", "Appointments.Create", "Appointments.ManageStatus",
             "Invoices.Read", "Payments.ConfirmCash",
-            "LabResults.Read"
+            "LabResults.Read",
+            "LabTests.Read"
         }),
         ("Doctor", new[]
         {
@@ -117,6 +124,8 @@ public sealed class IdentityDataSeeder
 
             "Medications.Read",
 
+            "LabTests.Read",
+
             "LabRequests.Create",
             "NurseTasks.Assign",
             "LabResults.Create"
@@ -127,6 +136,7 @@ public sealed class IdentityDataSeeder
         }),
         ("Laboratorant", new[]
         {
+            "LabTests.Read",
             "LabRequests.Read", "LabRequests.UpdateStatus",
             "LabResults.Create", "LabResults.Publish"
         }),

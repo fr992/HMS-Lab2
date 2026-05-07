@@ -699,57 +699,6 @@ namespace HMS.Persistence.Migrations
                     b.ToTable("Encounters", (string)null);
                 });
 
-            modelBuilder.Entity("Identity.Domain.Entities.HmsFile", b =>
-                {
-                    b.Property<int>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("int");
-
-                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
-
-                    b.Property<string>("ContentType")
-                        .IsRequired()
-                        .HasMaxLength(120)
-                        .HasColumnType("nvarchar(120)");
-
-                    b.Property<DateTime>("CreatedAt")
-                        .HasColumnType("datetime2");
-
-                    b.Property<int?>("CreatedById")
-                        .HasColumnType("int");
-
-                    b.Property<string>("OriginalFileName")
-                        .IsRequired()
-                        .HasMaxLength(260)
-                        .HasColumnType("nvarchar(260)");
-
-                    b.Property<long>("SizeBytes")
-                        .HasColumnType("bigint");
-
-                    b.Property<string>("StoragePath")
-                        .IsRequired()
-                        .HasMaxLength(500)
-                        .HasColumnType("nvarchar(500)");
-
-                    b.Property<string>("StoredFileName")
-                        .IsRequired()
-                        .HasMaxLength(260)
-                        .HasColumnType("nvarchar(260)");
-
-                    b.Property<DateTime>("UpdatedAt")
-                        .HasColumnType("datetime2");
-
-                    b.Property<int?>("UpdatedById")
-                        .HasColumnType("int");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("StoredFileName")
-                        .IsUnique();
-
-                    b.ToTable("Files", (string)null);
-                });
-
             modelBuilder.Entity("Identity.Domain.Entities.LabRequest", b =>
                 {
                     b.Property<int>("Id")
@@ -837,17 +786,22 @@ namespace HMS.Persistence.Migrations
                     b.Property<int>("LabRequestId")
                         .HasColumnType("int");
 
-                    b.Property<int>("LabTestId")
-                        .HasColumnType("int");
-
                     b.Property<string>("Notes")
                         .HasMaxLength(1000)
                         .HasColumnType("nvarchar(1000)");
 
-                    b.Property<string>("Status")
-                        .IsRequired()
+                    b.Property<string>("SpecimenType")
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<string>("TestCode")
                         .HasMaxLength(50)
                         .HasColumnType("nvarchar(50)");
+
+                    b.Property<string>("TestName")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
 
                     b.Property<DateTime>("UpdatedAt")
                         .HasColumnType("datetime2");
@@ -859,69 +813,9 @@ namespace HMS.Persistence.Migrations
 
                     b.HasIndex("LabRequestId");
 
-                    b.HasIndex("LabTestId");
-
-                    b.HasIndex("Status");
+                    b.HasIndex("TestCode");
 
                     b.ToTable("LabRequestItems", (string)null);
-                });
-
-            modelBuilder.Entity("Identity.Domain.Entities.LabResult", b =>
-                {
-                    b.Property<int>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("int");
-
-                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
-
-                    b.Property<DateTime>("CreatedAt")
-                        .HasColumnType("datetime2");
-
-                    b.Property<int?>("CreatedById")
-                        .HasColumnType("int");
-
-                    b.Property<int?>("FileId")
-                        .HasColumnType("int");
-
-                    b.Property<string>("Interpretation")
-                        .HasMaxLength(200)
-                        .HasColumnType("nvarchar(200)");
-
-                    b.Property<int>("LabRequestItemId")
-                        .HasColumnType("int");
-
-                    b.Property<string>("ReferenceRange")
-                        .HasMaxLength(200)
-                        .HasColumnType("nvarchar(200)");
-
-                    b.Property<string>("ResultData")
-                        .IsRequired()
-                        .HasMaxLength(4000)
-                        .HasColumnType("nvarchar(4000)");
-
-                    b.Property<DateTime>("UpdatedAt")
-                        .HasColumnType("datetime2");
-
-                    b.Property<int?>("UpdatedById")
-                        .HasColumnType("int");
-
-                    b.Property<DateTime?>("VerifiedAt")
-                        .HasColumnType("datetime2");
-
-                    b.Property<int?>("VerifiedByUserId")
-                        .HasColumnType("int");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("FileId");
-
-                    b.HasIndex("LabRequestItemId");
-
-                    b.HasIndex("VerifiedAt");
-
-                    b.HasIndex("VerifiedByUserId");
-
-                    b.ToTable("LabResults", (string)null);
                 });
 
             modelBuilder.Entity("Identity.Domain.Entities.LabTest", b =>
@@ -951,8 +845,15 @@ namespace HMS.Persistence.Migrations
                         .HasColumnType("nvarchar(200)");
 
                     b.Property<decimal?>("Price")
-                        .HasPrecision(18, 2)
                         .HasColumnType("decimal(18,2)");
+
+                    b.Property<string>("SpecimenType")
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<string>("TestCode")
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
 
                     b.Property<DateTime>("UpdatedAt")
                         .HasColumnType("datetime2");
@@ -962,10 +863,12 @@ namespace HMS.Persistence.Migrations
 
                     b.HasKey("Id");
 
-                    b.HasIndex("IsActive");
-
                     b.HasIndex("Name")
                         .IsUnique();
+
+                    b.HasIndex("TestCode")
+                        .IsUnique()
+                        .HasFilter("[TestCode] IS NOT NULL");
 
                     b.ToTable("LabTests", (string)null);
                 });
@@ -1574,40 +1477,7 @@ namespace HMS.Persistence.Migrations
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
-                    b.HasOne("Identity.Domain.Entities.LabTest", "LabTest")
-                        .WithMany("RequestItems")
-                        .HasForeignKey("LabTestId")
-                        .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired();
-
                     b.Navigation("LabRequest");
-
-                    b.Navigation("LabTest");
-                });
-
-            modelBuilder.Entity("Identity.Domain.Entities.LabResult", b =>
-                {
-                    b.HasOne("Identity.Domain.Entities.HmsFile", "File")
-                        .WithMany("LabResults")
-                        .HasForeignKey("FileId")
-                        .OnDelete(DeleteBehavior.SetNull);
-
-                    b.HasOne("Identity.Domain.Entities.LabRequestItem", "LabRequestItem")
-                        .WithMany("Results")
-                        .HasForeignKey("LabRequestItemId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.HasOne("Identity.Domain.Entities.User", "VerifiedByUser")
-                        .WithMany()
-                        .HasForeignKey("VerifiedByUserId")
-                        .OnDelete(DeleteBehavior.Restrict);
-
-                    b.Navigation("File");
-
-                    b.Navigation("LabRequestItem");
-
-                    b.Navigation("VerifiedByUser");
                 });
 
             modelBuilder.Entity("Identity.Domain.Entities.Prescription", b =>
@@ -1738,24 +1608,9 @@ namespace HMS.Persistence.Migrations
                     b.Navigation("LabRequests");
                 });
 
-            modelBuilder.Entity("Identity.Domain.Entities.HmsFile", b =>
-                {
-                    b.Navigation("LabResults");
-                });
-
             modelBuilder.Entity("Identity.Domain.Entities.LabRequest", b =>
                 {
                     b.Navigation("Items");
-                });
-
-            modelBuilder.Entity("Identity.Domain.Entities.LabRequestItem", b =>
-                {
-                    b.Navigation("Results");
-                });
-
-            modelBuilder.Entity("Identity.Domain.Entities.LabTest", b =>
-                {
-                    b.Navigation("RequestItems");
                 });
 
             modelBuilder.Entity("Identity.Domain.Entities.Permission", b =>

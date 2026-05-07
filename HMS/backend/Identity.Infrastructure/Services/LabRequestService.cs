@@ -63,24 +63,65 @@ public sealed class LabRequestService : ILabRequestService
         if (!LabRequestPriority.IsValid(priority))
             throw new InvalidOperationException("Lab request priority must be routine, urgent, or stat.");
 
-        var labTestIds = request.Items
-            .Select(item => item.LabTestId)
-            .Distinct()
+        foreach (var item in request.Items)
+        {
+            if (string.IsNullOrWhiteSpace(item.TestName))
+                throw new InvalidOperationException("Analysis name is required.");
+        }
+
+        var normalizedItems = request.Items
+            .Select(i => new
+            {
+                Source = i,
+                TestCode = NormalizeOptional(i.TestCode),
+                TestName = i.TestName.Trim()
+            })
             .ToList();
 
-        if (labTestIds.Any(id => id <= 0))
-            throw new InvalidOperationException("Lab test is required for every requested analysis.");
+        var duplicateCatalogKeys = normalizedItems
+            .Select(i => i.TestCode ?? i.TestName)
+            .GroupBy(key => key, StringComparer.OrdinalIgnoreCase)
+            .Where(group => group.Count() > 1)
+            .Select(group => group.Key)
+            .ToList();
 
-        var activeLabTestIds = await _db.LabTests
-            .Where(test => labTestIds.Contains(test.Id) && test.IsActive)
-            .Select(test => test.Id)
+        if (duplicateCatalogKeys.Count > 0)
+            throw new InvalidOperationException("Lab request contains duplicate tests.");
+
+        var requestedTestCodes = normalizedItems
+            .Select(i => i.TestCode)
+            .Where(code => code != null)
+            .Cast<string>()
+            .ToList();
+        var requestedTestNames = normalizedItems
+            .Select(i => i.TestName)
+            .ToList();
+
+        var catalogTests = await _db.LabTests
+            .AsNoTracking()
+            .Where(test =>
+                test.IsActive &&
+                ((test.TestCode != null && requestedTestCodes.Contains(test.TestCode)) ||
+                 requestedTestNames.Contains(test.Name)))
             .ToListAsync(cancellationToken);
 
-        foreach (var labTestId in labTestIds)
+        var catalogTestsByCode = catalogTests
+            .Where(test => test.TestCode != null)
+            .ToDictionary(test => test.TestCode!, StringComparer.OrdinalIgnoreCase);
+        var catalogTestsByName = catalogTests
+            .ToDictionary(test => test.Name, StringComparer.OrdinalIgnoreCase);
+
+        var matchedItems = normalizedItems.Select(item =>
         {
-            if (!activeLabTestIds.Contains(labTestId))
-                throw new InvalidOperationException("Every requested analysis must reference an active lab test.");
-        }
+            var catalogTest = item.TestCode == null
+                ? catalogTestsByName.GetValueOrDefault(item.TestName)
+                : catalogTestsByCode.GetValueOrDefault(item.TestCode);
+
+            if (catalogTest == null)
+                throw new InvalidOperationException($"Lab test '{item.TestName}' is not active in the lab test catalog.");
+
+            return (Source: item.Source, CatalogTest: catalogTest);
+        }).ToList();
 
         var now = DateTime.UtcNow;
 
@@ -97,11 +138,12 @@ public sealed class LabRequestService : ILabRequestService
             UpdatedAt = now,
             CreatedById = actorUserId,
             UpdatedById = actorUserId,
-            Items = request.Items.Select(i => new LabRequestItem
+            Items = matchedItems.Select(i => new LabRequestItem
             {
-                LabTestId = i.LabTestId,
-                Status = LabRequestStatus.Requested,
-                Notes = NormalizeOptional(i.Notes),
+                TestCode = i.CatalogTest.TestCode,
+                TestName = i.CatalogTest.Name,
+                SpecimenType = i.CatalogTest.SpecimenType,
+                Notes = NormalizeOptional(i.Source.Notes),
                 CreatedAt = now,
                 UpdatedAt = now,
                 CreatedById = actorUserId,
@@ -246,39 +288,10 @@ public sealed class LabRequestService : ILabRequestService
                 {
                     Id = i.Id,
                     LabRequestId = i.LabRequestId,
-                    LabTestId = i.LabTestId,
-                    TestCode = null,
-                    TestName = i.LabTest.Name,
-                    Status = i.Status,
-                    Notes = i.Notes,
-                    Results = i.Results
-                        .OrderByDescending(r => r.CreatedAt)
-                        .ThenByDescending(r => r.Id)
-                        .Select(r => new LabResultDto
-                        {
-                            Id = r.Id,
-                            LabRequestItemId = r.LabRequestItemId,
-                            LabRequestId = r.LabRequestItem.LabRequestId,
-                            RequestNumber = r.LabRequestItem.LabRequest.RequestNumber,
-                            EncounterId = r.LabRequestItem.LabRequest.EncounterId,
-                            PatientProfileId = r.LabRequestItem.LabRequest.Encounter.PatientProfileId,
-                            PatientName = r.LabRequestItem.LabRequest.Encounter.PatientProfile.Person.FirstName + " " + r.LabRequestItem.LabRequest.Encounter.PatientProfile.Person.LastName,
-                            TestName = r.LabRequestItem.LabTest.Name,
-                            TestCode = null,
-                            ResultData = r.ResultData,
-                            ReferenceRange = r.ReferenceRange,
-                            Interpretation = r.Interpretation,
-                            FileId = r.FileId,
-                            HasAttachment = r.FileId != null,
-                            AttachmentFileName = r.File != null ? r.File.OriginalFileName : null,
-                            AttachmentContentType = r.File != null ? r.File.ContentType : null,
-                            AttachmentSizeBytes = r.File != null ? r.File.SizeBytes : null,
-                            VerifiedByUserId = r.VerifiedByUserId,
-                            VerifiedByUserName = r.VerifiedByUser != null ? r.VerifiedByUser.UserName : null,
-                            VerifiedAt = r.VerifiedAt,
-                            CreatedAt = r.CreatedAt,
-                            UpdatedAt = r.UpdatedAt
-                        }).ToList()
+                    TestCode = i.TestCode,
+                    TestName = i.TestName,
+                    SpecimenType = i.SpecimenType,
+                    Notes = i.Notes
                 }).ToList()
         };
 

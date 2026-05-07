@@ -144,6 +144,17 @@ export default function App() {
           </Route>
 
           <Route
+            path="/lab-tests"
+            element={
+              <PermissionRoute anyPermission={["LabTests.Read"]}>
+                <AdminLayout />
+              </PermissionRoute>
+            }
+          >
+            <Route index element={<LabTestPage />} />
+          </Route>
+
+          <Route
             path="/doctor"
             element={
               <PermissionRoute requireRole="Doctor">

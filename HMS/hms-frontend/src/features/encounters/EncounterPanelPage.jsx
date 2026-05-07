@@ -75,6 +75,19 @@ function filterMedications(medications, searchTerm) {
   );
 }
 
+function filterLabTests(labTests, searchTerm) {
+  const term = searchTerm.trim().toLowerCase();
+  if (!term) return labTests;
+
+  return labTests.filter((test) =>
+    [test.testCode, test.name, test.specimenType, test.description]
+      .filter(Boolean)
+      .join(" ")
+      .toLowerCase()
+      .includes(term)
+  );
+}
+
 export default function EncounterPanelPage() {
   const { encounterId } = useParams();
   const auth = useAuth();
@@ -87,6 +100,7 @@ export default function EncounterPanelPage() {
     updateEncounter,
     createDiagnosis,
     createPrescription,
+    createLabRequest,
     closeEncounter,
   } = useEncounterPanelStore();
 
@@ -113,6 +127,16 @@ export default function EncounterPanelPage() {
   const [medicationSearch, setMedicationSearch] = useState("");
   const [medicationsLoading, setMedicationsLoading] = useState(false);
   const [medicationsError, setMedicationsError] = useState("");
+  const [labRequestForm, setLabRequestForm] = useState({
+    priority: "routine",
+    clinicalNotes: "",
+    selectedTestIds: [],
+  });
+  const [labRequestPage, setLabRequestPage] = useState(1);
+  const [labTests, setLabTests] = useState([]);
+  const [labTestSearch, setLabTestSearch] = useState("");
+  const [labTestsLoading, setLabTestsLoading] = useState(false);
+  const [labTestsError, setLabTestsError] = useState("");
 
   useEffect(() => {
     void loadPanel(encounterId);
@@ -152,6 +176,40 @@ export default function EncounterPanelPage() {
     };
   }, [auth]);
 
+  useEffect(() => {
+    if (!auth.hasPermission("LabTests.Read")) return;
+
+    let cancelled = false;
+
+    async function loadLabTests() {
+      setLabTestsLoading(true);
+      setLabTestsError("");
+
+      try {
+        const response = await encountersApi.getActiveLabTests();
+        if (!cancelled) {
+          setLabTests(Array.isArray(response.data) ? response.data : []);
+        }
+      } catch (err) {
+        console.error("Failed to load lab tests", err);
+        if (!cancelled) {
+          setLabTests([]);
+          setLabTestsError("Failed to load lab tests.");
+        }
+      } finally {
+        if (!cancelled) {
+          setLabTestsLoading(false);
+        }
+      }
+    }
+
+    void loadLabTests();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [auth]);
+
   if (loading) {
     return (
       <div className="flex min-h-[18rem] items-center justify-center text-sm text-slate-500">
@@ -162,7 +220,7 @@ export default function EncounterPanelPage() {
 
   if (error) return <div className="p-6 text-red-600">{error}</div>;
   if (!panel) return <div className="p-6">No encounter data found.</div>;
-  const { encounter, patient, diagnoses, prescriptions } = panel;
+  const { encounter, patient, diagnoses, prescriptions, labRequests = [] } = panel;
 
   const isOpen = String(encounter.status ?? "").toLowerCase() === "open";
   const canUpdateEncounter = auth.hasPermission("Encounters.Update");
@@ -170,7 +228,9 @@ export default function EncounterPanelPage() {
   const listPath =
     auth.userRole === "Admin" ? "/admin/encounters" : "/doctor/encounters";
   const prescriptionPaging = pageItems(prescriptions, prescriptionPage);
+  const labRequestPaging = pageItems(labRequests, labRequestPage);
   const filteredMedications = filterMedications(medications, medicationSearch);
+  const filteredLabTests = filterLabTests(labTests, labTestSearch);
 
 
   function beginEditEncounter() {
@@ -224,6 +284,35 @@ export default function EncounterPanelPage() {
     });
     setMedicationSearch("");
     setPrescriptionPage(1);
+  }
+
+  async function handleCreateLabRequest(e) {
+    e.preventDefault();
+
+    const selectedTests = labTests.filter((test) =>
+      labRequestForm.selectedTestIds.includes(String(test.id))
+    );
+
+    if (selectedTests.length === 0) return;
+
+    await createLabRequest(encounterId, {
+      priority: labRequestForm.priority,
+      clinicalNotes: labRequestForm.clinicalNotes || null,
+      items: selectedTests.map((test) => ({
+        testCode: test.testCode || null,
+        testName: test.name,
+        specimenType: test.specimenType || null,
+        notes: null,
+      })),
+    });
+
+    setLabRequestForm({
+      priority: "routine",
+      clinicalNotes: "",
+      selectedTestIds: [],
+    });
+    setLabTestSearch("");
+    setLabRequestPage(1);
   }
 
   async function handleCompleteEncounter() {
@@ -384,6 +473,35 @@ export default function EncounterPanelPage() {
             page={prescriptionPaging.safePage}
             totalPages={prescriptionPaging.totalPages}
             onPageChange={setPrescriptionPage}
+          />
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Lab Requests</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          {isOpen && auth.hasPermission("LabRequests.Create") && (
+            <LabRequestForm
+              form={labRequestForm}
+              saving={saving}
+              labTests={filteredLabTests}
+              labTestSearch={labTestSearch}
+              labTestsLoading={labTestsLoading}
+              labTestsError={labTestsError}
+              onChange={setLabRequestForm}
+              onLabTestSearchChange={setLabTestSearch}
+              onSubmit={handleCreateLabRequest}
+            />
+          )}
+
+          <LabRequestHistory
+            labRequests={labRequests}
+            visibleLabRequests={labRequestPaging.items}
+            page={labRequestPaging.safePage}
+            totalPages={labRequestPaging.totalPages}
+            onPageChange={setLabRequestPage}
           />
         </CardContent>
       </Card>
@@ -615,6 +733,170 @@ function SearchableMedicationSelect({
   );
 }
 
+function LabRequestForm({
+  form,
+  saving,
+  labTests,
+  labTestSearch,
+  labTestsLoading,
+  labTestsError,
+  onChange,
+  onLabTestSearchChange,
+  onSubmit,
+}) {
+  function toggleTest(testId) {
+    const id = String(testId);
+    const selected = form.selectedTestIds.includes(id);
+
+    onChange({
+      ...form,
+      selectedTestIds: selected
+        ? form.selectedTestIds.filter((value) => value !== id)
+        : [...form.selectedTestIds, id],
+    });
+  }
+
+  return (
+    <form onSubmit={onSubmit} className="space-y-3 rounded-lg border p-4">
+      <div className="grid gap-3 md:grid-cols-[12rem_1fr]">
+        <label className="block">
+          <span className="mb-1 block text-xs font-medium text-muted-foreground">
+            Priority
+          </span>
+          <select
+            value={form.priority}
+            onChange={(e) => onChange({ ...form, priority: e.target.value })}
+            className="h-9 w-full rounded-md border border-input bg-background px-3 text-sm"
+          >
+            <option value="routine">Routine</option>
+            <option value="urgent">Urgent</option>
+            <option value="stat">Stat</option>
+          </select>
+        </label>
+
+        <label className="block">
+          <span className="mb-1 block text-xs font-medium text-muted-foreground">
+            Search tests
+          </span>
+          <Input
+            placeholder="Search by code, name, specimen"
+            value={labTestSearch}
+            onChange={(e) => onLabTestSearchChange(e.target.value)}
+          />
+        </label>
+      </div>
+
+      <div className="max-h-64 overflow-auto rounded-md border border-slate-200">
+        {labTestsLoading && (
+          <div className="px-3 py-2 text-sm text-slate-500">Loading lab tests...</div>
+        )}
+
+        {!labTestsLoading &&
+          labTests.map((test) => (
+            <label
+              key={test.id}
+              className="flex cursor-pointer items-start gap-3 border-b border-slate-100 px-3 py-2 last:border-b-0 hover:bg-slate-50"
+            >
+              <input
+                type="checkbox"
+                className="mt-1"
+                checked={form.selectedTestIds.includes(String(test.id))}
+                onChange={() => toggleTest(test.id)}
+              />
+              <span className="min-w-0 flex-1">
+                <span className="block text-sm font-medium text-slate-950">
+                  {test.testCode ? `${test.testCode} - ` : ""}
+                  {test.name}
+                </span>
+                <span className="block text-xs text-slate-500">
+                  {[test.specimenType, test.description].filter(Boolean).join(" | ") || "No details"}
+                </span>
+              </span>
+            </label>
+          ))}
+
+        {!labTestsLoading && labTests.length === 0 && (
+          <div className="px-3 py-2 text-sm text-slate-500">No active lab tests match.</div>
+        )}
+      </div>
+
+      {labTestsError && <p className="text-xs text-rose-600">{labTestsError}</p>}
+
+      <Textarea
+        placeholder="Clinical notes"
+        value={form.clinicalNotes}
+        onChange={(e) => onChange({ ...form, clinicalNotes: e.target.value })}
+      />
+
+      <Button type="submit" disabled={saving || form.selectedTestIds.length === 0}>
+        {saving ? "Saving..." : "Create Lab Request"}
+      </Button>
+    </form>
+  );
+}
+
+function LabRequestHistory({
+  labRequests,
+  visibleLabRequests,
+  page,
+  totalPages,
+  onPageChange,
+}) {
+  if (labRequests.length === 0) {
+    return <p className="text-sm text-muted-foreground">No lab requests yet.</p>;
+  }
+
+  return (
+    <div className="overflow-hidden rounded-lg border border-slate-200">
+      <HistoryHeader
+        title="Lab request history"
+        count={labRequests.length}
+        page={page}
+        totalPages={totalPages}
+        onPageChange={onPageChange}
+      />
+      <div className="divide-y divide-slate-100">
+        {visibleLabRequests.map((request) => (
+          <details key={request.id} className="group bg-white">
+            <summary className="grid cursor-pointer list-none gap-3 px-4 py-3 hover:bg-slate-50 md:grid-cols-[minmax(0,1fr)_8rem_12rem] md:items-center">
+              <div className="min-w-0">
+                <p className="truncate text-sm font-medium text-slate-950">
+                  {request.requestNumber}
+                </p>
+                <p className="mt-1 truncate text-xs text-slate-500">
+                  {(request.items ?? []).map((item) => item.testName).join(", ")}
+                </p>
+              </div>
+              <Badge>{request.status}</Badge>
+              <p className="truncate text-xs text-slate-500 md:text-right">
+                {request.priority}
+              </p>
+            </summary>
+            <div className="space-y-2 border-t border-slate-100 bg-slate-50 px-4 py-3">
+              {request.clinicalNotes && (
+                <p className="text-sm text-slate-700">{request.clinicalNotes}</p>
+              )}
+              {(request.items ?? []).map((item) => (
+                <div
+                  key={item.id}
+                  className="rounded-md border border-slate-200 bg-white p-3 text-sm"
+                >
+                  <p className="font-medium text-slate-950">
+                    {item.testCode ? `${item.testCode} - ` : ""}
+                    {item.testName}
+                  </p>
+                  <p className="mt-1 text-slate-600">
+                    Specimen: {item.specimenType || "-"}
+                  </p>
+                </div>
+              ))}
+            </div>
+          </details>
+        ))}
+      </div>
+    </div>
+  );
+}
 
 function PrescriptionHistory({
   prescriptions,

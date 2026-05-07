@@ -2,6 +2,7 @@ using HMS.Api.Authorization;
 using HMS.Application.Abstractions.Identity;
 using HMS.Contracts.Identity;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
 using System.Security.Claims;
 
 namespace HMS.Api.Controllers.Admin;
@@ -18,7 +19,7 @@ public sealed class LabTestsController : ControllerBase
     }
 
     [HttpGet]
-    [RequirePermission("LabRequests.Read")]
+    [RequirePermission("LabTests.Read")]
     public async Task<ActionResult<List<LabTestDto>>> List(
         [FromQuery] bool? isActive,
         CancellationToken cancellationToken)
@@ -29,7 +30,7 @@ public sealed class LabTestsController : ControllerBase
     }
 
     [HttpGet("{id:int}")]
-    [RequirePermission("LabRequests.Read")]
+    [RequirePermission("LabTests.Read")]
     public async Task<ActionResult<LabTestDto>> GetById(
         int id,
         CancellationToken cancellationToken)
@@ -43,7 +44,7 @@ public sealed class LabTestsController : ControllerBase
     }
 
     [HttpPost]
-    [RequirePermission("LabRequests.Create")]
+    [RequirePermission("LabTests.Create")]
     public async Task<ActionResult<LabTestDto>> Create(
         [FromBody] CreateLabTestDto request,
         CancellationToken cancellationToken)
@@ -61,10 +62,14 @@ public sealed class LabTestsController : ControllerBase
         {
             return BadRequest(new { error = ex.Message });
         }
+        catch (DbUpdateException)
+        {
+            return Conflict(new { error = "A lab test with this name or code already exists." });
+        }
     }
 
     [HttpPut("{id:int}")]
-    [RequirePermission("LabRequests.Create")]
+    [RequirePermission("LabTests.Update")]
     public async Task<ActionResult<LabTestDto>> Update(
         int id,
         [FromBody] UpdateLabTestDto request,
@@ -79,6 +84,31 @@ public sealed class LabTestsController : ControllerBase
                 cancellationToken);
 
             return Ok(result);
+        }
+        catch (InvalidOperationException ex)
+        {
+            return BadRequest(new { error = ex.Message });
+        }
+        catch (DbUpdateException)
+        {
+            return Conflict(new { error = "A lab test with this name or code already exists." });
+        }
+    }
+
+    [HttpDelete("{id:int}")]
+    [RequirePermission("LabTests.Delete")]
+    public async Task<IActionResult> Delete(
+        int id,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            await _labTestService.DeleteAsync(
+                id,
+                CurrentUserId(),
+                cancellationToken);
+
+            return NoContent();
         }
         catch (InvalidOperationException ex)
         {
