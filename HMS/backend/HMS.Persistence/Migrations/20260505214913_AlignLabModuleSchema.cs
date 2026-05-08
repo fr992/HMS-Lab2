@@ -11,25 +11,23 @@ namespace HMS.Persistence.Migrations
         /// <inheritdoc />
         protected override void Up(MigrationBuilder migrationBuilder)
         {
-            migrationBuilder.CreateTable(
-                name: "LabTests",
-                columns: table => new
-                {
-                    Id = table.Column<int>(type: "int", nullable: false)
-                        .Annotation("SqlServer:Identity", "1, 1"),
-                    Name = table.Column<string>(type: "nvarchar(200)", maxLength: 200, nullable: false),
-                    Description = table.Column<string>(type: "nvarchar(1000)", maxLength: 1000, nullable: true),
-                    Price = table.Column<decimal>(type: "decimal(18,2)", precision: 18, scale: 2, nullable: true),
-                    IsActive = table.Column<bool>(type: "bit", nullable: false),
-                    CreatedAt = table.Column<DateTime>(type: "datetime2", nullable: false),
-                    UpdatedAt = table.Column<DateTime>(type: "datetime2", nullable: false),
-                    CreatedById = table.Column<int>(type: "int", nullable: true),
-                    UpdatedById = table.Column<int>(type: "int", nullable: true)
-                },
-                constraints: table =>
-                {
-                    table.PrimaryKey("PK_LabTests", x => x.Id);
-                });
+            migrationBuilder.Sql("""
+                IF OBJECT_ID(N'[LabTests]', N'U') IS NULL
+                BEGIN
+                    CREATE TABLE [LabTests] (
+                        [Id] int NOT NULL IDENTITY,
+                        [Name] nvarchar(200) NOT NULL,
+                        [Description] nvarchar(1000) NULL,
+                        [Price] decimal(18,2) NULL,
+                        [IsActive] bit NOT NULL,
+                        [CreatedAt] datetime2 NOT NULL,
+                        [UpdatedAt] datetime2 NOT NULL,
+                        [CreatedById] int NULL,
+                        [UpdatedById] int NULL,
+                        CONSTRAINT [PK_LabTests] PRIMARY KEY ([Id])
+                    );
+                END
+                """);
 
             migrationBuilder.Sql("""
                 INSERT INTO LabTests (Name, Description, Price, IsActive, CreatedAt, UpdatedAt, CreatedById, UpdatedById)

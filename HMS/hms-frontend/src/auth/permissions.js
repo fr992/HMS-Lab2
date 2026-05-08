@@ -30,14 +30,23 @@ export function getPermissionsFromToken(token) {
  * @returns {string | null}
  */
 export function getPrimaryRoleFromToken(token) {
-  if (!token) return null;
+  const roles = getRolesFromToken(token);
+  return roles[0] ?? null;
+}
+
+/**
+ * @param {string | null | undefined} token
+ * @returns {string[]}
+ */
+export function getRolesFromToken(token) {
+  if (!token) return [];
   try {
     const d = jwtDecode(token);
     const r = d.role ?? d[ROLE_CLAIM];
-    if (Array.isArray(r)) return r[0] ?? null;
-    return typeof r === "string" ? r : null;
+    if (Array.isArray(r)) return r.filter(Boolean);
+    return typeof r === "string" ? [r] : [];
   } catch {
-    return null;
+    return [];
   }
 }
 

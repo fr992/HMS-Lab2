@@ -21,7 +21,7 @@ function defaultPathForSession(token) {
   const role = getPrimaryRoleFromToken(token);
   const perms = getPermissionsFromToken(token);
 
-  if (role === "Admin") return "/admin/dashboard";
+  if (role === "Admin" || role === "SuperAdmin") return "/admin/dashboard";
   if (role === "Doctor") return "/doctor/dashboard";
   if (role === "Patient") return "/patient/encounters";
 

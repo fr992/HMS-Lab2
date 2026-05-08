@@ -4,6 +4,7 @@ import { logout as clearAuthService } from "./authService";
 import {
   getPermissionsFromToken,
   getPrimaryRoleFromToken,
+  getRolesFromToken,
   getUserNameFromToken,
 } from "./permissions";
 
@@ -15,6 +16,7 @@ function readSession() {
     return {
       isAuthenticated: false,
       userRole: null,
+      roles: [],
       userName: null,
       permissions: [],
     };
@@ -22,6 +24,7 @@ function readSession() {
   return {
     isAuthenticated: true,
     userRole: getPrimaryRoleFromToken(t),
+    roles: getRolesFromToken(t),
     userName: getUserNameFromToken(t),
     permissions: getPermissionsFromToken(t),
   };
@@ -31,23 +34,36 @@ export function AuthProvider({ children }) {
   const s0 = readSession();
   const [isAuthenticated, setIsAuthenticated] = useState(s0.isAuthenticated);
   const [userRole, setUserRole] = useState(s0.userRole);
+  const [roles, setRoles] = useState(s0.roles);
   const [userName, setUserName] = useState(s0.userName);
   const [permissions, setPermissions] = useState(s0.permissions);
 
   const hydrateFromToken = useCallback((token) => {
     setUserRole(getPrimaryRoleFromToken(token));
+    setRoles(getRolesFromToken(token));
     setUserName(getUserNameFromToken(token));
     setPermissions(getPermissionsFromToken(token));
   }, []);
 
+  const isSuperAdmin = roles.some(
+    (role) => role.toLowerCase() === "superadmin"
+  );
+
   const hasPermission = useCallback(
-    (p) => permissions.includes(p),
-    [permissions]
+    (p) => isSuperAdmin || permissions.includes(p),
+    [isSuperAdmin, permissions]
   );
 
   const hasAnyPermission = useCallback(
-    (list) => list.some((p) => permissions.includes(p)),
-    [permissions]
+    (list) => isSuperAdmin || list.some((p) => permissions.includes(p)),
+    [isSuperAdmin, permissions]
+  );
+
+  const hasRole = useCallback(
+    (roleName) =>
+      isSuperAdmin ||
+      roles.some((role) => role.toLowerCase() === roleName.toLowerCase()),
+    [isSuperAdmin, roles]
   );
 
   const loginSuccess = useCallback(
@@ -62,6 +78,7 @@ export function AuthProvider({ children }) {
     clearAuthService();
     setIsAuthenticated(false);
     setUserRole(null);
+    setRoles([]);
     setUserName(null);
     setPermissions([]);
   }, []);
@@ -70,8 +87,11 @@ export function AuthProvider({ children }) {
     () => ({
       isAuthenticated,
       userRole,
+      roles,
       userName,
       permissions,
+      isSuperAdmin,
+      hasRole,
       hasPermission,
       hasAnyPermission,
       loginSuccess,
@@ -80,8 +100,11 @@ export function AuthProvider({ children }) {
     [
       isAuthenticated,
       userRole,
+      roles,
       userName,
       permissions,
+      isSuperAdmin,
+      hasRole,
       hasPermission,
       hasAnyPermission,
       loginSuccess,

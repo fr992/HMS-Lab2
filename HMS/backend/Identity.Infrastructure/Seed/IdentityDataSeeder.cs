@@ -12,7 +12,7 @@ namespace Identity.Infrastructure.Seed;
 public sealed class IdentityDataSeeder
 {
     private const string SuperAdminRoleName = "SuperAdmin";
-    private const string SuperAdminEmail = "admin@hms.com";
+    private const string SuperAdminEmail = "admin@hms.local";
 
     private readonly HmsDbContext _db;
     private readonly IPasswordHasher<User> _passwordHasher;

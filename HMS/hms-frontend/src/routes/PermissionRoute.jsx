@@ -22,7 +22,7 @@ export default function PermissionRoute({
     return <Navigate to="/login" replace />;
   }
 
-  if (requireRole && auth.userRole !== requireRole) {
+  if (requireRole && !auth.hasRole(requireRole)) {
     return <Navigate to="/unauthorized" replace />;
   }
 
