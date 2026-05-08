@@ -14,6 +14,7 @@ import {
   Users,
   BriefcaseMedical,
   FlaskConical,
+  ShieldCheck,
 } from "lucide-react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 
@@ -28,7 +29,8 @@ export default function Sidebar() {
   const canReadMedications = auth.hasPermission("Medications.Read");
   const canReadLabTests = auth.hasPermission("LabTests.Read");
   const canReadLabRequests = auth.hasPermission("LabRequests.Read");
-  const isAdmin = auth.userRole === "Admin";
+  const isAdmin = auth.hasRole("Admin");
+  const isSuperAdmin = auth.hasRole("SuperAdmin");
   const isDoctor = auth.userRole === "Doctor";
   const isPatient = auth.userRole === "Patient";
 
@@ -282,13 +284,20 @@ export default function Sidebar() {
           </Section>
         )}
 
-        {isAdmin && (
+        {isSuperAdmin && (
           <Section title="Administration" collapsed={collapsed}>
             <NavLink
               to="/admin/users"
               icon={UserCog}
               label="Users"
               className={linkClass("/admin/users")}
+              collapsed={collapsed}
+            />
+            <NavLink
+              to="/admin/roles"
+              icon={ShieldCheck}
+              label="Roles"
+              className={linkClass("/admin/roles")}
               collapsed={collapsed}
             />
           </Section>

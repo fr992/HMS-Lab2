@@ -9,6 +9,7 @@ namespace HMS.Api.Controllers.Admin;
 
 [ApiController]
 [Route("api/admin/users")]
+[Authorize(Roles = "SuperAdmin")]
 public sealed class AdminUsersController : ControllerBase
 {
     private readonly IUserManagementService _userManagement;

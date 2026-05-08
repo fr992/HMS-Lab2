@@ -1,5 +1,6 @@
 using HMS.Api.Authorization;
 using HMS.Persistence;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 
@@ -7,6 +8,7 @@ namespace HMS.Api.Controllers.Admin;
 
 [ApiController]
 [Route("api/admin/permissions")]
+[Authorize(Roles = "SuperAdmin")]
 public sealed class AdminPermissionsController : ControllerBase
 {
     private readonly HmsDbContext _db;

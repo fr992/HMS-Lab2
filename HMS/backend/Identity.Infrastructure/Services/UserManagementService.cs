@@ -100,14 +100,23 @@ public sealed class UserManagementService : IUserManagementService
         string? search,
         CancellationToken cancellationToken = default)
     {
-        var query = _db.Users.AsNoTracking();
+        var query = _db.Users
+            .AsNoTracking()
+            .Include(u => u.Person)
+            .Include(u => u.UserRoles)
+            .ThenInclude(ur => ur.Role)
+            .AsQueryable();
 
         if (!string.IsNullOrWhiteSpace(search))
         {
             var s = search.Trim();
             query = query.Where(u =>
                 u.UserName.Contains(s)
-                || u.Email.Contains(s));
+                || u.Email.Contains(s)
+                || (u.Person != null && (
+                    u.Person.FirstName.Contains(s)
+                    || u.Person.LastName.Contains(s)
+                    || (u.Person.Phone != null && u.Person.Phone.Contains(s)))));
         }
 
         var list = await query
@@ -117,7 +126,11 @@ public sealed class UserManagementService : IUserManagementService
                 Id = u.Id,
                 UserName = u.UserName,
                 Email = u.Email,
-                IsActive = u.IsActive
+                FirstName = u.Person == null ? null : u.Person.FirstName,
+                LastName = u.Person == null ? null : u.Person.LastName,
+                PhoneNumber = u.Person == null ? null : u.Person.Phone,
+                IsActive = u.IsActive,
+                RoleNames = u.UserRoles.Select(ur => ur.Role.Name).OrderBy(n => n).ToList()
             })
             .ToListAsync(cancellationToken);
 
@@ -129,6 +142,7 @@ public sealed class UserManagementService : IUserManagementService
         CancellationToken cancellationToken = default)
     {
         var entity = await _db.Users.AsNoTracking()
+            .Include(u => u.Person)
             .Include(u => u.UserRoles)
             .ThenInclude(ur => ur.Role)
             .FirstOrDefaultAsync(u => u.Id == id, cancellationToken);
@@ -141,6 +155,9 @@ public sealed class UserManagementService : IUserManagementService
             Id = entity.Id,
             UserName = entity.UserName,
             Email = entity.Email,
+            FirstName = entity.Person?.FirstName,
+            LastName = entity.Person?.LastName,
+            PhoneNumber = entity.Person?.Phone,
             IsActive = entity.IsActive,
             RoleNames = entity.UserRoles.Select(ur => ur.Role.Name).ToList()
         };
@@ -154,6 +171,7 @@ public sealed class UserManagementService : IUserManagementService
         CancellationToken cancellationToken = default)
     {
         var entity = await _db.Users
+            .Include(u => u.Person)
             .Include(u => u.UserRoles)
             .ThenInclude(ur => ur.Role)
             .FirstOrDefaultAsync(u => u.Id == id, cancellationToken);
@@ -169,15 +187,50 @@ public sealed class UserManagementService : IUserManagementService
             entity.Email = email;
         }
 
+        if (request.IsActive.HasValue)
+            entity.IsActive = request.IsActive.Value;
+
+        if (!string.IsNullOrWhiteSpace(request.NewPassword))
+        {
+            if (request.NewPassword.Length < 8)
+                return (null, "Password must be at least 8 characters.");
+
+            entity.PasswordHash = _passwordHasher.HashPassword(entity, request.NewPassword);
+        }
+
+        if (request.FirstName is not null || request.LastName is not null || request.PhoneNumber is not null)
+        {
+            entity.Person ??= new Person
+            {
+                UserId = entity.Id,
+                CreatedAt = DateTime.UtcNow,
+                UpdatedAt = DateTime.UtcNow
+            };
+
+            if (request.FirstName is not null)
+                entity.Person.FirstName = request.FirstName.Trim();
+            if (request.LastName is not null)
+                entity.Person.LastName = request.LastName.Trim();
+            if (request.PhoneNumber is not null)
+                entity.Person.Phone = string.IsNullOrWhiteSpace(request.PhoneNumber)
+                    ? null
+                    : request.PhoneNumber.Trim();
+
+            entity.Person.UpdatedAt = DateTime.UtcNow;
+        }
+
         entity.UpdatedAt = DateTime.UtcNow;
 
-        if (request.RoleNames is not null && request.RoleNames.Count > 0)
+        if (request.RoleNames is not null)
         {
             var roleNames = request.RoleNames
                 .Select(r => r.Trim())
                 .Where(r => r.Length > 0)
                 .Distinct(StringComparer.OrdinalIgnoreCase)
                 .ToList();
+
+            if (roleNames.Count == 0)
+                return (null, "At least one role is required.");
 
             var dbRoles = await _db.Roles.ToListAsync(cancellationToken);
             var roles = new List<Role>();

@@ -5,6 +5,7 @@ import MainLayout from "@/layouts/MainLayout";
 import DashboardPage from "@/features/dashboard/DashboardPage";
 import DoctorDashboardPage from "@/features/dashboard/DoctorDashboardPage";
 import UsersPage from "@/features/users/UsersPage";
+import RolesPage from "@/features/roles/RolesPage";
 import PermissionRoute from "@/routes/PermissionRoute";
 import { AuthProvider } from "@/auth/AuthContext";
 import PatientsListPage from "@/features/patients/PatientsListPage";
@@ -47,7 +48,22 @@ export default function App() {
             }
           >
             <Route path="dashboard" element={<DashboardPage />} />
-            <Route path="users" element={<UsersPage />} />
+            <Route
+              path="users"
+              element={
+                <PermissionRoute requireRole="SuperAdmin">
+                  <UsersPage />
+                </PermissionRoute>
+              }
+            />
+            <Route
+              path="roles"
+              element={
+                <PermissionRoute requireRole="SuperAdmin">
+                  <RolesPage />
+                </PermissionRoute>
+              }
+            />
             <Route
               path="encounters"
               element={
