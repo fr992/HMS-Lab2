@@ -10,4 +10,6 @@ public class LabTest : BaseEntity
     public string? Description { get; set; }
     public decimal? Price { get; set; }
     public bool IsActive { get; set; } = true;
+
+    public ICollection<LabRequestItem> RequestItems { get; set; } = new List<LabRequestItem>();
 }

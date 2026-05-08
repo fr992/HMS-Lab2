@@ -237,7 +237,7 @@ public sealed class LabResultService : ILabResultService
             PatientProfileId = result.LabRequestItem.LabRequest.Encounter.PatientProfileId,
             PatientName = result.LabRequestItem.LabRequest.Encounter.PatientProfile.Person.FirstName + " " + result.LabRequestItem.LabRequest.Encounter.PatientProfile.Person.LastName,
             TestName = result.LabRequestItem.LabTest.Name,
-            TestCode = null,
+            TestCode = result.LabRequestItem.LabTest.TestCode,
             ResultData = result.ResultData,
             ReferenceRange = result.ReferenceRange,
             Interpretation = result.Interpretation,

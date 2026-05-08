@@ -436,10 +436,40 @@ public sealed class EncounterService : IEncounterService
                             {
                                 Id = i.Id,
                                 LabRequestId = i.LabRequestId,
-                                TestCode = i.TestCode,
-                                TestName = i.TestName,
-                                SpecimenType = i.SpecimenType,
-                                Notes = i.Notes
+                                LabTestId = i.LabTestId,
+                                TestCode = i.LabTest.TestCode,
+                                TestName = i.LabTest.Name,
+                                SpecimenType = i.LabTest.SpecimenType,
+                                Status = i.Status,
+                                Notes = i.Notes,
+                                Results = i.Results
+                                    .OrderByDescending(r => r.CreatedAt)
+                                    .ThenByDescending(r => r.Id)
+                                    .Select(r => new LabResultDto
+                                    {
+                                        Id = r.Id,
+                                        LabRequestItemId = r.LabRequestItemId,
+                                        LabRequestId = r.LabRequestItem.LabRequestId,
+                                        RequestNumber = r.LabRequestItem.LabRequest.RequestNumber,
+                                        EncounterId = r.LabRequestItem.LabRequest.EncounterId,
+                                        PatientProfileId = r.LabRequestItem.LabRequest.Encounter.PatientProfileId,
+                                        PatientName = r.LabRequestItem.LabRequest.Encounter.PatientProfile.Person.FirstName + " " + r.LabRequestItem.LabRequest.Encounter.PatientProfile.Person.LastName,
+                                        TestName = r.LabRequestItem.LabTest.Name,
+                                        TestCode = r.LabRequestItem.LabTest.TestCode,
+                                        ResultData = r.ResultData,
+                                        ReferenceRange = r.ReferenceRange,
+                                        Interpretation = r.Interpretation,
+                                        FileId = r.FileId,
+                                        HasAttachment = r.FileId != null,
+                                        AttachmentFileName = r.File != null ? r.File.OriginalFileName : null,
+                                        AttachmentContentType = r.File != null ? r.File.ContentType : null,
+                                        AttachmentSizeBytes = r.File != null ? r.File.SizeBytes : null,
+                                        VerifiedByUserId = r.VerifiedByUserId,
+                                        VerifiedByUserName = r.VerifiedByUser != null ? r.VerifiedByUser.UserName : null,
+                                        VerifiedAt = r.VerifiedAt,
+                                        CreatedAt = r.CreatedAt,
+                                        UpdatedAt = r.UpdatedAt
+                                    }).ToList()
                             }).ToList()
                     }).ToList()
             })

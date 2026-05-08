@@ -7,6 +7,7 @@ public class LabRequestItemDto
     public int LabTestId { get; set; }
     public string? TestCode { get; set; }
     public string TestName { get; set; } = string.Empty;
+    public string? SpecimenType { get; set; }
     public string Status { get; set; } = string.Empty;
     public string? Notes { get; set; }
     public List<LabResultDto> Results { get; set; } = new();

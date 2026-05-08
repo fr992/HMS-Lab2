@@ -299,9 +299,7 @@ export default function EncounterPanelPage() {
       priority: labRequestForm.priority,
       clinicalNotes: labRequestForm.clinicalNotes || null,
       items: selectedTests.map((test) => ({
-        testCode: test.testCode || null,
-        testName: test.name,
-        specimenType: test.specimenType || null,
+        labTestId: test.id,
         notes: null,
       })),
     });

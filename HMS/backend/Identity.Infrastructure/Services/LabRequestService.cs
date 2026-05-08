@@ -65,22 +65,16 @@ public sealed class LabRequestService : ILabRequestService
 
         foreach (var item in request.Items)
         {
-            if (string.IsNullOrWhiteSpace(item.TestName))
-                throw new InvalidOperationException("Analysis name is required.");
+            if (item.LabTestId <= 0)
+                throw new InvalidOperationException("Lab test is required for every request item.");
         }
 
-        var normalizedItems = request.Items
-            .Select(i => new
-            {
-                Source = i,
-                TestCode = NormalizeOptional(i.TestCode),
-                TestName = i.TestName.Trim()
-            })
+        var requestedLabTestIds = request.Items
+            .Select(i => i.LabTestId)
             .ToList();
 
-        var duplicateCatalogKeys = normalizedItems
-            .Select(i => i.TestCode ?? i.TestName)
-            .GroupBy(key => key, StringComparer.OrdinalIgnoreCase)
+        var duplicateCatalogKeys = requestedLabTestIds
+            .GroupBy(id => id)
             .Where(group => group.Count() > 1)
             .Select(group => group.Key)
             .ToList();
@@ -88,39 +82,22 @@ public sealed class LabRequestService : ILabRequestService
         if (duplicateCatalogKeys.Count > 0)
             throw new InvalidOperationException("Lab request contains duplicate tests.");
 
-        var requestedTestCodes = normalizedItems
-            .Select(i => i.TestCode)
-            .Where(code => code != null)
-            .Cast<string>()
-            .ToList();
-        var requestedTestNames = normalizedItems
-            .Select(i => i.TestName)
-            .ToList();
-
         var catalogTests = await _db.LabTests
             .AsNoTracking()
-            .Where(test =>
-                test.IsActive &&
-                ((test.TestCode != null && requestedTestCodes.Contains(test.TestCode)) ||
-                 requestedTestNames.Contains(test.Name)))
+            .Where(test => requestedLabTestIds.Contains(test.Id))
             .ToListAsync(cancellationToken);
 
-        var catalogTestsByCode = catalogTests
-            .Where(test => test.TestCode != null)
-            .ToDictionary(test => test.TestCode!, StringComparer.OrdinalIgnoreCase);
-        var catalogTestsByName = catalogTests
-            .ToDictionary(test => test.Name, StringComparer.OrdinalIgnoreCase);
+        var catalogTestsById = catalogTests.ToDictionary(test => test.Id);
 
-        var matchedItems = normalizedItems.Select(item =>
+        var matchedItems = request.Items.Select(item =>
         {
-            var catalogTest = item.TestCode == null
-                ? catalogTestsByName.GetValueOrDefault(item.TestName)
-                : catalogTestsByCode.GetValueOrDefault(item.TestCode);
+            if (!catalogTestsById.TryGetValue(item.LabTestId, out var catalogTest))
+                throw new InvalidOperationException($"Lab test #{item.LabTestId} was not found.");
 
-            if (catalogTest == null)
-                throw new InvalidOperationException($"Lab test '{item.TestName}' is not active in the lab test catalog.");
+            if (!catalogTest.IsActive)
+                throw new InvalidOperationException($"Lab test '{catalogTest.Name}' is not active in the lab test catalog.");
 
-            return (Source: item.Source, CatalogTest: catalogTest);
+            return (Source: item, CatalogTest: catalogTest);
         }).ToList();
 
         var now = DateTime.UtcNow;
@@ -140,9 +117,8 @@ public sealed class LabRequestService : ILabRequestService
             UpdatedById = actorUserId,
             Items = matchedItems.Select(i => new LabRequestItem
             {
-                TestCode = i.CatalogTest.TestCode,
-                TestName = i.CatalogTest.Name,
-                SpecimenType = i.CatalogTest.SpecimenType,
+                LabTestId = i.CatalogTest.Id,
+                Status = LabRequestStatus.Requested,
                 Notes = NormalizeOptional(i.Source.Notes),
                 CreatedAt = now,
                 UpdatedAt = now,
@@ -288,10 +264,40 @@ public sealed class LabRequestService : ILabRequestService
                 {
                     Id = i.Id,
                     LabRequestId = i.LabRequestId,
-                    TestCode = i.TestCode,
-                    TestName = i.TestName,
-                    SpecimenType = i.SpecimenType,
-                    Notes = i.Notes
+                    LabTestId = i.LabTestId,
+                    TestCode = i.LabTest.TestCode,
+                    TestName = i.LabTest.Name,
+                    SpecimenType = i.LabTest.SpecimenType,
+                    Status = i.Status,
+                    Notes = i.Notes,
+                    Results = i.Results
+                        .OrderByDescending(r => r.CreatedAt)
+                        .ThenByDescending(r => r.Id)
+                        .Select(r => new LabResultDto
+                        {
+                            Id = r.Id,
+                            LabRequestItemId = r.LabRequestItemId,
+                            LabRequestId = r.LabRequestItem.LabRequestId,
+                            RequestNumber = r.LabRequestItem.LabRequest.RequestNumber,
+                            EncounterId = r.LabRequestItem.LabRequest.EncounterId,
+                            PatientProfileId = r.LabRequestItem.LabRequest.Encounter.PatientProfileId,
+                            PatientName = r.LabRequestItem.LabRequest.Encounter.PatientProfile.Person.FirstName + " " + r.LabRequestItem.LabRequest.Encounter.PatientProfile.Person.LastName,
+                            TestName = r.LabRequestItem.LabTest.Name,
+                            TestCode = r.LabRequestItem.LabTest.TestCode,
+                            ResultData = r.ResultData,
+                            ReferenceRange = r.ReferenceRange,
+                            Interpretation = r.Interpretation,
+                            FileId = r.FileId,
+                            HasAttachment = r.FileId != null,
+                            AttachmentFileName = r.File != null ? r.File.OriginalFileName : null,
+                            AttachmentContentType = r.File != null ? r.File.ContentType : null,
+                            AttachmentSizeBytes = r.File != null ? r.File.SizeBytes : null,
+                            VerifiedByUserId = r.VerifiedByUserId,
+                            VerifiedByUserName = r.VerifiedByUser != null ? r.VerifiedByUser.UserName : null,
+                            VerifiedAt = r.VerifiedAt,
+                            CreatedAt = r.CreatedAt,
+                            UpdatedAt = r.UpdatedAt
+                        }).ToList()
                 }).ToList()
         };
 

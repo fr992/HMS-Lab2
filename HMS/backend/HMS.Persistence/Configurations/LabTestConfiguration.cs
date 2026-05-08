@@ -31,6 +31,8 @@ public sealed class LabTestConfiguration : IEntityTypeConfiguration<LabTest>
         builder.Property(lt => lt.IsActive)
             .IsRequired();
 
+        builder.HasIndex(lt => lt.IsActive);
+
         builder.HasIndex(lt => lt.Name)
             .IsUnique();
 
