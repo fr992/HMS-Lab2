@@ -67,6 +67,7 @@ public sealed class IdentityDataSeeder
         ("NurseTasks.Assign", "Cakton detyra infermierit."),
         ("NurseTasks.Read", "Sheh detyrat e caktuara."),
         ("NurseTasks.Complete", "Shënon detyrën si të kryer."),
+        ("Nurses.Read", "Lexon listen e infermiereve aktive."),
         ("LabRequests.Read", "Sheh kërkesat laboratorike."),
         ("LabRequests.UpdateStatus", "Përditëson statusin e kërkesës laboratorike."),
         ("LabResults.Create", "Plotëson rezultatin laboratorik."),
@@ -102,6 +103,7 @@ public sealed class IdentityDataSeeder
             "LabTests.Read", "LabTests.Create", "LabTests.Update", "LabTests.Delete",
 
             "LabRequests.Read", "LabRequests.Create", "LabRequests.UpdateStatus",
+            "Nurses.Read", "NurseTasks.Assign", "NurseTasks.Read", "NurseTasks.Complete",
         }),
         ("Receptionist", new[]
         {
@@ -127,10 +129,16 @@ public sealed class IdentityDataSeeder
             "LabTests.Read",
 
             "LabRequests.Create",
+            "Nurses.Read",
             "NurseTasks.Assign",
+            "NurseTasks.Read",
             "LabResults.Create"
         }),
         ("Nurse", new[]
+        {
+            "NurseTasks.Read", "NurseTasks.Complete"
+        }),
+        ("Infermier", new[]
         {
             "NurseTasks.Read", "NurseTasks.Complete"
         }),
@@ -376,3 +384,4 @@ public sealed class IdentityDataSeeder
         _logger.LogInformation("Bootstrap admin user {UserName} created.", userName);
     }
 }
+

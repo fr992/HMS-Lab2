@@ -60,8 +60,6 @@ public static class DependencyInjection
         services.AddScoped<IDiagnosisService, DiagnosisService>();
         services.AddScoped<ILabRequestService, LabRequestService>();
         services.AddScoped<ILabTestService, LabTestService>();
-
-
         return services;
     }
 }

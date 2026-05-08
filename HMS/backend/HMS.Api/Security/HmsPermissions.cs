@@ -41,6 +41,7 @@ public static class HmsPermissions
         "LabTests.Update",
         "LabTests.Delete",
         "LabRequests.Create",
+        "Nurses.Read",
         "NurseTasks.Assign",
         "NurseTasks.Read",
         "NurseTasks.Complete",

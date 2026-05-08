@@ -1,4 +1,7 @@
+using System.Security.Claims;
 using HMS.Api.Authorization;
+using HMS.Application.Abstractions.Identity;
+using HMS.Contracts.Identity;
 using Microsoft.AspNetCore.Mvc;
 
 namespace HMS.Api.Controllers.Clinical;
@@ -7,31 +10,97 @@ namespace HMS.Api.Controllers.Clinical;
 [Route("api/nurse-tasks")]
 public sealed class NurseTasksController : ControllerBase
 {
+    private readonly INurseTaskService _service;
+
+    public NurseTasksController(INurseTaskService service)
+    {
+        _service = service;
+    }
+
     [HttpPost]
     [RequirePermission("NurseTasks.Assign")]
-    public IActionResult Assign([FromBody] object? request)
+    public async Task<ActionResult<NurseTaskDto>> Create(
+        [FromBody] CreateNurseTaskRequestDto request,
+        CancellationToken cancellationToken)
     {
-        return Ok(new { assigned = false, note = "Nurse tasks module not implemented yet." });
+        try
+        {
+            var result = await _service.CreateAsync(request, CurrentUserId(), cancellationToken);
+            return Ok(result);
+        }
+        catch (InvalidOperationException ex)
+        {
+            return BadRequest(new { error = ex.Message });
+        }
+    }
+
+    [HttpGet("encounter/{encounterId:int}")]
+    [RequirePermission("NurseTasks.Read")]
+    public async Task<ActionResult<IReadOnlyList<NurseTaskDto>>> GetByEncounter(
+        int encounterId,
+        CancellationToken cancellationToken)
+    {
+        var result = await _service.GetByEncounterAsync(encounterId, cancellationToken);
+        return Ok(result);
     }
 
     [HttpGet("my")]
     [RequirePermission("NurseTasks.Read")]
-    public IActionResult MyTasks()
+    public async Task<ActionResult<IReadOnlyList<NurseTaskDto>>> GetMyTasks(CancellationToken cancellationToken)
     {
-        return Ok(Array.Empty<object>());
+        try
+        {
+            var result = await _service.GetMyTasksAsync(CurrentUserId(), cancellationToken);
+            return Ok(result);
+        }
+        catch (InvalidOperationException ex)
+        {
+            return BadRequest(new { error = ex.Message });
+        }
     }
 
-    [HttpGet]
-    [RequirePermission("NurseTasks.Read")]
-    public IActionResult List([FromQuery] int? encounterId)
+    [HttpPut("{id:int}")]
+    [RequirePermission("NurseTasks.Assign")]
+    public async Task<ActionResult<NurseTaskDto>> Update(
+        int id,
+        [FromBody] UpdateNurseTaskRequestDto request,
+        CancellationToken cancellationToken)
     {
-        return Ok(Array.Empty<object>());
+        try
+        {
+            var result = await _service.UpdateAsync(id, request, CurrentUserId(), cancellationToken);
+            return Ok(result);
+        }
+        catch (InvalidOperationException ex)
+        {
+            return BadRequest(new { error = ex.Message });
+        }
     }
 
     [HttpPost("{id:int}/complete")]
     [RequirePermission("NurseTasks.Complete")]
-    public IActionResult Complete(int id, [FromBody] object? request)
+    public async Task<ActionResult<NurseTaskDto>> Complete(
+        int id,
+        CancellationToken cancellationToken)
     {
-        return Ok(new { id, completed = false, note = "Nurse tasks module not implemented yet." });
+        try
+        {
+            var result = await _service.CompleteAsync(id, CurrentUserId(), cancellationToken);
+            return Ok(result);
+        }
+        catch (InvalidOperationException ex)
+        {
+            return BadRequest(new { error = ex.Message });
+        }
+    }
+
+    private int CurrentUserId()
+    {
+        var value = User.FindFirstValue(ClaimTypes.NameIdentifier);
+
+        if (!int.TryParse(value, out var userId))
+            throw new InvalidOperationException("Invalid authenticated user.");
+
+        return userId;
     }
 }
