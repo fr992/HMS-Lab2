@@ -12,25 +12,25 @@ public sealed class LabRequestItemConfiguration : IEntityTypeConfiguration<LabRe
 
         builder.HasKey(lri => lri.Id);
 
-        builder.Property(lri => lri.TestCode)
-            .HasMaxLength(50);
-
-        builder.Property(lri => lri.TestName)
+        builder.Property(lri => lri.Status)
             .IsRequired()
-            .HasMaxLength(200);
-
-        builder.Property(lri => lri.SpecimenType)
-            .HasMaxLength(100);
+            .HasMaxLength(50);
 
         builder.Property(lri => lri.Notes)
             .HasMaxLength(1000);
 
         builder.HasIndex(lri => lri.LabRequestId);
-        builder.HasIndex(lri => lri.TestCode);
+        builder.HasIndex(lri => lri.LabTestId);
+        builder.HasIndex(lri => lri.Status);
 
         builder.HasOne(lri => lri.LabRequest)
             .WithMany(lr => lr.Items)
             .HasForeignKey(lri => lri.LabRequestId)
             .OnDelete(DeleteBehavior.Cascade);
+
+        builder.HasOne(lri => lri.LabTest)
+            .WithMany(lt => lt.RequestItems)
+            .HasForeignKey(lri => lri.LabTestId)
+            .OnDelete(DeleteBehavior.Restrict);
     }
 }
