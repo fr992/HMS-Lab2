@@ -24,6 +24,7 @@ import PatientEncounterDiagnosesPage from "@/features/encounters/PatientEncounte
 import PatientEncountersListPage from "@/features/encounters/PatientEncountersListPage";
 import MedicationsPage from "@/features/medications/MedicationsPage";
 import LabTestPage from "@/features/labtests/LabTests";
+import LabRequestsPage from "@/features/labRequests/LabRequestsPage";
 
 
 export default function App() {
@@ -152,6 +153,17 @@ export default function App() {
             }
           >
             <Route index element={<LabTestPage />} />
+          </Route>
+
+          <Route
+            path="/lab-requests"
+            element={
+              <PermissionRoute anyPermission={["LabRequests.Read"]}>
+                <AdminLayout />
+              </PermissionRoute>
+            }
+          >
+            <Route index element={<LabRequestsPage />} />
           </Route>
 
           <Route

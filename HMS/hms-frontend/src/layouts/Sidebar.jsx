@@ -13,6 +13,7 @@ import {
   UserRound,
   Users,
   BriefcaseMedical,
+  FlaskConical,
 } from "lucide-react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 
@@ -26,6 +27,7 @@ export default function Sidebar() {
   const canReadEncounters = auth.hasPermission("Encounters.Read");
   const canReadMedications = auth.hasPermission("Medications.Read");
   const canReadLabTests = auth.hasPermission("LabTests.Read");
+  const canReadLabRequests = auth.hasPermission("LabRequests.Read");
   const isAdmin = auth.userRole === "Admin";
   const isDoctor = auth.userRole === "Doctor";
   const isPatient = auth.userRole === "Patient";
@@ -153,7 +155,7 @@ export default function Sidebar() {
             </Section>
           )}
 
-        {isAdmin && (canReadMedications || canReadLabTests) && (
+        {isAdmin && (canReadMedications || canReadLabTests || canReadLabRequests) && (
           <Section title="Operations" collapsed={collapsed}>
             {canReadMedications && (
               <NavLink
@@ -170,6 +172,15 @@ export default function Sidebar() {
                 icon={BriefcaseMedical}
                 label="Lab Tests"
                 className={linkClass("/lab-tests")}
+                collapsed={collapsed}
+              />
+            )}
+            {canReadLabRequests && (
+              <NavLink
+                to="/lab-requests"
+                icon={FlaskConical}
+                label="Lab Requests"
+                className={linkClass("/lab-requests")}
                 collapsed={collapsed}
               />
             )}
@@ -239,7 +250,7 @@ export default function Sidebar() {
           </Section>
         )}
 
-        {!isAdmin && (canReadMedications || canReadLabTests) && (
+        {!isAdmin && (canReadMedications || canReadLabTests || canReadLabRequests) && (
           <Section title="Operations" collapsed={collapsed}>
             {canReadMedications && (
               <NavLink
@@ -256,6 +267,15 @@ export default function Sidebar() {
                 icon={BriefcaseMedical}
                 label="Lab Tests"
                 className={linkClass("/lab-tests")}
+                collapsed={collapsed}
+              />
+            )}
+            {canReadLabRequests && (
+              <NavLink
+                to="/lab-requests"
+                icon={FlaskConical}
+                label="Lab Requests"
+                className={linkClass("/lab-requests")}
                 collapsed={collapsed}
               />
             )}

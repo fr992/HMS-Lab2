@@ -26,6 +26,7 @@ function defaultPathForSession(token) {
   if (role === "Patient") return "/patient/encounters";
 
   if (perms.includes("Patients.Read")) return "/patients";
+  if (perms.includes("LabRequests.Read")) return "/lab-requests";
 
   return "/unauthorized";
 }
