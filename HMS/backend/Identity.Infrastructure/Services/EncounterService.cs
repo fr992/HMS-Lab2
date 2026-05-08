@@ -187,10 +187,10 @@ public sealed class EncounterService : IEncounterService
     {
         var roleList = actorRoles as IList<string> ?? actorRoles.ToList();
 
-        if (roleList.Any(role => string.Equals(role, "Admin", StringComparison.OrdinalIgnoreCase)))
+        if (HasRole(roleList, "Admin") || HasRole(roleList, "SuperAdmin"))
             return requestedDoctorProfileId;
 
-        if (!roleList.Any(role => string.Equals(role, "Doctor", StringComparison.OrdinalIgnoreCase)))
+        if (!HasRole(roleList, "Doctor"))
             throw new ForbiddenException("Only admins and doctors can list encounters.");
 
         if (!actorUserId.HasValue)
@@ -309,8 +309,18 @@ public sealed class EncounterService : IEncounterService
         appointment.UpdatedById = actorUserId;
     }
 
-    public async Task<EncounterPanelDto?> GetPanelAsync(int id, CancellationToken cancellationToken)
+    public async Task<EncounterPanelDto?> GetPanelAsync(
+        int id,
+        int? actorUserId,
+        IEnumerable<string> actorRoles,
+        CancellationToken cancellationToken)
     {
+        await EnsureCanReadEncounterPanelAsync(
+            id,
+            actorUserId,
+            actorRoles,
+            cancellationToken);
+
         var panel = await _db.Encounters
             .AsNoTracking()
             .Where(e => e.Id == id)
@@ -479,6 +489,37 @@ public sealed class EncounterService : IEncounterService
         return panel;
     }
 
+    private async Task EnsureCanReadEncounterPanelAsync(
+        int encounterId,
+        int? actorUserId,
+        IEnumerable<string> actorRoles,
+        CancellationToken cancellationToken)
+    {
+        var roleList = actorRoles as IList<string> ?? actorRoles.ToList();
+
+        if (HasRole(roleList, "Admin") || HasRole(roleList, "SuperAdmin"))
+            return;
+
+        if (!HasRole(roleList, "Doctor"))
+            throw new ForbiddenException("Only admins and doctors can read encounter details.");
+
+        if (!actorUserId.HasValue)
+            throw new UnauthorizedException("Authenticated user is required.");
+
+        var doctorProfileId = await ResolveDoctorProfileIdAsync(
+            actorUserId.Value,
+            cancellationToken);
+
+        var allowed = await _db.Encounters
+            .AsNoTracking()
+            .AnyAsync(
+                e => e.Id == encounterId && e.DoctorProfileId == doctorProfileId,
+                cancellationToken);
+
+        if (!allowed)
+            throw new ForbiddenException("Doctor can only access encounters assigned to them.");
+    }
+
     public async Task<EncounterPanelDto?> GetPatientPanelAsync(
         int id,
         int? currentUserId,
@@ -497,7 +538,23 @@ public sealed class EncounterService : IEncounterService
         if (!allowed)
             return null;
 
-        return await GetPanelAsync(id, cancellationToken);
+        return await GetPanelProjectionAsync(id, cancellationToken);
+    }
+
+    private Task<EncounterPanelDto?> GetPanelProjectionAsync(
+        int id,
+        CancellationToken cancellationToken)
+    {
+        return GetPanelAsync(
+            id,
+            actorUserId: null,
+            actorRoles: ["Admin"],
+            cancellationToken);
+    }
+
+    private static bool HasRole(IEnumerable<string> roles, string roleName)
+    {
+        return roles.Any(role => string.Equals(role, roleName, StringComparison.OrdinalIgnoreCase));
     }
 
     public async Task<List<EncounterDto>> GetPatientEncountersAsync(

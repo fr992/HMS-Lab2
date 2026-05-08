@@ -6,5 +6,6 @@ public interface IDoctorDashboardService
 {
     Task<DoctorDashboardDto> GetForCurrentDoctorAsync(
         int currentUserId,
+        IEnumerable<string> actorRoles,
         CancellationToken cancellationToken);
 }

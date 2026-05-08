@@ -1,4 +1,4 @@
-namespace HMS.Api.Security;
+namespace HMS.Contracts.Identity;
 
 public static class HmsPermissions
 {

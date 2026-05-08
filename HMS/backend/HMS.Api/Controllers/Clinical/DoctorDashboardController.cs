@@ -31,6 +31,7 @@ public sealed class DoctorDashboardController : ControllerBase
         {
             var result = await _dashboardService.GetForCurrentDoctorAsync(
                 userId,
+                CurrentUserRoles(),
                 cancellationToken);
 
             return Ok(result);
@@ -50,5 +51,15 @@ public sealed class DoctorDashboardController : ControllerBase
             throw new UnauthorizedException("User id claim is missing.");
 
         return int.Parse(value);
+    }
+
+    private IReadOnlyCollection<string> CurrentUserRoles()
+    {
+        return User.Claims
+            .Where(c => c.Type == ClaimTypes.Role || c.Type == "role")
+            .Select(c => c.Value)
+            .Where(role => !string.IsNullOrWhiteSpace(role))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToArray();
     }
 }

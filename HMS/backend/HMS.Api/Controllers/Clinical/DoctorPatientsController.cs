@@ -31,6 +31,7 @@ public sealed class DoctorPatientsController : ControllerBase
         {
             var patients = await _patientService.GetForCurrentDoctorAsync(
                 userId,
+                CurrentUserRoles(),
                 cancellationToken);
 
             return Ok(patients);
@@ -52,6 +53,7 @@ public sealed class DoctorPatientsController : ControllerBase
         {
             var patients = await _patientService.GetGroupedForCurrentDoctorAsync(
                 userId,
+                CurrentUserRoles(),
                 cancellationToken);
 
             return Ok(patients);
@@ -71,5 +73,15 @@ public sealed class DoctorPatientsController : ControllerBase
             throw new UnauthorizedException("User id claim is missing.");
 
         return int.Parse(value);
+    }
+
+    private IReadOnlyCollection<string> CurrentUserRoles()
+    {
+        return User.Claims
+            .Where(c => c.Type == ClaimTypes.Role || c.Type == "role")
+            .Select(c => c.Value)
+            .Where(role => !string.IsNullOrWhiteSpace(role))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToArray();
     }
 }

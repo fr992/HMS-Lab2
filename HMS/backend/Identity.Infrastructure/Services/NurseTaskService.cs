@@ -19,23 +19,23 @@ public sealed class NurseTaskService : INurseTaskService
     public async Task<NurseTaskDto> CreateAsync(
         CreateNurseTaskRequestDto request,
         int actorUserId,
+        IEnumerable<string> actorRoles,
         CancellationToken cancellationToken)
     {
-        var doctorId = await _db.DoctorProfiles
+        var encounterDoctorId = await _db.Encounters
             .AsNoTracking()
-            .Where(x => x.IsActive && x.StaffProfile.Person.UserId == actorUserId)
-            .Select(x => (int?)x.Id)
+            .Where(x => x.Id == request.EncounterId)
+            .Select(x => (int?)x.DoctorProfileId)
             .FirstOrDefaultAsync(cancellationToken);
 
-        if (!doctorId.HasValue)
-            throw new ForbiddenException("Current user is not linked to an active doctor profile.");
-
-        var encounterExists = await _db.Encounters
-            .AsNoTracking()
-            .AnyAsync(x => x.Id == request.EncounterId, cancellationToken);
-
-        if (!encounterExists)
+        if (!encounterDoctorId.HasValue)
             throw new NotFoundException("Encounter not found.");
+
+        var assignedByDoctorId = await ResolveAssignedByDoctorIdAsync(
+            encounterDoctorId.Value,
+            actorUserId,
+            actorRoles,
+            cancellationToken);
 
         if (request.AssignedToNurseId.HasValue)
             await EnsureActiveNurseAsync(request.AssignedToNurseId.Value, cancellationToken);
@@ -45,7 +45,7 @@ public sealed class NurseTaskService : INurseTaskService
         var task = new NurseTask
         {
             EncounterId = request.EncounterId,
-            AssignedByDoctorId = doctorId.Value,
+            AssignedByDoctorId = assignedByDoctorId,
             AssignedToNurseId = request.AssignedToNurseId,
             Type = NormalizeRequired(request.Type, "Nurse task type is required."),
             Priority = NormalizeOptional(request.Priority),
@@ -75,8 +75,18 @@ public sealed class NurseTaskService : INurseTaskService
 
     public async Task<IReadOnlyList<NurseTaskDto>> GetMyTasksAsync(
         int actorUserId,
+        IEnumerable<string> actorRoles,
         CancellationToken cancellationToken)
     {
+        if (IsAdmin(actorRoles))
+        {
+            return await ProjectToDto(_db.NurseTasks
+                    .AsNoTracking()
+                    .OrderBy(x => x.DueAt ?? DateTime.MaxValue)
+                    .ThenByDescending(x => x.CreatedAt))
+                .ToListAsync(cancellationToken);
+        }
+
         var nurseId = await _db.NurseProfiles
             .AsNoTracking()
             .Where(x => x.StaffProfile.Person.UserId == actorUserId)
@@ -158,6 +168,45 @@ public sealed class NurseTaskService : INurseTaskService
 
         if (!nurseExists)
             throw new NotFoundException("Assigned nurse not found or inactive.");
+    }
+
+    private async Task<int> ResolveAssignedByDoctorIdAsync(
+        int encounterDoctorId,
+        int actorUserId,
+        IEnumerable<string> actorRoles,
+        CancellationToken cancellationToken)
+    {
+        var roleList = actorRoles as IList<string> ?? actorRoles.ToList();
+
+        if (IsAdmin(roleList))
+            return encounterDoctorId;
+
+        if (!HasRole(roleList, "Doctor"))
+            throw new ForbiddenException("Only doctors or admins can assign nurse tasks.");
+
+        var doctorId = await _db.DoctorProfiles
+            .AsNoTracking()
+            .Where(x => x.IsActive && x.StaffProfile.Person.UserId == actorUserId)
+            .Select(x => (int?)x.Id)
+            .FirstOrDefaultAsync(cancellationToken);
+
+        if (!doctorId.HasValue)
+            throw new ForbiddenException("Current user is not linked to an active doctor profile.");
+
+        if (doctorId.Value != encounterDoctorId)
+            throw new ForbiddenException("Only the encounter doctor can assign nurse tasks.");
+
+        return doctorId.Value;
+    }
+
+    private static bool IsAdmin(IEnumerable<string> roles)
+    {
+        return HasRole(roles, "Admin") || HasRole(roles, "SuperAdmin");
+    }
+
+    private static bool HasRole(IEnumerable<string> roles, string roleName)
+    {
+        return roles.Any(role => string.Equals(role, roleName, StringComparison.OrdinalIgnoreCase));
     }
 
     private static IQueryable<NurseTaskDto> ProjectToDto(IQueryable<NurseTask> query)

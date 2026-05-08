@@ -1,3 +1,4 @@
+using HMS.Contracts.Identity;
 using HMS.Domain.Entities;
 using HMS.Persistence;
 using Identity.Domain.Entities;
@@ -10,153 +11,146 @@ namespace Identity.Infrastructure.Seed;
 
 public sealed class IdentityDataSeeder
 {
+    private const string SuperAdminRoleName = "SuperAdmin";
+    private const string SuperAdminEmail = "admin@hms.com";
+
     private readonly HmsDbContext _db;
     private readonly IPasswordHasher<User> _passwordHasher;
     private readonly SeedSettings _seed;
     private readonly ILogger<IdentityDataSeeder> _logger;
 
     private static readonly string[] RoleNames =
-    {
+    [
+        SuperAdminRoleName,
         "Admin",
         "Doctor",
         "Nurse",
         "Patient",
         "Receptionist",
         "Laboratorant"
-    };
+    ];
 
-    private static readonly (string Name, string Description)[] PermissionDefinitions =
-    {
-        ("Users.Create", "Krijon përdorues stafi (mjekë, infermierë, recepsionistë, laboratorantë)."),
-        ("Users.Read", "Lexon përdoruesit."),
-        ("Users.Update", "Përditëson përdoruesit."),
-        ("Users.SetActive", "Aktivizon ose çaktivizon përdorues."),
-        ("Roles.Read", "Lexon rolet."),
-        ("Permissions.Read", "Lexon listën e lejeve."),
-        ("RolePermissions.Manage", "Cakton ose heq leje nga rolet."),
-        ("AuditLogs.Read", "Lexon audit log."),
-        ("Settings.Manage", "Menaxhon cilësimet e sistemit."),
-        ("Patients.Register", "Regjistron pacient të ri dhe përdorues portal (recepsion)."),
-        ("Patients.Read", "Lexon të dhënat e pacientit."),
-        ("Patients.Update", "Përditëson të dhënat e pacientit."),
-        ("Patients.Delete", "Fshin të dhënat e pacientit."),
-        ("Appointments.Read", "Sheh terminet dhe oraret."),
-        ("Appointments.Create", "Krijon termin për pacient."),
-        ("Appointments.ManageStatus", "Aprovon, refuzon ose ndryshon statusin e terminit."),
-        ("Invoices.Read", "Sheh faturat."),
-        ("Payments.ConfirmCash", "Konfirmon pagesën në para."),
-        ("LabResults.Read", "Lexon rezultate laboratori (p.sh. recepsion)."),
-        ("Encounters.Create", "Fillon vizitë (Encounter)."),
-        ("Encounters.Read", "Lexon encounter."),
-        ("Encounters.Update", "Përditëson encounter gjatë vizitës."),
-        ("Encounters.Close", "Mbyll vizitën."),
-        ("LabRequests.Create", "Krijon kërkesë laboratori nga vizita."),
-        ("Diagnoses.Manage", "Menaxhon diagnozat e lidhura me encounter."),
-        ("Prescriptions.Read", "Lexon recetat."),
-        ("Prescriptions.Create", "Krijon receta."),
-        ("Prescriptions.Update", "Përditëson statusin e recetës."),
-        ("Prescriptions.Delete", "Fshin receta."),
-        ("Medications.Read", "Lexon barnat."),
-        ("Medications.Create", "Krijon barna."),
-        ("Medications.Update", "Përditëson barna."),
-        ("Medications.Delete", "Fshin barna."),
-        ("LabTests.Read", "Lexon katalogun e testeve laboratorike."),
-        ("LabTests.Create", "Krijon teste laboratorike."),
-        ("LabTests.Update", "Përditëson teste laboratorike."),
-        ("LabTests.Delete", "Çaktivizon teste laboratorike."),
-        ("NurseTasks.Assign", "Cakton detyra infermierit."),
-        ("NurseTasks.Read", "Sheh detyrat e caktuara."),
-        ("NurseTasks.Complete", "Shënon detyrën si të kryer."),
-        ("Nurses.Read", "Lexon listen e infermiereve aktive."),
-        ("LabRequests.Read", "Sheh kërkesat laboratorike."),
-        ("LabRequests.UpdateStatus", "Përditëson statusin e kërkesës laboratorike."),
-        ("LabResults.Create", "Plotëson rezultatin laboratorik."),
-        ("LabResults.Publish", "Publikon rezultatin për pacientin."),
-        ("Own.Appointments.View", "Pacienti sheh terminet e veta."),
-        ("Own.Appointments.Request", "Pacienti kërkon termin të ri (pa aprovim vetjak)."),
-        ("Own.MedicalHistory.View", "Pacienti sheh historikun mjekësor."),
-        ("Own.LabResults.View", "Pacienti sheh rezultatet e analizave."),
-        ("Own.LabResults.Download", "Pacienti shkarkon PDF të rezultatit."),
-        ("Own.Invoices.View", "Pacienti sheh faturat."),
-        ("Own.Payments.PayOnline", "Pacienti paguan online."),
-        ("Own.Notifications.View", "Pacienti sheh njoftimet.")
-    };
+    private static readonly IReadOnlyDictionary<string, string> PermissionDescriptions =
+        new Dictionary<string, string>(StringComparer.Ordinal)
+        {
+            ["Users.Create"] = "Creates staff users.",
+            ["Users.Read"] = "Reads users.",
+            ["Users.Update"] = "Updates users.",
+            ["Users.SetActive"] = "Activates or deactivates users.",
+            ["Roles.Read"] = "Reads roles.",
+            ["Permissions.Read"] = "Reads permissions.",
+            ["RolePermissions.Manage"] = "Assigns permissions to roles.",
+            ["AuditLogs.Read"] = "Reads audit logs.",
+            ["Settings.Manage"] = "Manages system settings.",
+            ["Patients.Register"] = "Registers patients.",
+            ["Patients.Read"] = "Reads patient data.",
+            ["Patients.Update"] = "Updates patient data.",
+            ["Patients.Delete"] = "Deletes patient data.",
+            ["Appointments.Read"] = "Reads appointments.",
+            ["Appointments.Create"] = "Creates appointments.",
+            ["Appointments.ManageStatus"] = "Manages appointment status.",
+            ["Invoices.Read"] = "Reads invoices.",
+            ["Payments.ConfirmCash"] = "Confirms cash payments.",
+            ["LabResults.Read"] = "Reads lab results.",
+            ["Encounters.Create"] = "Creates encounters.",
+            ["Encounters.Read"] = "Reads encounters.",
+            ["Encounters.Update"] = "Updates encounters.",
+            ["Encounters.Close"] = "Closes encounters.",
+            ["Diagnoses.Manage"] = "Manages diagnoses.",
+            ["Prescriptions.Read"] = "Reads prescriptions.",
+            ["Prescriptions.Create"] = "Creates prescriptions.",
+            ["Prescriptions.Update"] = "Updates prescriptions.",
+            ["Prescriptions.Delete"] = "Deletes prescriptions.",
+            ["Medications.Read"] = "Reads medications.",
+            ["Medications.Create"] = "Creates medications.",
+            ["Medications.Update"] = "Updates medications.",
+            ["Medications.Delete"] = "Deletes medications.",
+            ["LabTests.Read"] = "Reads lab tests.",
+            ["LabTests.Create"] = "Creates lab tests.",
+            ["LabTests.Update"] = "Updates lab tests.",
+            ["LabTests.Delete"] = "Deletes lab tests.",
+            ["LabRequests.Create"] = "Creates lab requests.",
+            ["Nurses.Read"] = "Reads nurses.",
+            ["NurseTasks.Assign"] = "Assigns nurse tasks.",
+            ["NurseTasks.Read"] = "Reads nurse tasks.",
+            ["NurseTasks.Complete"] = "Completes nurse tasks.",
+            ["LabRequests.Read"] = "Reads lab requests.",
+            ["LabRequests.UpdateStatus"] = "Updates lab request status.",
+            ["LabResults.Create"] = "Creates lab results.",
+            ["LabResults.Publish"] = "Publishes lab results.",
+            ["Own.Appointments.View"] = "Views own appointments.",
+            ["Own.Appointments.Request"] = "Requests own appointments.",
+            ["Own.MedicalHistory.View"] = "Views own medical history.",
+            ["Own.LabResults.View"] = "Views own lab results.",
+            ["Own.LabResults.Download"] = "Downloads own lab results.",
+            ["Own.Invoices.View"] = "Views own invoices.",
+            ["Own.Payments.PayOnline"] = "Pays online.",
+            ["Own.Notifications.View"] = "Views own notifications."
+        };
 
     private static readonly (string RoleName, string[] PermissionNames)[] RolePermissionMap =
-    {
-        ("Admin", new[]
-        {
+    [
+        (SuperAdminRoleName, HmsPermissions.All),
+        ("Admin",
+        [
             "Users.Create", "Users.Read", "Users.Update", "Users.SetActive",
             "Roles.Read", "Permissions.Read", "Patients.Register", "Patients.Read", "Patients.Update", "Patients.Delete", "RolePermissions.Manage",
             "AuditLogs.Read", "Settings.Manage",
-
             "Appointments.Read", "Appointments.Create", "Appointments.ManageStatus",
-
             "Encounters.Create", "Encounters.Read", "Encounters.Update", "Encounters.Close",
-
             "Diagnoses.Manage",
-
             "Prescriptions.Read", "Prescriptions.Create", "Prescriptions.Update", "Prescriptions.Delete",
-
             "Medications.Read", "Medications.Create", "Medications.Update", "Medications.Delete",
-
             "LabTests.Read", "LabTests.Create", "LabTests.Update", "LabTests.Delete",
-
             "LabRequests.Read", "LabRequests.Create", "LabRequests.UpdateStatus",
             "Nurses.Read", "NurseTasks.Assign", "NurseTasks.Read", "NurseTasks.Complete",
-        }),
-        ("Receptionist", new[]
-        {
+        ]),
+        ("Receptionist",
+        [
             "Patients.Register", "Patients.Read", "Patients.Update", "Patients.Delete",
             "Appointments.Read", "Appointments.Create", "Appointments.ManageStatus",
             "Invoices.Read", "Payments.ConfirmCash",
             "LabResults.Read",
             "LabTests.Read"
-        }),
-        ("Doctor", new[]
-        {
+        ]),
+        ("Doctor",
+        [
             "Patients.Read",
             "Appointments.Read",
-
             "Encounters.Create", "Encounters.Read", "Encounters.Update", "Encounters.Close",
-
-            "Diagnoses.Manage", 
-
+            "Diagnoses.Manage",
             "Prescriptions.Read", "Prescriptions.Create", "Prescriptions.Update",
-
             "Medications.Read",
-
             "LabTests.Read",
-
             "LabRequests.Create",
             "Nurses.Read",
             "NurseTasks.Assign",
             "NurseTasks.Read",
             "LabResults.Create"
-        }),
-        ("Nurse", new[]
-        {
+        ]),
+        ("Nurse",
+        [
             "NurseTasks.Read", "NurseTasks.Complete"
-        }),
-        ("Infermier", new[]
-        {
+        ]),
+        ("Infermier",
+        [
             "NurseTasks.Read", "NurseTasks.Complete"
-        }),
-        ("Laboratorant", new[]
-        {
+        ]),
+        ("Laboratorant",
+        [
             "LabTests.Read",
             "LabRequests.Read", "LabRequests.UpdateStatus",
             "LabResults.Create", "LabResults.Publish"
-        }),
-        ("Patient", new[]
-        {
+        ]),
+        ("Patient",
+        [
             "Own.Appointments.View", "Own.Appointments.Request",
             "Own.MedicalHistory.View",
             "Own.LabResults.View", "Own.LabResults.Download",
             "Own.Invoices.View", "Own.Payments.PayOnline",
             "Own.Notifications.View"
-        })
-    };
+        ])
+    ];
 
     public IdentityDataSeeder(
         HmsDbContext db,
@@ -184,6 +178,7 @@ public sealed class IdentityDataSeeder
         else if (_seed.EnsureBootstrapAdmin && string.IsNullOrWhiteSpace(_seed.AdminPassword))
             _logger.LogWarning("Seed:AdminPassword is empty; bootstrap admin was not created.");
 
+        await EnsureSuperAdminAssignmentAsync(cancellationToken);
         await EnsureSampleAuditLogsIfEmptyAsync(cancellationToken);
     }
 
@@ -232,12 +227,13 @@ public sealed class IdentityDataSeeder
     {
         var descriptions = new Dictionary<string, string>(StringComparer.Ordinal)
         {
-            ["Admin"] = "Menaxhon sistemin, përdoruesit dhe caktimin e lejeve.",
-            ["Doctor"] = "Procesi mjekësor: vizita, diagnozë, terapi, laborator, detyra infermierit.",
-            ["Nurse"] = "Ekzekuton detyrat e caktuara nga mjeku.",
-            ["Patient"] = "Portal: termine, historik, analiza, pagesa, njoftime.",
-            ["Receptionist"] = "Front desk: pacientë, termine, pagesa cash, (ops.) rezultate.",
-            ["Laboratorant"] = "Analiza laboratorike: kërkesa, rezultate, publikim."
+            [SuperAdminRoleName] = "Has every permission in the system.",
+            ["Admin"] = "Manages the system, users, and permissions.",
+            ["Doctor"] = "Clinical care: encounters, diagnoses, prescriptions, lab requests, and nurse tasks.",
+            ["Nurse"] = "Completes assigned nursing tasks.",
+            ["Patient"] = "Patient portal access.",
+            ["Receptionist"] = "Front desk workflows.",
+            ["Laboratorant"] = "Laboratory requests, results, and publishing."
         };
 
         foreach (var name in RoleNames)
@@ -261,10 +257,14 @@ public sealed class IdentityDataSeeder
 
     private async Task EnsurePermissionsAsync(CancellationToken cancellationToken)
     {
-        foreach (var (name, description) in PermissionDefinitions)
+        foreach (var name in HmsPermissions.All.Distinct(StringComparer.Ordinal))
         {
             if (await _db.Permissions.AnyAsync(p => p.Name == name, cancellationToken))
                 continue;
+
+            var description = PermissionDescriptions.TryGetValue(name, out var value)
+                ? value
+                : name;
 
             var now = DateTime.UtcNow;
             _db.Permissions.Add(new Permission
@@ -294,7 +294,7 @@ public sealed class IdentityDataSeeder
                 continue;
             }
 
-            foreach (var permName in permissionNames)
+            foreach (var permName in permissionNames.Distinct(StringComparer.Ordinal))
             {
                 if (!permissions.TryGetValue(permName, out var permissionId))
                 {
@@ -306,7 +306,8 @@ public sealed class IdentityDataSeeder
                     rp => rp.RoleId == roleId && rp.PermissionId == permissionId,
                     cancellationToken);
 
-                if (exists) continue;
+                if (exists)
+                    continue;
 
                 var now = DateTime.UtcNow;
                 _db.RolePermissions.Add(new RolePermission
@@ -331,57 +332,113 @@ public sealed class IdentityDataSeeder
             return;
         }
 
-        var hasAdminUser = await _db.UserRoles.AnyAsync(ur => ur.RoleId == adminRole.Id, cancellationToken);
-        if (hasAdminUser)
-            return;
-
         var email = _seed.AdminEmail.Trim().ToLowerInvariant();
         var userName = _seed.AdminUserName.Trim();
 
-        if (await _db.Users.AnyAsync(u => u.Email == email || u.UserName == userName, cancellationToken))
+        var user = await _db.Users
+            .FirstOrDefaultAsync(u => u.Email.ToLower() == email, cancellationToken);
+
+        user ??= await _db.Users
+            .FirstOrDefaultAsync(u => u.UserName == userName, cancellationToken);
+
+        if (user is null)
         {
-            _logger.LogWarning("Users already exist but none had Admin role; link Admin manually or fix data.");
+            user = new User
+            {
+                UserName = userName,
+                Email = email,
+                IsActive = true,
+                CreatedAt = DateTime.UtcNow,
+                UpdatedAt = DateTime.UtcNow
+            };
+            user.PasswordHash = _passwordHasher.HashPassword(user, _seed.AdminPassword);
+
+            _db.Users.Add(user);
+            await _db.SaveChangesAsync(cancellationToken);
+
+            var person = new Person
+            {
+                UserId = user.Id,
+                FirstName = _seed.AdminFirstName,
+                LastName = _seed.AdminLastName,
+                CreatedAt = DateTime.UtcNow,
+                UpdatedAt = DateTime.UtcNow
+            };
+            _db.People.Add(person);
+            await _db.SaveChangesAsync(cancellationToken);
+        }
+        else if (!string.Equals(user.Email, email, StringComparison.OrdinalIgnoreCase))
+        {
+            user.Email = email;
+            user.UpdatedAt = DateTime.UtcNow;
+            await _db.SaveChangesAsync(cancellationToken);
+        }
+
+        await EnsureUserRoleAsync(user.Id, adminRole.Id, cancellationToken);
+        _logger.LogInformation("Bootstrap admin user {UserName} is linked to Admin.", user.UserName);
+    }
+
+    private async Task EnsureSuperAdminAssignmentAsync(CancellationToken cancellationToken)
+    {
+        var superAdminRole = await _db.Roles
+            .FirstOrDefaultAsync(r => r.Name == SuperAdminRoleName, cancellationToken);
+
+        if (superAdminRole is null)
+        {
+            _logger.LogWarning("Seed: {RoleName} role missing; cannot assign {Email}.", SuperAdminRoleName, SuperAdminEmail);
             return;
         }
 
-        // Step 1 — Create User (auth only)
-        var user = new User
+        var superAdmin = await _db.Users
+            .FirstOrDefaultAsync(u => u.Email.ToLower() == SuperAdminEmail, cancellationToken);
+
+        if (superAdmin is null)
         {
-            UserName = userName,
-            Email = email,
-            IsActive = true,
-            CreatedAt = DateTime.UtcNow,
-            UpdatedAt = DateTime.UtcNow
-        };
-        user.PasswordHash = _passwordHasher.HashPassword(user, _seed.AdminPassword);
+            if (string.Equals(_seed.AdminEmail.Trim(), SuperAdminEmail, StringComparison.OrdinalIgnoreCase) &&
+                !string.IsNullOrWhiteSpace(_seed.AdminPassword))
+            {
+                await EnsureBootstrapAdminAsync(cancellationToken);
+                superAdmin = await _db.Users
+                    .FirstOrDefaultAsync(u => u.Email.ToLower() == SuperAdminEmail, cancellationToken);
 
-        _db.Users.Add(user);
-        await _db.SaveChangesAsync(cancellationToken);
+                if (superAdmin is null)
+                {
+                    _logger.LogWarning("Seed: bootstrap admin {Email} could not be loaded after creation.", SuperAdminEmail);
+                    return;
+                }
+            }
+            else
+            {
+                _logger.LogWarning("Seed: super admin user {Email} was not found.", SuperAdminEmail);
+                return;
+            }
+        }
 
-        // Step 2 — Create Person linked to User
-        var person = new Person
-        {
-            UserId = user.Id,
-            FirstName = _seed.AdminFirstName,
-            LastName = _seed.AdminLastName,
-            CreatedAt = DateTime.UtcNow,
-            UpdatedAt = DateTime.UtcNow
-        };
-        _db.People.Add(person);
-        await _db.SaveChangesAsync(cancellationToken);
+        await EnsureUserRoleAsync(superAdmin.Id, superAdminRole.Id, cancellationToken);
+    }
 
-        // Step 3 — Assign Admin role
+    private async Task EnsureUserRoleAsync(
+        int userId,
+        int roleId,
+        CancellationToken cancellationToken)
+    {
+        var exists = await _db.UserRoles.AnyAsync(
+            ur => ur.UserId == userId && ur.RoleId == roleId,
+            cancellationToken);
+
+        if (exists)
+            return;
+
+        var now = DateTime.UtcNow;
         _db.UserRoles.Add(new UserRole
         {
-            UserId = user.Id,
-            RoleId = adminRole.Id,
-            AssignedAt = DateTime.UtcNow,
-            CreatedAt = DateTime.UtcNow,
-            UpdatedAt = DateTime.UtcNow
+            UserId = userId,
+            RoleId = roleId,
+            AssignedAt = now,
+            CreatedAt = now,
+            UpdatedAt = now
         });
 
         await _db.SaveChangesAsync(cancellationToken);
-        _logger.LogInformation("Bootstrap admin user {UserName} created.", userName);
     }
 }
-

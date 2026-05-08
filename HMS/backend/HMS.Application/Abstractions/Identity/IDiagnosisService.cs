@@ -8,6 +8,7 @@ public interface IDiagnosisService
         int encounterId,
         CreateDiagnosisDto request,
         int? actorUserId,
+        IEnumerable<string> actorRoles,
         CancellationToken cancellationToken);
 
     Task<List<DiagnosisDto>> GetByEncounterAsync(

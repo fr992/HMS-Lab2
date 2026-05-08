@@ -18,8 +18,12 @@ public sealed class DoctorDashboardService : IDoctorDashboardService
 
     public async Task<DoctorDashboardDto> GetForCurrentDoctorAsync(
         int currentUserId,
+        IEnumerable<string> actorRoles,
         CancellationToken cancellationToken)
     {
+        if (IsAdmin(actorRoles))
+            return await GetForAdminAsync(cancellationToken);
+
         var doctor = await _db.DoctorProfiles
             .AsNoTracking()
             .Where(d => d.IsActive && d.StaffProfile.Person.UserId == currentUserId)
@@ -210,6 +214,169 @@ public sealed class DoctorDashboardService : IDoctorDashboardService
             RecentPatients = recentPatients,
             TodaySchedule = todaySchedule
         };
+    }
+
+    private async Task<DoctorDashboardDto> GetForAdminAsync(CancellationToken cancellationToken)
+    {
+        var now = DateTime.UtcNow;
+        var today = now.Date;
+        var tomorrow = today.AddDays(1);
+
+        var interactedPatientIds = _db.Appointments
+            .Select(a => a.PatientProfileId)
+            .Concat(_db.Encounters.Select(e => e.PatientProfileId))
+            .Distinct();
+
+        var primaryPatientsCount = await _db.PatientProfiles
+            .AsNoTracking()
+            .CountAsync(p => p.PrimaryDoctorId != null, cancellationToken);
+
+        var interactedPatientsCount = await _db.PatientProfiles
+            .AsNoTracking()
+            .CountAsync(p => interactedPatientIds.Contains(p.Id), cancellationToken);
+
+        var todayAppointmentsCount = await _db.Appointments
+            .AsNoTracking()
+            .CountAsync(
+                a => a.ScheduledStart >= today
+                    && a.ScheduledStart < tomorrow,
+                cancellationToken);
+
+        var upcomingAppointmentsCount = await _db.Appointments
+            .AsNoTracking()
+            .CountAsync(
+                a => a.ScheduledStart >= now
+                    && a.Status != AppointmentStatus.Cancelled
+                    && a.Status != AppointmentStatus.Completed
+                    && a.Status != AppointmentStatus.NoShow,
+                cancellationToken);
+
+        var openEncountersCount = await _db.Encounters
+            .AsNoTracking()
+            .CountAsync(e => e.Status == EncounterStatus.Open, cancellationToken);
+
+        var completedEncountersCount = await _db.Encounters
+            .AsNoTracking()
+            .CountAsync(e => e.Status == EncounterStatus.Completed, cancellationToken);
+
+        var todaySchedule = await _db.Appointments
+            .AsNoTracking()
+            .Where(a => a.ScheduledStart >= today && a.ScheduledStart < tomorrow)
+            .OrderBy(a => a.ScheduledStart)
+            .Select(a => new DoctorDashboardScheduleDto
+            {
+                AppointmentId = a.Id,
+                PatientName = a.PatientProfile.Person.FirstName + " " + a.PatientProfile.Person.LastName,
+                AppointmentType = a.AppointmentType,
+                ScheduledStart = a.ScheduledStart,
+                ScheduledEnd = a.ScheduledEnd,
+                Status = a.Status,
+                Reason = a.Reason
+            })
+            .ToListAsync(cancellationToken);
+
+        var recentPatientBase = await _db.PatientProfiles
+            .AsNoTracking()
+            .Select(p => new
+            {
+                p.Id,
+                FullName = p.Person.FirstName + " " + p.Person.LastName,
+                p.Person.DateOfBirth,
+                PrimaryDepartmentName = p.PrimaryDoctor != null && p.PrimaryDoctor.StaffProfile.Department != null
+                    ? p.PrimaryDoctor.StaffProfile.Department.Name
+                    : null,
+                p.CreatedAt
+            })
+            .ToListAsync(cancellationToken);
+
+        var patientIds = recentPatientBase.Select(p => p.Id).ToList();
+
+        var latestAppointments = await _db.Appointments
+            .AsNoTracking()
+            .Where(a => patientIds.Contains(a.PatientProfileId))
+            .GroupBy(a => a.PatientProfileId)
+            .Select(g => g
+                .OrderByDescending(a => a.ScheduledStart)
+                .Select(a => new
+                {
+                    PatientProfileId = g.Key,
+                    ActivityAt = (DateTime?)a.ScheduledStart,
+                    a.Status,
+                    DepartmentName = a.Department != null ? a.Department.Name : null
+                })
+                .FirstOrDefault())
+            .ToListAsync(cancellationToken);
+
+        var latestEncounters = await _db.Encounters
+            .AsNoTracking()
+            .Where(e => patientIds.Contains(e.PatientProfileId))
+            .GroupBy(e => e.PatientProfileId)
+            .Select(g => g
+                .OrderByDescending(e => e.StartedAt)
+                .ThenByDescending(e => e.CreatedAt)
+                .Select(e => new
+                {
+                    PatientProfileId = g.Key,
+                    ActivityAt = (DateTime?)(e.StartedAt == default ? e.CreatedAt : e.StartedAt),
+                    e.Status
+                })
+                .FirstOrDefault())
+            .ToListAsync(cancellationToken);
+
+        var latestAppointmentsByPatient = latestAppointments
+            .Where(a => a != null)
+            .ToDictionary(a => a!.PatientProfileId);
+        var latestEncountersByPatient = latestEncounters
+            .Where(e => e != null)
+            .ToDictionary(e => e!.PatientProfileId);
+
+        var recentPatients = recentPatientBase
+            .Select(p =>
+            {
+                latestAppointmentsByPatient.TryGetValue(p.Id, out var appointment);
+                latestEncountersByPatient.TryGetValue(p.Id, out var encounter);
+
+                var appointmentAt = appointment?.ActivityAt;
+                var encounterAt = encounter?.ActivityAt;
+                var useEncounterStatus = encounterAt.HasValue
+                    && (!appointmentAt.HasValue || encounterAt >= appointmentAt);
+                var lastActivityAt = LatestDate(appointmentAt, encounterAt, p.CreatedAt);
+
+                return new DoctorDashboardRecentPatientDto
+                {
+                    PatientProfileId = p.Id,
+                    FullName = p.FullName.Trim(),
+                    DepartmentName = !string.IsNullOrWhiteSpace(appointment?.DepartmentName)
+                        ? appointment.DepartmentName
+                        : p.PrimaryDepartmentName,
+                    Age = CalculateAge(p.DateOfBirth, today),
+                    Status = useEncounterStatus ? encounter?.Status : appointment?.Status,
+                    LastActivityAt = lastActivityAt
+                };
+            })
+            .OrderByDescending(p => p.LastActivityAt)
+            .Take(5)
+            .ToList();
+
+        return new DoctorDashboardDto
+        {
+            DoctorName = "Super Admin",
+            TodayAppointmentsCount = todayAppointmentsCount,
+            UpcomingAppointmentsCount = upcomingAppointmentsCount,
+            PrimaryPatientsCount = primaryPatientsCount,
+            InteractedPatientsCount = interactedPatientsCount,
+            OpenEncountersCount = openEncountersCount,
+            CompletedEncountersCount = completedEncountersCount,
+            RecentPatients = recentPatients,
+            TodaySchedule = todaySchedule
+        };
+    }
+
+    private static bool IsAdmin(IEnumerable<string> roles)
+    {
+        return roles.Any(role =>
+            string.Equals(role, "Admin", StringComparison.OrdinalIgnoreCase)
+            || string.Equals(role, "SuperAdmin", StringComparison.OrdinalIgnoreCase));
     }
 
     private static DateTime? LatestDate(DateTime? first, DateTime? second, DateTime fallback)

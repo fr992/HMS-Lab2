@@ -26,7 +26,7 @@ public sealed class NurseTasksController : ControllerBase
     {
         try
         {
-            var result = await _service.CreateAsync(request, CurrentUserId(), cancellationToken);
+            var result = await _service.CreateAsync(request, CurrentUserId(), CurrentUserRoles(), cancellationToken);
             return Ok(result);
         }
         catch (InvalidOperationException ex)
@@ -51,7 +51,7 @@ public sealed class NurseTasksController : ControllerBase
     {
         try
         {
-            var result = await _service.GetMyTasksAsync(CurrentUserId(), cancellationToken);
+            var result = await _service.GetMyTasksAsync(CurrentUserId(), CurrentUserRoles(), cancellationToken);
             return Ok(result);
         }
         catch (InvalidOperationException ex)
@@ -103,5 +103,15 @@ public sealed class NurseTasksController : ControllerBase
             throw new UnauthorizedException("Invalid authenticated user.");
 
         return userId;
+    }
+
+    private IReadOnlyCollection<string> CurrentUserRoles()
+    {
+        return User.Claims
+            .Where(c => c.Type == ClaimTypes.Role || c.Type == "role")
+            .Select(c => c.Value)
+            .Where(role => !string.IsNullOrWhiteSpace(role))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToArray();
     }
 }

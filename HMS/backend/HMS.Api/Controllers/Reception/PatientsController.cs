@@ -78,6 +78,7 @@ public async Task<ActionResult<PatientProfileDto>> RegisterPatient(
                     CurrentUserId()
                         ?? throw new UnauthorizedException("User id claim is missing."),
                     id,
+                    CurrentUserRoles(),
                     cancellationToken)
                 : await _patientService.GetByIdAsync(id, cancellationToken);
         }
@@ -109,7 +110,18 @@ public async Task<ActionResult<PatientProfileDto>> RegisterPatient(
     {
         return User.IsInRole("Doctor")
             && !User.IsInRole("Admin")
+            && !User.IsInRole("SuperAdmin")
             && !User.IsInRole("Receptionist");
+    }
+
+    private IReadOnlyCollection<string> CurrentUserRoles()
+    {
+        return User.Claims
+            .Where(c => c.Type == ClaimTypes.Role || c.Type == "role")
+            .Select(c => c.Value)
+            .Where(role => !string.IsNullOrWhiteSpace(role))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToArray();
     }
 
 

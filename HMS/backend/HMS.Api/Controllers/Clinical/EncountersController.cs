@@ -129,7 +129,11 @@ public sealed class EncountersController : ControllerBase
     [RequirePermission("Encounters.Read")]
     public async Task<ActionResult<EncounterPanelDto>> GetPanel(int id, CancellationToken cancellationToken)
     {
-        var result = await _encounterService.GetPanelAsync(id, cancellationToken);
+        var result = await _encounterService.GetPanelAsync(
+            id,
+            CurrentUserId(),
+            CurrentUserRoles(),
+            cancellationToken);
 
         if(result == null) 
             return NotFound();

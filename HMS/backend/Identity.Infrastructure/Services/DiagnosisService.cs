@@ -27,6 +27,7 @@ public sealed class DiagnosisService : IDiagnosisService
         int encounterId,
         CreateDiagnosisDto request,
         int? actorUserId,
+        IEnumerable<string> actorRoles,
         CancellationToken cancellationToken)
     {
         if (actorUserId == null)
@@ -42,20 +43,11 @@ public sealed class DiagnosisService : IDiagnosisService
         if (!string.Equals(encounter.Status, EncounterStatus.Open, StringComparison.Ordinal))
             throw new ConflictException("Diagnoses can only be added to an open encounter.");
 
-        var doctor = await _db.DoctorProfiles
-            .Include(d => d.StaffProfile)
-                .ThenInclude(s => s.Person)
-            .FirstOrDefaultAsync(
-                d =>
-                    d.IsActive &&
-                    d.StaffProfile.Person.UserId == actorUserId,
-                cancellationToken);
-
-        if (doctor == null)
-            throw new ForbiddenException("Current user is not linked to an active doctor profile.");
-
-        if (encounter.DoctorProfileId != doctor.Id)
-            throw new ForbiddenException("Only the encounter doctor can add diagnoses.");
+        var createdByDoctorId = await ResolveDiagnosisDoctorProfileIdAsync(
+            encounter.DoctorProfileId,
+            actorUserId.Value,
+            actorRoles,
+            cancellationToken);
 
         var description = request.Description?.Trim();
         if (string.IsNullOrWhiteSpace(description))
@@ -70,7 +62,7 @@ public sealed class DiagnosisService : IDiagnosisService
         var diagnosis = new Diagnosis
         {
             EncounterId = encounterId,
-            CreatedByDoctorId = doctor.Id,
+            CreatedByDoctorId = createdByDoctorId,
             IcdCode = NormalizeOptional(request.IcdCode),
             Description = description,
             Type = type?.ToLowerInvariant(),
@@ -151,5 +143,41 @@ public sealed class DiagnosisService : IDiagnosisService
             return null;
 
         return value.Trim();
+    }
+
+    private async Task<int> ResolveDiagnosisDoctorProfileIdAsync(
+        int encounterDoctorProfileId,
+        int actorUserId,
+        IEnumerable<string> actorRoles,
+        CancellationToken cancellationToken)
+    {
+        var roleList = actorRoles as IList<string> ?? actorRoles.ToList();
+
+        if (HasRole(roleList, "Admin") || HasRole(roleList, "SuperAdmin"))
+            return encounterDoctorProfileId;
+
+        if (!HasRole(roleList, "Doctor"))
+            throw new ForbiddenException("Only admins and doctors can add diagnoses.");
+
+        var doctorProfileId = await _db.DoctorProfiles
+            .AsNoTracking()
+            .Where(d =>
+                d.IsActive &&
+                d.StaffProfile.Person.UserId == actorUserId)
+            .Select(d => (int?)d.Id)
+            .FirstOrDefaultAsync(cancellationToken);
+
+        if (doctorProfileId == null)
+            throw new ForbiddenException("Current user is not linked to an active doctor profile.");
+
+        if (encounterDoctorProfileId != doctorProfileId.Value)
+            throw new ForbiddenException("Only the encounter doctor can add diagnoses.");
+
+        return doctorProfileId.Value;
+    }
+
+    private static bool HasRole(IEnumerable<string> roles, string roleName)
+    {
+        return roles.Any(role => string.Equals(role, roleName, StringComparison.OrdinalIgnoreCase));
     }
 }

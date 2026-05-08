@@ -21,6 +21,7 @@ public sealed class LabRequestService : ILabRequestService
         int encounterId,
         CreateLabRequestDto request,
         int? actorUserId,
+        IEnumerable<string> actorRoles,
         CancellationToken cancellationToken)
     {
         if (actorUserId == null)
@@ -42,20 +43,11 @@ public sealed class LabRequestService : ILabRequestService
         if (!string.Equals(encounter.Status, EncounterStatus.Open, StringComparison.Ordinal))
             throw new ConflictException("Lab requests can only be created for an open encounter.");
 
-        var doctor = await _db.DoctorProfiles
-            .Include(d => d.StaffProfile)
-                .ThenInclude(s => s.Person)
-            .FirstOrDefaultAsync(
-                d =>
-                    d.IsActive &&
-                    d.StaffProfile.Person.UserId == actorUserId,
-                cancellationToken);
-
-        if (doctor == null)
-            throw new ForbiddenException("Current user is not linked to an active doctor profile.");
-
-        if (encounter.DoctorProfileId != doctor.Id)
-            throw new ForbiddenException("Only the encounter doctor can create lab requests.");
+        var requestedByDoctorId = await ResolveRequestingDoctorProfileIdAsync(
+            encounter.DoctorProfileId,
+            actorUserId.Value,
+            actorRoles,
+            cancellationToken);
 
         var priority = string.IsNullOrWhiteSpace(request.Priority)
             ? LabRequestPriority.Routine
@@ -107,7 +99,7 @@ public sealed class LabRequestService : ILabRequestService
         {
             RequestNumber = GenerateRequestNumber(now),
             EncounterId = encounterId,
-            RequestedByDoctorId = doctor.Id,
+            RequestedByDoctorId = requestedByDoctorId,
             Priority = priority,
             Status = LabRequestStatus.Requested,
             ClinicalNotes = NormalizeOptional(request.ClinicalNotes),
@@ -313,5 +305,41 @@ public sealed class LabRequestService : ILabRequestService
             return null;
 
         return value.Trim();
+    }
+
+    private async Task<int> ResolveRequestingDoctorProfileIdAsync(
+        int encounterDoctorProfileId,
+        int actorUserId,
+        IEnumerable<string> actorRoles,
+        CancellationToken cancellationToken)
+    {
+        var roleList = actorRoles as IList<string> ?? actorRoles.ToList();
+
+        if (HasRole(roleList, "Admin") || HasRole(roleList, "SuperAdmin"))
+            return encounterDoctorProfileId;
+
+        if (!HasRole(roleList, "Doctor"))
+            throw new ForbiddenException("Only admins and doctors can create lab requests.");
+
+        var doctorProfileId = await _db.DoctorProfiles
+            .AsNoTracking()
+            .Where(d =>
+                d.IsActive &&
+                d.StaffProfile.Person.UserId == actorUserId)
+            .Select(d => (int?)d.Id)
+            .FirstOrDefaultAsync(cancellationToken);
+
+        if (doctorProfileId == null)
+            throw new ForbiddenException("Current user is not linked to an active doctor profile.");
+
+        if (encounterDoctorProfileId != doctorProfileId.Value)
+            throw new ForbiddenException("Only the encounter doctor can create lab requests.");
+
+        return doctorProfileId.Value;
+    }
+
+    private static bool HasRole(IEnumerable<string> roles, string roleName)
+    {
+        return roles.Any(role => string.Equals(role, roleName, StringComparison.OrdinalIgnoreCase));
     }
 }

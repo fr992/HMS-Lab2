@@ -50,6 +50,7 @@ public sealed class DiagnosesController : ControllerBase
                 encounterId,
                 request,
                 CurrentUserId(),
+                CurrentUserRoles(),
                 cancellationToken);
 
             return CreatedAtAction(nameof(GetAll), new { encounterId }, result);
@@ -66,5 +67,15 @@ public sealed class DiagnosesController : ControllerBase
             ?? User.FindFirstValue("sub");
 
         return int.TryParse(value, out var id) ? id : null;
+    }
+
+    private IReadOnlyCollection<string> CurrentUserRoles()
+    {
+        return User.Claims
+            .Where(c => c.Type == ClaimTypes.Role || c.Type == "role")
+            .Select(c => c.Value)
+            .Where(role => !string.IsNullOrWhiteSpace(role))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToArray();
     }
 }

@@ -8,6 +8,7 @@ public interface ILabRequestService
         int encounterId,
         CreateLabRequestDto request,
         int? actorUserId,
+        IEnumerable<string> actorRoles,
         CancellationToken cancellationToken);
 
     Task<LabRequestDto?> GetByIdAsync(

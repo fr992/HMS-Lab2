@@ -3,6 +3,7 @@ using HMS.Api.Middleware;
 using HMS.Api.Security;
 using HMS.Application;
 using HMS.Application.Abstractions.Identity;
+using HMS.Contracts.Identity;
 using HMS.Persistence;
 using Identity.Domain.Entities;
 using Identity.Infrastructure;

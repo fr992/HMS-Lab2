@@ -231,8 +231,12 @@ namespace Identity.Infrastructure.Services.Patients;
     public async Task<PatientProfileDto?> GetByIdForCurrentDoctorAsync(
         int currentUserId,
         int patientProfileId,
+        IEnumerable<string> actorRoles,
         CancellationToken cancellationToken)
     {
+        if (IsAdmin(actorRoles))
+            return await GetByIdAsync(patientProfileId, cancellationToken);
+
         var doctorProfileId = await GetActiveDoctorProfileIdAsync(currentUserId, cancellationToken);
         var isLinkedPatient = await PatientIdsForDoctor(doctorProfileId)
             .AnyAsync(id => id == patientProfileId, cancellationToken);
@@ -253,8 +257,12 @@ namespace Identity.Infrastructure.Services.Patients;
 
     public async Task<List<PatientProfileDto>> GetForCurrentDoctorAsync(
         int currentUserId,
+        IEnumerable<string> actorRoles,
         CancellationToken cancellationToken)
     {
+        if (IsAdmin(actorRoles))
+            return await GetAllPatientsOrderedAsync(cancellationToken);
+
         var doctorProfileId = await GetActiveDoctorProfileIdAsync(currentUserId, cancellationToken);
         var patientIds = PatientIdsForDoctor(doctorProfileId);
 
@@ -269,8 +277,18 @@ namespace Identity.Infrastructure.Services.Patients;
 
     public async Task<DoctorPatientsGroupedDto> GetGroupedForCurrentDoctorAsync(
         int currentUserId,
+        IEnumerable<string> actorRoles,
         CancellationToken cancellationToken)
     {
+        if (IsAdmin(actorRoles))
+        {
+            return new DoctorPatientsGroupedDto
+            {
+                PrimaryPatients = await GetAllPatientsOrderedAsync(cancellationToken),
+                InteractedPatients = []
+            };
+        }
+
         var doctorProfileId = await GetActiveDoctorProfileIdAsync(currentUserId, cancellationToken);
 
         var primaryPatients = await _db.PatientProfiles
@@ -388,6 +406,23 @@ namespace Identity.Infrastructure.Services.Patients;
             throw new ForbiddenException("Current user is not linked to an active doctor profile.");
 
         return doctorProfileId.Value;
+    }
+
+    private async Task<List<PatientProfileDto>> GetAllPatientsOrderedAsync(CancellationToken cancellationToken)
+    {
+        return await _db.PatientProfiles
+            .AsNoTracking()
+            .OrderBy(p => p.Person.LastName)
+            .ThenBy(p => p.Person.FirstName)
+            .Select(ProjectToDto())
+            .ToListAsync(cancellationToken);
+    }
+
+    private static bool IsAdmin(IEnumerable<string> roles)
+    {
+        return roles.Any(role =>
+            string.Equals(role, "Admin", StringComparison.OrdinalIgnoreCase)
+            || string.Equals(role, "SuperAdmin", StringComparison.OrdinalIgnoreCase));
     }
 
     private IQueryable<int> PatientIdsForDoctor(int doctorProfileId)

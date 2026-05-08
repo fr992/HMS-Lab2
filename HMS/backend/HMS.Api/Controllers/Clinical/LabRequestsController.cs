@@ -50,6 +50,7 @@ public sealed class EncounterLabRequestsController : ControllerBase
                 encounterId,
                 request,
                 CurrentUserId(),
+                CurrentUserRoles(),
                 cancellationToken);
 
             return CreatedAtAction(
@@ -86,5 +87,15 @@ public sealed class EncounterLabRequestsController : ControllerBase
             ?? User.FindFirstValue("sub");
 
         return int.TryParse(value, out var id) ? id : null;
+    }
+
+    private IReadOnlyCollection<string> CurrentUserRoles()
+    {
+        return User.Claims
+            .Where(c => c.Type == ClaimTypes.Role || c.Type == "role")
+            .Select(c => c.Value)
+            .Where(role => !string.IsNullOrWhiteSpace(role))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToArray();
     }
 }
