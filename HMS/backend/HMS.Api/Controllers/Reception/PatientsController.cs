@@ -1,6 +1,7 @@
 using System.Security.Claims;
 using HMS.Api.Authorization;
 using HMS.Application.Abstractions.Identity;
+using HMS.Application.Exceptions;
 using HMS.Contracts.Identity;
 using Microsoft.AspNetCore.Mvc;
 
@@ -75,7 +76,7 @@ public async Task<ActionResult<PatientProfileDto>> RegisterPatient(
             patient = IsDoctorOnly()
                 ? await _patientService.GetByIdForCurrentDoctorAsync(
                     CurrentUserId()
-                        ?? throw new UnauthorizedAccessException("User id claim is missing."),
+                        ?? throw new UnauthorizedException("User id claim is missing."),
                     id,
                     cancellationToken)
                 : await _patientService.GetByIdAsync(id, cancellationToken);

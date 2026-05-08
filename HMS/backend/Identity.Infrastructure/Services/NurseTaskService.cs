@@ -1,4 +1,5 @@
 using HMS.Application.Abstractions.Identity;
+using HMS.Application.Exceptions;
 using HMS.Contracts.Identity;
 using HMS.Domain.Entities;
 using HMS.Persistence;
@@ -27,14 +28,14 @@ public sealed class NurseTaskService : INurseTaskService
             .FirstOrDefaultAsync(cancellationToken);
 
         if (!doctorId.HasValue)
-            throw new InvalidOperationException("Current user is not linked to an active doctor profile.");
+            throw new ForbiddenException("Current user is not linked to an active doctor profile.");
 
         var encounterExists = await _db.Encounters
             .AsNoTracking()
             .AnyAsync(x => x.Id == request.EncounterId, cancellationToken);
 
         if (!encounterExists)
-            throw new InvalidOperationException("Encounter not found.");
+            throw new NotFoundException("Encounter not found.");
 
         if (request.AssignedToNurseId.HasValue)
             await EnsureActiveNurseAsync(request.AssignedToNurseId.Value, cancellationToken);
@@ -83,7 +84,7 @@ public sealed class NurseTaskService : INurseTaskService
             .FirstOrDefaultAsync(cancellationToken);
 
         if (!nurseId.HasValue)
-            throw new InvalidOperationException("Current user is not linked to a nurse profile.");
+            throw new ForbiddenException("Current user is not linked to a nurse profile.");
 
         return await ProjectToDto(_db.NurseTasks
                 .AsNoTracking()
@@ -103,10 +104,10 @@ public sealed class NurseTaskService : INurseTaskService
             .FirstOrDefaultAsync(x => x.Id == id, cancellationToken);
 
         if (task is null)
-            throw new InvalidOperationException("Nurse task not found.");
+            throw new NotFoundException("Nurse task not found.");
 
         if (task.Status == NurseTaskStatus.Completed)
-            throw new InvalidOperationException("Completed nurse tasks cannot be updated.");
+            throw new ConflictException("Completed nurse tasks cannot be updated.");
 
         if (request.AssignedToNurseId.HasValue)
             await EnsureActiveNurseAsync(request.AssignedToNurseId.Value, cancellationToken);
@@ -132,10 +133,10 @@ public sealed class NurseTaskService : INurseTaskService
             .FirstOrDefaultAsync(x => x.Id == id, cancellationToken);
 
         if (task is null)
-            throw new InvalidOperationException("Nurse task not found.");
+            throw new NotFoundException("Nurse task not found.");
 
         if (task.Status == NurseTaskStatus.Completed)
-            throw new InvalidOperationException("Nurse task is already completed.");
+            throw new ConflictException("Nurse task is already completed.");
 
         var now = DateTime.UtcNow;
 
@@ -156,7 +157,7 @@ public sealed class NurseTaskService : INurseTaskService
             .AnyAsync(x => x.Id == nurseProfileId && x.IsActive, cancellationToken);
 
         if (!nurseExists)
-            throw new InvalidOperationException("Assigned nurse not found or inactive.");
+            throw new NotFoundException("Assigned nurse not found or inactive.");
     }
 
     private static IQueryable<NurseTaskDto> ProjectToDto(IQueryable<NurseTask> query)
@@ -202,7 +203,7 @@ public sealed class NurseTaskService : INurseTaskService
     private static string NormalizeRequired(string? value, string errorMessage)
     {
         if (string.IsNullOrWhiteSpace(value))
-            throw new InvalidOperationException(errorMessage);
+            throw new BadRequestException(errorMessage);
 
         return value.Trim();
     }

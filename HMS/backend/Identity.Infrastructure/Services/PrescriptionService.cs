@@ -1,5 +1,6 @@
 ﻿using HMS.Application.Abstractions.Identity;
 using HMS.Contracts.Identity;
+using HMS.Application.Exceptions;
 using HMS.Persistence;
 using HMS.Domain.Entities;
 using Microsoft.EntityFrameworkCore;
@@ -22,26 +23,26 @@ public sealed class PrescriptionService : IPrescriptionService
         CancellationToken cancellationToken)
     {
         if (request.Items.Count == 0)
-            throw new InvalidOperationException("Prescription must contain at least one item.");
+            throw new BadRequestException("Prescription must contain at least one item.");
 
         var encounter = await _db.Encounters
             .AsNoTracking()
             .FirstOrDefaultAsync(e => e.Id == request.EncounterId, cancellationToken);
 
         if (encounter == null)
-            throw new InvalidOperationException("Encounter does not exist.");
+            throw new NotFoundException("Encounter does not exist.");
 
         if (encounter.Status != EncounterStatus.Open)
-            throw new InvalidOperationException("Prescription can only be created for an open encounter.");
+            throw new ConflictException("Prescription can only be created for an open encounter.");
 
         var doctorExists = await _db.DoctorProfiles
             .AnyAsync(d => d.Id == request.PrescribedByDoctorId, cancellationToken);
 
         if (!doctorExists)
-            throw new InvalidOperationException("Doctor profile does not exist.");
+            throw new NotFoundException("Doctor profile does not exist.");
 
         if (encounter.DoctorProfileId != request.PrescribedByDoctorId)
-            throw new InvalidOperationException("Prescription doctor must match the encounter doctor.");
+            throw new BadRequestException("Prescription doctor must match the encounter doctor.");
 
         var medicationIds = request.Items
              .Select(i => i.MedicationId)
@@ -58,21 +59,21 @@ public sealed class PrescriptionService : IPrescriptionService
              .ToList();
 
          if (missingMedicationIds.Count > 0)
-             throw new InvalidOperationException("One or more medications do not exist.");
+             throw new NotFoundException("One or more medications do not exist.");
 
         foreach (var item in request.Items)
         {
             if (string.IsNullOrWhiteSpace(item.Dosage))
-                throw new InvalidOperationException("Dosage is required.");
+                throw new BadRequestException("Dosage is required.");
 
             if (string.IsNullOrWhiteSpace(item.Frequency))
-                throw new InvalidOperationException("Frequency is required.");
+                throw new BadRequestException("Frequency is required.");
 
             if (string.IsNullOrWhiteSpace(item.Duration))
-                throw new InvalidOperationException("Duration is required.");
+                throw new BadRequestException("Duration is required.");
 
             if (item.StartDate.HasValue && item.EndDate.HasValue && item.EndDate.Value < item.StartDate.Value)
-                throw new InvalidOperationException("EndDate must be after StartDate.");
+                throw new BadRequestException("EndDate must be after StartDate.");
 
         }
 
@@ -113,7 +114,7 @@ public sealed class PrescriptionService : IPrescriptionService
         await _db.SaveChangesAsync(cancellationToken);
 
         return await GetByIdAsync(prescription.Id, cancellationToken)
-            ?? throw new InvalidOperationException("Prescription created but could not be loaded.");
+            ?? throw new Exception("Prescription was created but could not be loaded.");
     }
 
     public async Task<PrescriptionDto?> GetByIdAsync(
@@ -219,16 +220,16 @@ public sealed class PrescriptionService : IPrescriptionService
             .FirstOrDefaultAsync(p => p.Id == id, cancellationToken);
 
         if (prescription == null)
-            throw new InvalidOperationException("Prescription not found.");
+            throw new NotFoundException("Prescription not found.");
 
         if (!PrescriptionStatus.IsValid(request.Status))
-            throw new InvalidOperationException("Invalid prescription status.");
+            throw new BadRequestException("Invalid prescription status.");
 
         if (prescription.Status != PrescriptionStatus.Active)
-            throw new InvalidOperationException("Only active prescriptions can change status.");
+            throw new ConflictException("Only active prescriptions can change status.");
 
         if (request.Status == PrescriptionStatus.Active)
-            throw new InvalidOperationException("Prescription is already active.");
+            throw new ConflictException("Prescription is already active.");
 
         prescription.Status = request.Status;
         prescription.UpdatedAt = DateTime.UtcNow;
@@ -237,7 +238,7 @@ public sealed class PrescriptionService : IPrescriptionService
         await _db.SaveChangesAsync(cancellationToken);
 
         return await GetByIdAsync(prescription.Id, cancellationToken)
-            ?? throw new InvalidOperationException("Updated but not found.");
+            ?? throw new Exception("Prescription was updated but could not be loaded.");
 
 
     }

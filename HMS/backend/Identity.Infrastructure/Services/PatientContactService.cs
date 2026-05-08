@@ -1,4 +1,5 @@
 using HMS.Application.Abstractions.Identity;
+using HMS.Application.Exceptions;
 using HMS.Contracts.Identity;
 using HMS.Domain.Entities;
 using HMS.Persistence;
@@ -49,10 +50,10 @@ public sealed class PatientContactService : IPatientContactService
             .FirstOrDefaultAsync(p => p.Id == patientProfileId, cancellationToken);
 
         if (patient is null)
-            throw new InvalidOperationException("Patient not found.");
+            throw new NotFoundException("Patient not found.");
 
         if (contacts.Count(c => c.IsPrimary) > 1)
-            throw new InvalidOperationException("Only one primary contact is allowed.");
+            throw new ConflictException("Only one primary contact is allowed.");
 
         _db.PatientContacts.RemoveRange(patient.Contacts);
 

@@ -1,6 +1,7 @@
 using System.Security.Claims;
 using HMS.Api.Authorization;
 using HMS.Application.Abstractions.Identity;
+using HMS.Application.Exceptions;
 using HMS.Contracts.Identity;
 using Microsoft.AspNetCore.Mvc;
 
@@ -99,7 +100,7 @@ public sealed class NurseTasksController : ControllerBase
         var value = User.FindFirstValue(ClaimTypes.NameIdentifier);
 
         if (!int.TryParse(value, out var userId))
-            throw new InvalidOperationException("Invalid authenticated user.");
+            throw new UnauthorizedException("Invalid authenticated user.");
 
         return userId;
     }

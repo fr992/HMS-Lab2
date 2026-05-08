@@ -1,4 +1,5 @@
 using HMS.Application.Abstractions.Identity;
+using HMS.Application.Exceptions;
 using HMS.Contracts.Identity;
 using HMS.Persistence;
 using Identity.Domain.Entities;
@@ -22,26 +23,26 @@ public sealed class LabResultService : ILabResultService
         CancellationToken cancellationToken)
     {
         if (actorUserId == null)
-            throw new InvalidOperationException("Authenticated user is required.");
+            throw new UnauthorizedException("Authenticated user is required.");
 
         if (request == null)
-            throw new InvalidOperationException("Lab result payload is required.");
+            throw new BadRequestException("Lab result payload is required.");
 
         if (request.LabRequestItemId <= 0)
-            throw new InvalidOperationException("Lab request item is required.");
+            throw new BadRequestException("Lab request item is required.");
 
         if (string.IsNullOrWhiteSpace(request.ResultData))
-            throw new InvalidOperationException("Result data is required.");
+            throw new BadRequestException("Result data is required.");
 
         var item = await _db.LabRequestItems
             .Include(i => i.LabRequest)
             .FirstOrDefaultAsync(i => i.Id == request.LabRequestItemId, cancellationToken);
 
         if (item == null)
-            throw new InvalidOperationException("Lab request item not found.");
+            throw new NotFoundException("Lab request item not found.");
 
         if (item.LabRequest.Status == LabRequestStatus.Cancelled)
-            throw new InvalidOperationException("Cannot add results to a cancelled lab request.");
+            throw new ConflictException("Cannot add results to a cancelled lab request.");
 
         var now = DateTime.UtcNow;
         HmsFile? file = null;
@@ -53,7 +54,7 @@ public sealed class LabResultService : ILabResultService
                 string.IsNullOrWhiteSpace(request.FileContentType) ||
                 request.FileSizeBytes == null)
             {
-                throw new InvalidOperationException("Complete file metadata is required when attaching a file.");
+                throw new BadRequestException("Complete file metadata is required when attaching a file.");
             }
 
             file = new HmsFile
@@ -99,7 +100,7 @@ public sealed class LabResultService : ILabResultService
         await _db.SaveChangesAsync(cancellationToken);
 
         return await GetByIdAsync(labResult.Id, cancellationToken)
-            ?? throw new InvalidOperationException("Lab result created but could not be loaded.");
+            ?? throw new Exception("Lab result was created but could not be loaded.");
     }
 
     public async Task<LabResultDto?> GetByIdAsync(
@@ -148,7 +149,7 @@ public sealed class LabResultService : ILabResultService
         CancellationToken cancellationToken)
     {
         if (actorUserId == null)
-            throw new InvalidOperationException("Authenticated user is required.");
+            throw new UnauthorizedException("Authenticated user is required.");
 
         var labResult = await _db.LabResults
             .Include(r => r.LabRequestItem)
@@ -156,10 +157,10 @@ public sealed class LabResultService : ILabResultService
             .FirstOrDefaultAsync(r => r.Id == id, cancellationToken);
 
         if (labResult == null)
-            throw new InvalidOperationException("Lab result not found.");
+            throw new NotFoundException("Lab result not found.");
 
         if (labResult.VerifiedAt != null)
-            throw new InvalidOperationException("Lab result is already verified.");
+            throw new ConflictException("Lab result is already verified.");
 
         var now = DateTime.UtcNow;
         labResult.VerifiedByUserId = actorUserId;
@@ -193,7 +194,7 @@ public sealed class LabResultService : ILabResultService
         await _db.SaveChangesAsync(cancellationToken);
 
         return await GetByIdAsync(labResult.Id, cancellationToken)
-            ?? throw new InvalidOperationException("Published but not found.");
+            ?? throw new Exception("Lab result was published but could not be loaded.");
     }
 
     public async Task<LabResultAttachmentDto?> GetAttachmentAsync(

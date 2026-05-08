@@ -1,5 +1,6 @@
 using HMS.Api.Authorization;
 using HMS.Application.Abstractions.Identity;
+using HMS.Application.Exceptions;
 using HMS.Contracts.Identity;
 using Microsoft.AspNetCore.Mvc;
 using System.Security.Claims;
@@ -66,10 +67,10 @@ public sealed class LabResultsWorkflowController : ControllerBase
                 new { id = result.Id },
                 result);
         }
-        catch (InvalidOperationException ex)
+        catch (Exception)
         {
             DeleteAttachmentIfPresent(storedFileName);
-            return BadRequest(new { error = ex.Message });
+            throw;
         }
     }
 
@@ -99,10 +100,10 @@ public sealed class LabResultsWorkflowController : ControllerBase
         CancellationToken cancellationToken)
     {
         if (attachment.Length > MaxAttachmentBytes)
-            throw new InvalidOperationException("Attachment cannot be larger than 10 MB.");
+            throw new BadRequestException("Attachment cannot be larger than 10 MB.");
 
         if (!AllowedAttachmentContentTypes.Contains(attachment.ContentType))
-            throw new InvalidOperationException("Attachment must be a PDF or image file.");
+            throw new BadRequestException("Attachment must be a PDF or image file.");
 
         var extension = Path.GetExtension(attachment.FileName);
         var storedFileName = $"{Guid.NewGuid():N}{extension}";

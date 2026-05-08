@@ -1,4 +1,5 @@
 using HMS.Application.Abstractions.Identity;
+using HMS.Application.Exceptions;
 using HMS.Contracts.Identity;
 using HMS.Persistence;
 using Identity.Domain.Entities;
@@ -23,23 +24,23 @@ public sealed class LabRequestService : ILabRequestService
         CancellationToken cancellationToken)
     {
         if (actorUserId == null)
-            throw new InvalidOperationException("Authenticated user is required.");
+            throw new UnauthorizedException("Authenticated user is required.");
 
         if (request == null)
-            throw new InvalidOperationException("Lab request payload is required.");
+            throw new BadRequestException("Lab request payload is required.");
 
         if (request.Items == null || request.Items.Count == 0)
-            throw new InvalidOperationException("Lab request must contain at least one analysis.");
+            throw new BadRequestException("Lab request must contain at least one analysis.");
 
         var encounter = await _db.Encounters
             .AsNoTracking()
             .FirstOrDefaultAsync(e => e.Id == encounterId, cancellationToken);
 
         if (encounter == null)
-            throw new InvalidOperationException("Encounter not found.");
+            throw new NotFoundException("Encounter not found.");
 
         if (!string.Equals(encounter.Status, EncounterStatus.Open, StringComparison.Ordinal))
-            throw new InvalidOperationException("Lab requests can only be created for an open encounter.");
+            throw new ConflictException("Lab requests can only be created for an open encounter.");
 
         var doctor = await _db.DoctorProfiles
             .Include(d => d.StaffProfile)
@@ -51,22 +52,22 @@ public sealed class LabRequestService : ILabRequestService
                 cancellationToken);
 
         if (doctor == null)
-            throw new InvalidOperationException("Current user is not linked to an active doctor profile.");
+            throw new ForbiddenException("Current user is not linked to an active doctor profile.");
 
         if (encounter.DoctorProfileId != doctor.Id)
-            throw new InvalidOperationException("Only the encounter doctor can create lab requests.");
+            throw new ForbiddenException("Only the encounter doctor can create lab requests.");
 
         var priority = string.IsNullOrWhiteSpace(request.Priority)
             ? LabRequestPriority.Routine
             : request.Priority.Trim().ToLowerInvariant();
 
         if (!LabRequestPriority.IsValid(priority))
-            throw new InvalidOperationException("Lab request priority must be routine, urgent, or stat.");
+            throw new BadRequestException("Lab request priority must be routine, urgent, or stat.");
 
         foreach (var item in request.Items)
         {
             if (item.LabTestId <= 0)
-                throw new InvalidOperationException("Lab test is required for every request item.");
+                throw new BadRequestException("Lab test is required for every request item.");
         }
 
         var requestedLabTestIds = request.Items
@@ -80,7 +81,7 @@ public sealed class LabRequestService : ILabRequestService
             .ToList();
 
         if (duplicateCatalogKeys.Count > 0)
-            throw new InvalidOperationException("Lab request contains duplicate tests.");
+            throw new ConflictException("Lab request contains duplicate tests.");
 
         var catalogTests = await _db.LabTests
             .AsNoTracking()
@@ -92,10 +93,10 @@ public sealed class LabRequestService : ILabRequestService
         var matchedItems = request.Items.Select(item =>
         {
             if (!catalogTestsById.TryGetValue(item.LabTestId, out var catalogTest))
-                throw new InvalidOperationException($"Lab test #{item.LabTestId} was not found.");
+                throw new NotFoundException($"Lab test #{item.LabTestId} was not found.");
 
             if (!catalogTest.IsActive)
-                throw new InvalidOperationException($"Lab test '{catalogTest.Name}' is not active in the lab test catalog.");
+                throw new ConflictException($"Lab test '{catalogTest.Name}' is not active in the lab test catalog.");
 
             return (Source: item, CatalogTest: catalogTest);
         }).ToList();
@@ -131,7 +132,7 @@ public sealed class LabRequestService : ILabRequestService
         await _db.SaveChangesAsync(cancellationToken);
 
         return await GetByIdAsync(labRequest.Id, cancellationToken)
-            ?? throw new InvalidOperationException("Lab request created but could not be loaded.");
+            ?? throw new Exception("Lab request was created but could not be loaded.");
     }
 
     public async Task<LabRequestDto?> GetByIdAsync(
@@ -152,7 +153,7 @@ public sealed class LabRequestService : ILabRequestService
             .AnyAsync(e => e.Id == encounterId, cancellationToken);
 
         if (!encounterExists)
-            throw new InvalidOperationException("Encounter not found.");
+            throw new NotFoundException("Encounter not found.");
 
         return await BaseQuery()
             .Where(lr => lr.EncounterId == encounterId)
@@ -173,7 +174,7 @@ public sealed class LabRequestService : ILabRequestService
             var normalizedStatus = status.Trim().ToLowerInvariant();
 
             if (!LabRequestStatus.IsValid(normalizedStatus))
-                throw new InvalidOperationException("Invalid lab request status.");
+                throw new BadRequestException("Invalid lab request status.");
 
             query = query.Where(lr => lr.Status == normalizedStatus);
         }
@@ -195,24 +196,24 @@ public sealed class LabRequestService : ILabRequestService
             .FirstOrDefaultAsync(lr => lr.Id == id, cancellationToken);
 
         if (labRequest == null)
-            throw new InvalidOperationException("Lab request not found.");
+            throw new NotFoundException("Lab request not found.");
 
         if (request == null)
-            throw new InvalidOperationException("Status payload is required.");
+            throw new BadRequestException("Status payload is required.");
 
         if (string.IsNullOrWhiteSpace(request.Status))
-            throw new InvalidOperationException("Status is required.");
+            throw new BadRequestException("Status is required.");
 
         var status = request.Status.Trim().ToLowerInvariant();
 
         if (!LabRequestStatus.IsValid(status))
-            throw new InvalidOperationException("Invalid lab request status.");
+            throw new BadRequestException("Invalid lab request status.");
 
         if (string.Equals(labRequest.Status, status, StringComparison.Ordinal))
-            throw new InvalidOperationException("Lab request already has this status.");
+            throw new ConflictException("Lab request already has this status.");
 
         if (labRequest.Status is LabRequestStatus.Completed or LabRequestStatus.Cancelled)
-            throw new InvalidOperationException("Completed or cancelled lab requests cannot change status.");
+            throw new ConflictException("Completed or cancelled lab requests cannot change status.");
 
         var now = DateTime.UtcNow;
         labRequest.Status = status;
@@ -231,7 +232,7 @@ public sealed class LabRequestService : ILabRequestService
         await _db.SaveChangesAsync(cancellationToken);
 
         return await GetByIdAsync(labRequest.Id, cancellationToken)
-            ?? throw new InvalidOperationException("Updated but not found.");
+            ?? throw new Exception("Lab request was updated but could not be loaded.");
     }
 
     private IQueryable<LabRequest> BaseQuery()

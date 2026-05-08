@@ -1,4 +1,5 @@
 using HMS.Application.Abstractions.Identity;
+using HMS.Application.Exceptions;
 using HMS.Contracts.Identity;
 using Identity.Domain.Entities;
 using HMS.Persistence;
@@ -26,21 +27,21 @@ public sealed class AppointmentService : IAppointmentService
         try
         {
             if (request.ScheduledEnd <= request.ScheduledStart)
-                throw new InvalidOperationException("Scheduled end must be after scheduled start.");
+                throw new BadRequestException("Scheduled end must be after scheduled start.");
 
             var patientExists = await _db.PatientProfiles.AnyAsync(
                 p => p.Id == request.PatientProfileId,
                 cancellationToken);
 
             if (!patientExists)
-                throw new InvalidOperationException("Patient profile does not exist.");
+                throw new NotFoundException("Patient profile does not exist.");
 
             var doctorExists = await _db.DoctorProfiles.AnyAsync(
                 d => d.Id == request.DoctorProfileId,
                 cancellationToken);
 
             if (!doctorExists)
-                throw new InvalidOperationException("Doctor profile does not exist.");
+                throw new NotFoundException("Doctor profile does not exist.");
 
             await EnsureNoDoctorScheduleConflictAsync(
                 request.DoctorProfileId,
@@ -73,7 +74,7 @@ public sealed class AppointmentService : IAppointmentService
             await transaction.CommitAsync(cancellationToken);
 
             return await GetByIdAsync(appointment.Id, cancellationToken)
-                ?? throw new InvalidOperationException("Appointment created but could not be loaded.");
+                ?? throw new Exception("Appointment was created but could not be loaded.");
         }
         catch
         {
@@ -123,12 +124,12 @@ public sealed class AppointmentService : IAppointmentService
     {
         var appointment = await _db.Appointments.FirstOrDefaultAsync(a => a.Id == id, cancellationToken);
         if (appointment == null)
-            throw new InvalidOperationException("Appointment not found.");
+            throw new NotFoundException("Appointment not found.");
 
         EnsureAppointmentEditable(appointment.Status);
 
         if (request.ScheduledEnd <= request.ScheduledStart)
-            throw new InvalidOperationException("Scheduled end must be after start.");
+            throw new BadRequestException("Scheduled end must be after start.");
 
         await EnsureNoDoctorScheduleConflictAsync(
             request.DoctorProfileId,
@@ -150,7 +151,7 @@ public sealed class AppointmentService : IAppointmentService
         await _db.SaveChangesAsync(cancellationToken);
 
         return await GetByIdAsync(appointment.Id, cancellationToken)
-            ?? throw new InvalidOperationException("Updated but not found.");
+            ?? throw new Exception("Appointment was updated but could not be loaded.");
     }
 
     public async Task<AppointmentDto> UpdateStatusAsync(
@@ -161,11 +162,11 @@ public sealed class AppointmentService : IAppointmentService
     {
         var appointment = await _db.Appointments.FirstOrDefaultAsync(a => a.Id == id, cancellationToken);
         if (appointment == null)
-            throw new InvalidOperationException("Appointment not found.");
+            throw new NotFoundException("Appointment not found.");
 
-        var targetStatus = AppointmentStatus.NormalizeToKnownStatus(request.Status);
+        var targetStatus = NormalizeAppointmentStatus(request.Status);
 
-        AppointmentStatus.EnsureCanTransition(appointment.Status, targetStatus);
+        EnsureAppointmentStatusTransition(appointment.Status, targetStatus);
 
         ApplyStatusTransition(appointment, targetStatus, request, actorUserId);
 
@@ -175,7 +176,7 @@ public sealed class AppointmentService : IAppointmentService
         await _db.SaveChangesAsync(cancellationToken);
 
         return await GetByIdAsync(id, cancellationToken)
-            ?? throw new InvalidOperationException("Updated but not found.");
+            ?? throw new Exception("Appointment was updated but could not be loaded.");
     }
 
     public async Task<List<AppointmentDto>> GetAppointmentsAsync(
@@ -211,7 +212,7 @@ public sealed class AppointmentService : IAppointmentService
         }
         else
         {
-            throw new UnauthorizedAccessException("No permission to view appointments.");
+            throw new ForbiddenException("No permission to view appointments.");
         }
 
         if (date.HasValue)
@@ -226,7 +227,7 @@ public sealed class AppointmentService : IAppointmentService
         else
         {
             if (from.HasValue && to.HasValue && to.Value <= from.Value)
-                throw new InvalidOperationException("End of date range must be after start.");
+                throw new BadRequestException("End of date range must be after start.");
 
             if (from.HasValue)
             {
@@ -267,7 +268,7 @@ public sealed class AppointmentService : IAppointmentService
             || string.Equals(currentStatus, AppointmentStatus.Cancelled, StringComparison.Ordinal)
             || string.Equals(currentStatus, AppointmentStatus.NoShow, StringComparison.Ordinal))
         {
-            throw new InvalidOperationException(
+            throw new ConflictException(
                 "This appointment can no longer be edited.");
         }
     }
@@ -289,7 +290,7 @@ public sealed class AppointmentService : IAppointmentService
                 var reason = request.CancellationReason?.Trim() ?? string.Empty;
                 if (reason.Length < MinCancellationReasonLength)
                 {
-                    throw new InvalidOperationException(
+                    throw new BadRequestException(
                         $"Cancellation reason must be at least {MinCancellationReasonLength} characters.");
                 }
 
@@ -308,7 +309,7 @@ public sealed class AppointmentService : IAppointmentService
                 break;
 
             default:
-                throw new InvalidOperationException(
+                throw new BadRequestException(
                     $"Unsupported target status '{targetStatus}'.");
         }
     }
@@ -330,6 +331,30 @@ public sealed class AppointmentService : IAppointmentService
             cancellationToken);
 
         if (hasConflict)
-            throw new InvalidOperationException("Doctor has a conflicting appointment.");
+            throw new ConflictException("Doctor has a conflicting appointment.");
+    }
+
+    private static string NormalizeAppointmentStatus(string raw)
+    {
+        try
+        {
+            return AppointmentStatus.NormalizeToKnownStatus(raw);
+        }
+        catch (InvalidOperationException exception)
+        {
+            throw new BadRequestException(exception.Message);
+        }
+    }
+
+    private static void EnsureAppointmentStatusTransition(string currentStatus, string targetStatus)
+    {
+        try
+        {
+            AppointmentStatus.EnsureCanTransition(currentStatus, targetStatus);
+        }
+        catch (InvalidOperationException exception)
+        {
+            throw new ConflictException(exception.Message);
+        }
     }
 }

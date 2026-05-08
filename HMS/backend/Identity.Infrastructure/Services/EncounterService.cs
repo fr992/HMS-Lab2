@@ -1,4 +1,5 @@
 using HMS.Application.Abstractions.Identity;
+using HMS.Application.Exceptions;
 using HMS.Contracts.Identity;
 using HMS.Persistence;
 using Identity.Domain.Entities;
@@ -21,21 +22,21 @@ public sealed class EncounterService : IEncounterService
         CancellationToken cancellationToken)
     {
         if (!EncounterTypes.IsValid(request.EncounterType))
-            throw new InvalidOperationException("Invalid encounter type.");
+            throw new BadRequestException("Invalid encounter type.");
 
         var patientExists = await _db.PatientProfiles.AnyAsync(
             p => p.Id == request.PatientProfileId,
             cancellationToken);
 
         if (!patientExists)
-            throw new InvalidOperationException("Patient profile does not exist.");
+            throw new NotFoundException("Patient profile does not exist.");
 
         var doctorExists = await _db.DoctorProfiles.AnyAsync(
             d => d.Id == request.DoctorProfileId,
             cancellationToken);
 
         if (!doctorExists)
-            throw new InvalidOperationException("Doctor profile does not exist.");
+            throw new NotFoundException("Doctor profile does not exist.");
 
         if (request.AppointmentId.HasValue)
         {
@@ -74,7 +75,7 @@ public sealed class EncounterService : IEncounterService
         await _db.SaveChangesAsync(cancellationToken);
 
         return await GetByIdAsync(encounter.Id, cancellationToken)
-            ?? throw new InvalidOperationException("Encounter created but could not be loaded.");
+            ?? throw new Exception("Encounter was created but could not be loaded.");
     }
 
     public async Task<EncounterDto?> GetByIdAsync(
@@ -190,10 +191,10 @@ public sealed class EncounterService : IEncounterService
             return requestedDoctorProfileId;
 
         if (!roleList.Any(role => string.Equals(role, "Doctor", StringComparison.OrdinalIgnoreCase)))
-            throw new UnauthorizedAccessException("Only admins and doctors can list encounters.");
+            throw new ForbiddenException("Only admins and doctors can list encounters.");
 
         if (!actorUserId.HasValue)
-            throw new UnauthorizedAccessException("Authenticated user is required.");
+            throw new UnauthorizedException("Authenticated user is required.");
 
         return await ResolveDoctorProfileIdAsync(actorUserId.Value, cancellationToken);
     }
@@ -211,7 +212,7 @@ public sealed class EncounterService : IEncounterService
             .FirstOrDefaultAsync(cancellationToken);
 
         return doctorProfileId
-            ?? throw new InvalidOperationException("Current user is not linked to an active doctor profile.");
+            ?? throw new ForbiddenException("Current user is not linked to an active doctor profile.");
     }
 
     public async Task<EncounterDto> UpdateAsync(
@@ -224,15 +225,15 @@ public sealed class EncounterService : IEncounterService
             .FirstOrDefaultAsync(e => e.Id == id, cancellationToken);
 
         if (encounter == null)
-            throw new InvalidOperationException("Encounter not found.");
+            throw new NotFoundException("Encounter not found.");
 
         EnsureEncounterEditable(encounter.Status);
 
         if (!EncounterTypes.IsValid(request.EncounterType))
-            throw new InvalidOperationException("Invalid encounter type.");
+            throw new BadRequestException("Invalid encounter type.");
 
         if (request.EndedAt.HasValue && request.EndedAt.Value <= request.StartedAt)
-            throw new InvalidOperationException("EndedAt must be after StartedAt.");
+            throw new BadRequestException("EndedAt must be after StartedAt.");
 
         encounter.EncounterType = request.EncounterType;
         encounter.StartedAt = request.StartedAt;
@@ -246,7 +247,7 @@ public sealed class EncounterService : IEncounterService
         await _db.SaveChangesAsync(cancellationToken);
 
         return await GetByIdAsync(encounter.Id, cancellationToken)
-            ?? throw new InvalidOperationException("Updated but not found.");
+            ?? throw new Exception("Encounter was updated but could not be loaded.");
     }
 
     public async Task<EncounterDto> UpdateStatusAsync(
@@ -259,10 +260,10 @@ public sealed class EncounterService : IEncounterService
             .FirstOrDefaultAsync(e => e.Id == id, cancellationToken);
 
         if (encounter == null)
-            throw new InvalidOperationException("Encounter not found.");
+            throw new NotFoundException("Encounter not found.");
 
         if (!EncounterStatus.IsValid(request.Status))
-            throw new InvalidOperationException("Invalid encounter status.");
+            throw new BadRequestException("Invalid encounter status.");
 
         ApplyStatusTransition(encounter, request.Status);
 
@@ -282,7 +283,7 @@ public sealed class EncounterService : IEncounterService
         await _db.SaveChangesAsync(cancellationToken);
 
         return await GetByIdAsync(encounter.Id, cancellationToken)
-            ?? throw new InvalidOperationException("Updated but not found.");
+            ?? throw new Exception("Encounter was updated but could not be loaded.");
     }
 
     private async Task MarkLinkedAppointmentCompletedAsync(
@@ -549,27 +550,27 @@ public sealed class EncounterService : IEncounterService
             .FirstOrDefaultAsync(a => a.Id == appointmentId, cancellationToken);
 
         if (appointment == null)
-            throw new InvalidOperationException("Appointment does not exist.");
+            throw new NotFoundException("Appointment does not exist.");
 
         if (appointment.PatientProfileId != patientProfileId)
-            throw new InvalidOperationException("Appointment does not belong to this patient.");
+            throw new BadRequestException("Appointment does not belong to this patient.");
 
         if (appointment.DoctorProfileId != doctorProfileId)
-            throw new InvalidOperationException("Appointment does not belong to this doctor.");
+            throw new BadRequestException("Appointment does not belong to this doctor.");
 
         var encounterAlreadyExists = await _db.Encounters.AnyAsync(
             e => e.AppointmentId == appointmentId,
             cancellationToken);
 
         if (encounterAlreadyExists)
-            throw new InvalidOperationException("This appointment already has an encounter.");
+            throw new ConflictException("This appointment already has an encounter.");
     }
 
     private static void EnsureEncounterEditable(string currentStatus)
     {
         if (!string.Equals(currentStatus, EncounterStatus.Open, StringComparison.Ordinal))
         {
-            throw new InvalidOperationException("Only open encounters can be edited.");
+            throw new ConflictException("Only open encounters can be edited.");
         }
     }
 
@@ -583,7 +584,7 @@ public sealed class EncounterService : IEncounterService
         {
             case EncounterStatus.Completed:
                 if (!string.Equals(encounter.Status, EncounterStatus.Open, StringComparison.Ordinal))
-                    throw new InvalidOperationException("Only open encounters can be completed.");
+                    throw new ConflictException("Only open encounters can be completed.");
 
                 encounter.Status = EncounterStatus.Completed;
                 encounter.EndedAt ??= now;
@@ -592,17 +593,17 @@ public sealed class EncounterService : IEncounterService
 
             case EncounterStatus.Cancelled:
                 if (!string.Equals(encounter.Status, EncounterStatus.Open, StringComparison.Ordinal))
-                    throw new InvalidOperationException("Only open encounters can be cancelled.");
+                    throw new ConflictException("Only open encounters can be cancelled.");
 
                 encounter.Status = EncounterStatus.Cancelled;
                 encounter.ClosedAt = now;
                 break;
 
             case EncounterStatus.Open:
-                throw new InvalidOperationException("Cannot reopen an encounter from this endpoint.");
+                throw new BadRequestException("Cannot reopen an encounter from this endpoint.");
 
             default:
-                throw new InvalidOperationException(
+                throw new BadRequestException(
                     $"Unsupported target status '{targetStatus}'.");
         }
     }

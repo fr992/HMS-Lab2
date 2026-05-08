@@ -1,4 +1,5 @@
 using HMS.Application.Abstractions.Identity;
+using HMS.Application.Exceptions;
 using HMS.Contracts.Identity;
 using HMS.Persistence;
 using Identity.Domain.Entities;
@@ -30,7 +31,7 @@ public sealed class DoctorDashboardService : IDoctorDashboardService
             .FirstOrDefaultAsync(cancellationToken);
 
         if (doctor is null)
-            throw new InvalidOperationException("Current user is not linked to an active doctor profile.");
+            throw new ForbiddenException("Current user is not linked to an active doctor profile.");
 
         var now = DateTime.UtcNow;
         var today = now.Date;

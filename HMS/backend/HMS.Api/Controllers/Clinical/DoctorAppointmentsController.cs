@@ -1,6 +1,7 @@
 using HMS.Api.Authorization;
 using HMS.Api.Security;
 using HMS.Application.Abstractions.Identity;
+using HMS.Application.Exceptions;
 using HMS.Contracts.Identity;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -84,7 +85,7 @@ public sealed class DoctorAppointmentsController : ControllerBase
             ?? User.FindFirstValue("sub");
 
         if (string.IsNullOrWhiteSpace(value))
-            throw new UnauthorizedAccessException("User id claim is missing.");
+            throw new UnauthorizedException("User id claim is missing.");
 
         return int.Parse(value);
     }

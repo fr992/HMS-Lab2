@@ -1,4 +1,5 @@
 using HMS.Application.Abstractions.Identity;
+using HMS.Application.Exceptions;
 using HMS.Contracts.Identity;
 using HMS.Domain.Entities;
 using HMS.Persistence;
@@ -37,7 +38,7 @@ namespace Identity.Infrastructure.Services.Patients;
             if (!string.IsNullOrWhiteSpace(request.PersonalNumber))
             {
                 if (await _db.People.AnyAsync(p => p.PersonalNumber == request.PersonalNumber, cancellationToken))
-                    throw new InvalidOperationException("A person with this personal number already exists.");
+                    throw new ConflictException("A person with this personal number already exists.");
             }
 
             // Omitted or null in JSON = default true (back compat with clients that do not send the flag).
@@ -47,17 +48,17 @@ namespace Identity.Infrastructure.Services.Patients;
             if (withPortal)
             {
                 if (string.IsNullOrWhiteSpace(request.UserName))
-                    throw new InvalidOperationException("Username is required when creating a portal account.");
+                    throw new BadRequestException("Username is required when creating a portal account.");
                 if (string.IsNullOrWhiteSpace(request.Email))
-                    throw new InvalidOperationException("Email is required when creating a portal account.");
+                    throw new BadRequestException("Email is required when creating a portal account.");
                 if (string.IsNullOrWhiteSpace(request.Password))
-                    throw new InvalidOperationException("Password is required when creating a portal account.");
+                    throw new BadRequestException("Password is required when creating a portal account.");
 
                 if (await _db.Users.AnyAsync(u => u.Email == request.Email, cancellationToken))
-                    throw new InvalidOperationException("A user with this email already exists.");
+                    throw new ConflictException("A user with this email already exists.");
 
                 if (await _db.Users.AnyAsync(u => u.UserName == request.UserName, cancellationToken))
-                    throw new InvalidOperationException("A patient with this username already exists.");
+                    throw new ConflictException("A patient with this username already exists.");
 
                 user = new User
                 {
@@ -76,7 +77,7 @@ namespace Identity.Infrastructure.Services.Patients;
                 // Assign Patient role
                 var patientRole = await _db.Roles
                     .FirstOrDefaultAsync(r => r.Name == "Patient", cancellationToken)
-                    ?? throw new InvalidOperationException("Patient role not found in database.");
+                    ?? throw new Exception("Patient role not found in database.");
 
                 _db.UserRoles.Add(new UserRole
                 {
@@ -152,32 +153,32 @@ namespace Identity.Infrastructure.Services.Patients;
                 .FirstOrDefaultAsync(p => p.Id == patientProfileId, cancellationToken);
 
             if (profile is null)
-                throw new InvalidOperationException("Patient not found.");
+                throw new NotFoundException("Patient not found.");
 
             if (profile.Person.UserId != null)
-                throw new InvalidOperationException("This patient already has a portal account.");
+                throw new ConflictException("This patient already has a portal account.");
 
             if (string.IsNullOrWhiteSpace(request.UserName))
-                throw new InvalidOperationException("Username is required.");
+                throw new BadRequestException("Username is required.");
             if (string.IsNullOrWhiteSpace(request.Email))
-                throw new InvalidOperationException("Email is required.");
+                throw new BadRequestException("Email is required.");
             if (string.IsNullOrWhiteSpace(request.Password))
-                throw new InvalidOperationException("Password is required.");
+                throw new BadRequestException("Password is required.");
 
             var userName = request.UserName.Trim();
             var email = request.Email.Trim();
 
             if (await _db.Users.AnyAsync(u => u.Email == email, cancellationToken))
-                throw new InvalidOperationException("A user with this email already exists.");
+                throw new ConflictException("A user with this email already exists.");
 
             if (await _db.Users.AnyAsync(u => u.UserName == userName, cancellationToken))
-                throw new InvalidOperationException("A patient with this username already exists.");
+                throw new ConflictException("A patient with this username already exists.");
 
             var patientRole = await _db.Roles
                 .AsNoTracking()
                 .FirstOrDefaultAsync(r => r.Name == "Patient", cancellationToken);
             if (patientRole is null)
-                throw new InvalidOperationException("The Patient role is not configured in the system.");
+                throw new Exception("The Patient role is not configured in the system.");
 
             var user = new User
             {
@@ -314,7 +315,7 @@ namespace Identity.Infrastructure.Services.Patients;
             .FirstOrDefaultAsync(p => p.Id == id, cancellationToken);
 
         if (profile is null)
-            throw new InvalidOperationException("Patient not found.");
+            throw new NotFoundException("Patient not found.");
 
         if (request.PrimaryDoctorId.HasValue)
             await ValidatePrimaryDoctorAsync(request.PrimaryDoctorId, cancellationToken);
@@ -327,7 +328,7 @@ namespace Identity.Infrastructure.Services.Patients;
                 .AnyAsync(p => p.PersonalNumber == request.PersonalNumber && p.Id != profile.PersonId, cancellationToken);
 
             if (duplicate)
-                throw new InvalidOperationException("A person with this personal number already exists.");
+                throw new ConflictException("A person with this personal number already exists.");
         }
 
         // Update person fields 
@@ -384,7 +385,7 @@ namespace Identity.Infrastructure.Services.Patients;
             .FirstOrDefaultAsync(cancellationToken);
 
         if (!doctorProfileId.HasValue)
-            throw new InvalidOperationException("Current user is not linked to an active doctor profile.");
+            throw new ForbiddenException("Current user is not linked to an active doctor profile.");
 
         return doctorProfileId.Value;
     }
@@ -417,7 +418,7 @@ namespace Identity.Infrastructure.Services.Patients;
         var doctorExists = await _db.Set<DoctorProfile>()
             .AnyAsync(d => d.Id == primaryDoctorId.Value, cancellationToken);
         if (!doctorExists)
-            throw new InvalidOperationException("Primary doctor does not exist.");
+            throw new NotFoundException("Primary doctor does not exist.");
     }
 
     private async Task<PatientProfileDto> MapToDtoAsync(int profileId, CancellationToken cancellationToken)

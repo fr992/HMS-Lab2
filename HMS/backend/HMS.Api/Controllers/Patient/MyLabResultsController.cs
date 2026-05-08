@@ -1,5 +1,6 @@
 using HMS.Api.Authorization;
 using HMS.Application.Abstractions.Identity;
+using HMS.Application.Exceptions;
 using HMS.Contracts.Identity;
 using Microsoft.AspNetCore.Mvc;
 using System.Security.Claims;
@@ -62,7 +63,7 @@ public sealed class MyLabResultsController : ControllerBase
             : folder + Path.DirectorySeparatorChar;
 
         if (!fullPath.StartsWith(folderPrefix, StringComparison.OrdinalIgnoreCase))
-            throw new InvalidOperationException("Invalid attachment path.");
+            throw new BadRequestException("Invalid attachment path.");
 
         return fullPath;
     }
@@ -73,7 +74,7 @@ public sealed class MyLabResultsController : ControllerBase
             ?? User.FindFirstValue("sub");
 
         if (string.IsNullOrWhiteSpace(value))
-            throw new UnauthorizedAccessException("User id claim is missing.");
+            throw new UnauthorizedException("User id claim is missing.");
 
         return int.Parse(value);
     }

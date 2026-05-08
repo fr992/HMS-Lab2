@@ -1,4 +1,5 @@
 using HMS.Application.Abstractions.Identity;
+using HMS.Application.Exceptions;
 using HMS.Contracts.Identity;
 using HMS.Persistence;
 using Identity.Domain.Entities;
@@ -22,10 +23,10 @@ public sealed class AppointmentRequestService : IAppointmentRequestService
         var today = DateOnly.FromDateTime(DateTime.UtcNow.Date);
 
         if (dto.PreferredDate < today)
-            throw new InvalidOperationException("Preferred date must be today or in the future.");
+            throw new BadRequestException("Preferred date must be today or in the future.");
 
         if (dto.DateOfBirth >= today)
-            throw new InvalidOperationException("Date of birth is not valid.");
+            throw new BadRequestException("Date of birth is not valid.");
 
         var now = DateTime.UtcNow;
         var entity = new AppointmentRequest
@@ -136,7 +137,7 @@ public sealed class AppointmentRequestService : IAppointmentRequestService
             .FirstOrDefaultAsync(a => a.Id == id, ct);
 
         if (entity == null)
-            throw new InvalidOperationException("Appointment request not found.");
+            throw new NotFoundException("Appointment request not found.");
 
         var nextStatus = ParseStatus(dto.Status);
         if (entity.Status != nextStatus)
@@ -149,13 +150,13 @@ public sealed class AppointmentRequestService : IAppointmentRequestService
         }
 
         return await GetByIdAsync(id, ct)
-            ?? throw new InvalidOperationException("Updated but not found.");
+            ?? throw new Exception("Appointment request was updated but could not be loaded.");
     }
 
     private static AppointmentRequestStatus ParseStatus(string raw)
     {
         if (string.IsNullOrWhiteSpace(raw))
-            throw new InvalidOperationException("Appointment request status is required.");
+            throw new BadRequestException("Appointment request status is required.");
 
         if (Enum.TryParse<AppointmentRequestStatus>(raw.Trim(), ignoreCase: true, out var status)
             && Enum.IsDefined(status))
@@ -163,6 +164,6 @@ public sealed class AppointmentRequestService : IAppointmentRequestService
             return status;
         }
 
-        throw new InvalidOperationException($"Unknown appointment request status: '{raw.Trim()}'.");
+        throw new BadRequestException($"Unknown appointment request status: '{raw.Trim()}'.");
     }
 }

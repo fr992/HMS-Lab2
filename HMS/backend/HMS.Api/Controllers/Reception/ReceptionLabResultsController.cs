@@ -1,5 +1,6 @@
 using HMS.Api.Authorization;
 using HMS.Application.Abstractions.Identity;
+using HMS.Application.Exceptions;
 using HMS.Contracts.Identity;
 using Microsoft.AspNetCore.Mvc;
 
@@ -74,7 +75,7 @@ public sealed class ReceptionLabResultsController : ControllerBase
             : folder + Path.DirectorySeparatorChar;
 
         if (!fullPath.StartsWith(folderPrefix, StringComparison.OrdinalIgnoreCase))
-            throw new InvalidOperationException("Invalid attachment path.");
+            throw new BadRequestException("Invalid attachment path.");
 
         return fullPath;
     }

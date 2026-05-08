@@ -1,4 +1,5 @@
 using HMS.Application.Abstractions.Identity;
+using HMS.Application.Exceptions;
 using HMS.Contracts.Identity;
 using HMS.Persistence;
 using Identity.Domain.Entities;
@@ -52,13 +53,13 @@ public sealed class LabTestService : ILabTestService
         CancellationToken cancellationToken)
     {
         if (actorUserId == null)
-            throw new InvalidOperationException("Authenticated user is required.");
+            throw new UnauthorizedException("Authenticated user is required.");
 
         if (request == null)
-            throw new InvalidOperationException("Lab test payload is required.");
+            throw new BadRequestException("Lab test payload is required.");
 
         if (string.IsNullOrWhiteSpace(request.Name))
-            throw new InvalidOperationException("Lab test name is required.");
+            throw new BadRequestException("Lab test name is required.");
 
         var name = request.Name.Trim();
         var testCode = NormalizeOptional(request.TestCode);
@@ -70,7 +71,7 @@ public sealed class LabTestService : ILabTestService
                 cancellationToken);
 
         if (exists)
-            throw new InvalidOperationException("A lab test with this name or code already exists.");
+            throw new ConflictException("A lab test with this name or code already exists.");
 
         var now = DateTime.UtcNow;
         var labTest = new LabTest
@@ -91,7 +92,7 @@ public sealed class LabTestService : ILabTestService
         await _db.SaveChangesAsync(cancellationToken);
 
         return await GetByIdAsync(labTest.Id, cancellationToken)
-            ?? throw new InvalidOperationException("Lab test created but could not be loaded.");
+            ?? throw new Exception("Lab test was created but could not be loaded.");
     }
 
     public async Task<LabTestDto> UpdateAsync(
@@ -101,19 +102,19 @@ public sealed class LabTestService : ILabTestService
         CancellationToken cancellationToken)
     {
         if (actorUserId == null)
-            throw new InvalidOperationException("Authenticated user is required.");
+            throw new UnauthorizedException("Authenticated user is required.");
 
         if (request == null)
-            throw new InvalidOperationException("Lab test payload is required.");
+            throw new BadRequestException("Lab test payload is required.");
 
         if (string.IsNullOrWhiteSpace(request.Name))
-            throw new InvalidOperationException("Lab test name is required.");
+            throw new BadRequestException("Lab test name is required.");
 
         var labTest = await _db.LabTests
             .FirstOrDefaultAsync(test => test.Id == id, cancellationToken);
 
         if (labTest == null)
-            throw new InvalidOperationException("Lab test not found.");
+            throw new NotFoundException("Lab test not found.");
 
         var name = request.Name.Trim();
         var testCode = NormalizeOptional(request.TestCode);
@@ -125,7 +126,7 @@ public sealed class LabTestService : ILabTestService
                 cancellationToken);
 
         if (exists)
-            throw new InvalidOperationException("A lab test with this name or code already exists.");
+            throw new ConflictException("A lab test with this name or code already exists.");
 
         labTest.TestCode = testCode;
         labTest.Name = name;
@@ -139,7 +140,7 @@ public sealed class LabTestService : ILabTestService
         await _db.SaveChangesAsync(cancellationToken);
 
         return await GetByIdAsync(labTest.Id, cancellationToken)
-            ?? throw new InvalidOperationException("Updated but not found.");
+            ?? throw new Exception("Lab test was updated but could not be loaded.");
     }
 
 
@@ -152,7 +153,7 @@ public sealed class LabTestService : ILabTestService
             .FirstOrDefaultAsync(lt => lt.Id == id, cancellationToken);
 
         if (labTest == null)
-            throw new InvalidOperationException("Lab test not found.");
+            throw new NotFoundException("Lab test not found.");
 
         labTest.IsActive = false;
         labTest.UpdatedAt = DateTime.UtcNow;
@@ -186,6 +187,6 @@ public sealed class LabTestService : ILabTestService
     private static void ValidatePrice(decimal? price)
     {
         if (price is < 0)
-            throw new InvalidOperationException("Lab test price cannot be negative.");
+            throw new BadRequestException("Lab test price cannot be negative.");
     }
 }

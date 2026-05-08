@@ -1,5 +1,6 @@
 ﻿using HMS.Application.Abstractions.Identity;
 using HMS.Contracts.Identity;
+using HMS.Application.Exceptions;
 using HMS.Persistence;
 using Identity.Domain.Entities;
 using Microsoft.EntityFrameworkCore;
@@ -23,13 +24,13 @@ public sealed class MedicationsService : IMedicationsService
         var name = request.Name.Trim();
 
         if (string.IsNullOrWhiteSpace(name))
-            throw new InvalidOperationException("Medication name is required.");
+            throw new BadRequestException("Medication name is required.");
 
         var exists = await _db.Medications
             .AnyAsync(m => m.Name == name, cancellationToken);
 
         if (exists)
-            throw new InvalidOperationException("Medication already exists.");
+            throw new ConflictException("Medication already exists.");
 
         var now = DateTime.UtcNow;
 
@@ -108,18 +109,18 @@ public sealed class MedicationsService : IMedicationsService
             .FirstOrDefaultAsync(m => m.Id == id, cancellationToken);
 
         if (medication == null)
-            throw new InvalidOperationException("Medication not found.");
+            throw new NotFoundException("Medication not found.");
 
         var name = request.Name.Trim();
 
         if (string.IsNullOrWhiteSpace(name))
-            throw new InvalidOperationException("Medication name is required.");
+            throw new BadRequestException("Medication name is required.");
 
         var exists = await _db.Medications
             .AnyAsync(m => m.Id != id && m.Name == name, cancellationToken);
 
         if (exists)
-            throw new InvalidOperationException("Medication already exists.");
+            throw new ConflictException("Medication already exists.");
 
         medication.Name = name;
         medication.Description = string.IsNullOrWhiteSpace(request.Description)
@@ -143,7 +144,7 @@ public sealed class MedicationsService : IMedicationsService
             .FirstOrDefaultAsync(m => m.Id == id, cancellationToken);
 
         if (medication == null)
-            throw new InvalidOperationException("Medication not found.");
+            throw new NotFoundException("Medication not found.");
 
         medication.IsActive = false;
         medication.UpdatedAt = DateTime.UtcNow;

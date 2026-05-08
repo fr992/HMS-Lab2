@@ -1,4 +1,5 @@
 using HMS.Api.Authorization;
+using HMS.Api.Middleware;
 using HMS.Api.Security;
 using HMS.Application;
 using HMS.Application.Abstractions.Identity;
@@ -98,6 +99,7 @@ if (!EF.IsDesignTime)
 }
 
 app.UseHttpsRedirection();
+app.UseMiddleware<ExceptionHandlingMiddleware>();
 app.UseCors("frontend");
 app.UseAuthentication();
 app.UseAuthorization();

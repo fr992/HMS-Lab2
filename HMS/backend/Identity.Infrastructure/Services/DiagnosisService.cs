@@ -1,4 +1,5 @@
 using HMS.Application.Abstractions.Identity;
+using HMS.Application.Exceptions;
 using HMS.Contracts.Identity;
 using HMS.Persistence;
 using Identity.Domain.Entities;
@@ -29,17 +30,17 @@ public sealed class DiagnosisService : IDiagnosisService
         CancellationToken cancellationToken)
     {
         if (actorUserId == null)
-            throw new InvalidOperationException("Authenticated user is required.");
+            throw new UnauthorizedException("Authenticated user is required.");
 
         var encounter = await _db.Encounters
             .AsNoTracking()
             .FirstOrDefaultAsync(e => e.Id == encounterId, cancellationToken);
 
         if (encounter == null)
-            throw new InvalidOperationException("Encounter not found.");
+            throw new NotFoundException("Encounter not found.");
 
         if (!string.Equals(encounter.Status, EncounterStatus.Open, StringComparison.Ordinal))
-            throw new InvalidOperationException("Diagnoses can only be added to an open encounter.");
+            throw new ConflictException("Diagnoses can only be added to an open encounter.");
 
         var doctor = await _db.DoctorProfiles
             .Include(d => d.StaffProfile)
@@ -51,18 +52,18 @@ public sealed class DiagnosisService : IDiagnosisService
                 cancellationToken);
 
         if (doctor == null)
-            throw new InvalidOperationException("Current user is not linked to an active doctor profile.");
+            throw new ForbiddenException("Current user is not linked to an active doctor profile.");
 
         if (encounter.DoctorProfileId != doctor.Id)
-            throw new InvalidOperationException("Only the encounter doctor can add diagnoses.");
+            throw new ForbiddenException("Only the encounter doctor can add diagnoses.");
 
         var description = request.Description?.Trim();
         if (string.IsNullOrWhiteSpace(description))
-            throw new InvalidOperationException("Diagnosis description is required.");
+            throw new BadRequestException("Diagnosis description is required.");
 
         var type = NormalizeOptional(request.Type);
         if (type != null && !AllowedTypes.Contains(type))
-            throw new InvalidOperationException("Diagnosis type must be primary, secondary, or provisional.");
+            throw new BadRequestException("Diagnosis type must be primary, secondary, or provisional.");
 
         var now = DateTime.UtcNow;
 
@@ -85,7 +86,7 @@ public sealed class DiagnosisService : IDiagnosisService
         await _db.SaveChangesAsync(cancellationToken);
 
         return await GetByIdAsync(diagnosis.Id, cancellationToken)
-            ?? throw new InvalidOperationException("Diagnosis created but could not be loaded.");
+            ?? throw new Exception("Diagnosis was created but could not be loaded.");
     }
 
     public async Task<List<DiagnosisDto>> GetByEncounterAsync(
@@ -96,7 +97,7 @@ public sealed class DiagnosisService : IDiagnosisService
             .AnyAsync(e => e.Id == encounterId, cancellationToken);
 
         if (!encounterExists)
-            throw new InvalidOperationException("Encounter not found.");
+            throw new NotFoundException("Encounter not found.");
 
         return await _db.Diagnoses
             .AsNoTracking()
