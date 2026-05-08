@@ -1,5 +1,4 @@
 import { useRef, useEffect, useId } from "react";
-import { Link } from "react-router-dom";
 import { NATIVE_SELECT_CHEVRON } from "@/features/patients/selectFieldStyles";
 
 function IconSearch({ className = "h-5 w-5" }) {
@@ -58,6 +57,7 @@ const selectField = `mt-1.5 w-full rounded-xl border border-slate-200/90 bg-whit
  * @param {() => void} p.onClearFilters
  * @param {boolean} p.hasActiveFilters
  * @param {boolean} p.canRegister
+ * @param {() => void} [p.onAddPatient]
  */
 export default function PatientListToolbar({
   search,
@@ -72,6 +72,7 @@ export default function PatientListToolbar({
   onClearFilters,
   hasActiveFilters,
   canRegister,
+  onAddPatient,
 }) {
   const idBase = useId();
   const filterWrapRef = useRef(null);
@@ -190,12 +191,13 @@ export default function PatientListToolbar({
             )}
           </div>
           {canRegister && (
-            <Link
-              to="/patients/new"
+            <button
+              type="button"
+              onClick={onAddPatient}
               className="inline-flex h-10 min-h-0 items-center justify-center gap-1.5 rounded-lg bg-sky-600 px-4 text-sm font-medium text-white shadow-sm transition hover:bg-sky-700 sm:h-auto sm:py-2.5"
             >
               <span className="text-base leading-none">+</span> Add patient
-            </Link>
+            </button>
           )}
         </div>
       </div>

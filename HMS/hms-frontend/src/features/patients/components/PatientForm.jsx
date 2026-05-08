@@ -39,6 +39,29 @@ const initialCreate = {
   primaryDoctorId: "",
 };
 
+const CREATE_STEPS = [
+  {
+    id: "account",
+    label: "Account",
+    fields: ["userName", "email", "password", "password2"],
+  },
+  {
+    id: "personal",
+    label: "Personal",
+    fields: ["firstName", "lastName"],
+  },
+  {
+    id: "address",
+    label: "Address",
+    fields: [],
+  },
+  {
+    id: "medical",
+    label: "Medical",
+    fields: [],
+  },
+];
+
 function patientToFormState(p) {
   return {
     firstName: p.firstName ?? "",
@@ -213,6 +236,7 @@ export default function PatientForm({
   const isEdit = mode === "edit";
   const [showPw, setShowPw] = useState(false);
   const [showPw2, setShowPw2] = useState(false);
+  const [createStep, setCreateStep] = useState(0);
 
   const [v, setV] = useState(() => {
     if (mode === "create") return { ...initialCreate };
@@ -234,6 +258,8 @@ export default function PatientForm({
     [submitting, addPortalSubmitting]
   );
   const formBusy = submitting || addPortalSubmitting;
+  const currentStep = CREATE_STEPS[createStep];
+  const isLastCreateStep = createStep === CREATE_STEPS.length - 1;
 
   useEffect(() => {
     if (isEdit && initial?.userId) {
@@ -264,6 +290,16 @@ export default function PatientForm({
     if (!v.firstName?.trim()) e.firstName = "Required";
     if (!v.lastName?.trim()) e.lastName = "Required";
     return e;
+  };
+
+  const validateCreateStep = (stepId = currentStep.id) => {
+    const step = CREATE_STEPS.find((item) => item.id === stepId);
+    if (!step) return {};
+    if (step.id === "account" && v.createPortalAccount === false) return {};
+    const allErrors = validateCreate();
+    return Object.fromEntries(
+      Object.entries(allErrors).filter(([key]) => step.fields.includes(key))
+    );
   };
 
   /**
@@ -341,6 +377,16 @@ export default function PatientForm({
     }
   };
 
+  const goNextCreateStep = () => {
+    const e = validateCreateStep();
+    if (Object.keys(e).length) {
+      setErr(e);
+      return;
+    }
+    setErr({});
+    setCreateStep((step) => Math.min(step + 1, CREATE_STEPS.length - 1));
+  };
+
   const setLinkF = (name, value) => {
     setLinkPortal((s) => ({ ...s, [name]: value }));
   };
@@ -402,6 +448,35 @@ export default function PatientForm({
           ) : (
             <p className="text-xs text-slate-500 sm:text-sm">No patient portal account</p>
           )}
+        </div>
+      )}
+
+      {!isEdit && (
+        <div className="rounded-lg bg-slate-100 p-1">
+          <div className="grid grid-cols-4 gap-1">
+            {CREATE_STEPS.map((step, index) => {
+              const active = index === createStep;
+              const available = index <= createStep;
+              return (
+                <button
+                  key={step.id}
+                  type="button"
+                  onClick={() => available && setCreateStep(index)}
+                  disabled={!available || formBusy}
+                  className={[
+                    "h-9 rounded-md px-2 text-sm font-medium transition",
+                    active
+                      ? "bg-white text-slate-950 shadow-sm"
+                      : available
+                        ? "text-slate-600 hover:bg-white/70 hover:text-slate-900"
+                        : "cursor-not-allowed text-slate-400",
+                  ].join(" ")}
+                >
+                  {step.label}
+                </button>
+              );
+            })}
+          </div>
         </div>
       )}
 
@@ -528,7 +603,7 @@ export default function PatientForm({
             </div>
           </FormSection>
         )}
-        {!isEdit && (
+        {!isEdit && currentStep.id === "account" && (
           <FormSection
             icon={<IconAccount />}
             title="Account Information"
@@ -666,6 +741,7 @@ export default function PatientForm({
           </FormSection>
         )}
 
+        {(isEdit || currentStep.id === "personal") && (
         <FormSection
           icon={<IconPerson />}
           title="Personal Information"
@@ -765,7 +841,9 @@ export default function PatientForm({
             </div>
           </div>
         </FormSection>
+        )}
 
+        {(isEdit || currentStep.id === "address") && (
         <FormSection
           icon={<IconMap />}
           title="Address Information"
@@ -813,7 +891,9 @@ export default function PatientForm({
             </div>
           </div>
         </FormSection>
+        )}
 
+        {(isEdit || currentStep.id === "medical") && (
         <FormSection
           icon={<IconMedical />}
           title="Patient Medical Profile"
@@ -862,8 +942,59 @@ export default function PatientForm({
             </div>
           </div>
         </FormSection>
+        )}
       </div>
 
+      {!isEdit && (
+        <div className="mt-1 flex flex-col gap-3 border-t border-slate-200/90 pt-5 sm:flex-row sm:items-center sm:justify-between sm:gap-3">
+          <p className="order-3 text-sm text-slate-500 sm:order-1">
+            Step {createStep + 1} of {CREATE_STEPS.length}
+          </p>
+          <div className="order-1 flex flex-col gap-3 sm:order-2 sm:flex-row sm:items-center sm:justify-end">
+            {createStep > 0 && (
+              <button
+                type="button"
+                onClick={() => {
+                  setErr({});
+                  setCreateStep((step) => Math.max(step - 1, 0));
+                }}
+                disabled={formBusy}
+                className="w-full rounded-xl border border-slate-200/90 bg-white px-5 py-2.5 text-sm font-medium text-slate-700 shadow-sm transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50 sm:w-auto"
+              >
+                Back
+              </button>
+            )}
+            <button
+              type="button"
+              onClick={onCancel}
+              disabled={formBusy}
+              className="w-full rounded-xl border border-slate-200/90 bg-white px-5 py-2.5 text-sm font-medium text-slate-700 shadow-sm transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50 sm:w-auto"
+            >
+              Cancel
+            </button>
+            {!isLastCreateStep ? (
+              <button
+                type="button"
+                onClick={goNextCreateStep}
+                disabled={!canSubmit}
+                className="w-full rounded-xl bg-sky-600 px-6 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-sky-700 disabled:cursor-not-allowed disabled:opacity-50 sm:min-w-[9rem] sm:w-auto"
+              >
+                Next
+              </button>
+            ) : (
+              <button
+                type="submit"
+                disabled={!canSubmit}
+                className="w-full rounded-xl bg-sky-600 px-6 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-sky-700 disabled:cursor-not-allowed disabled:opacity-50 sm:min-w-[9rem] sm:w-auto"
+              >
+                {submitting ? "Saving..." : "Register patient"}
+              </button>
+            )}
+          </div>
+        </div>
+      )}
+
+      {isEdit && (
       <div className="mt-1 flex flex-col gap-3 border-t border-slate-200/90 pt-5 sm:flex-row sm:items-center sm:justify-end sm:gap-3">
         <button
           type="button"
@@ -885,6 +1016,7 @@ export default function PatientForm({
               : "Register patient"}
         </button>
       </div>
+      )}
     </form>
   );
 }

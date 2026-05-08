@@ -1,6 +1,7 @@
 import { useEffect, useState, useCallback, useMemo } from "react";
 import { Link } from "react-router-dom";
 import { useAuth } from "@/auth/AuthContext";
+import { RegisterPatientModal } from "@/features/patients/PatientCreatePage";
 import { usePatientsStore } from "@/features/patients/patientsStore";
 import { applyPatientListFilters } from "@/features/patients/patientListQuery";
 import PatientTable from "@/features/patients/components/PatientTable";
@@ -66,6 +67,7 @@ export default function PatientsListPage() {
   const [deleteId, setDeleteId] = useState(null);
   const [deleting, setDeleting] = useState(false);
   const [contactId, setContactId] = useState(null);
+  const [createOpen, setCreateOpen] = useState(false);
   const [search, setSearch] = useState("");
   const [filterOpen, setFilterOpen] = useState(false);
   const [filterGender, setFilterGender] = useState("all");
@@ -150,6 +152,7 @@ export default function PatientsListPage() {
           }}
           hasActiveFilters={hasActiveFilters}
           canRegister={canRegister}
+          onAddPatient={() => setCreateOpen(true)}
         />
 
         {lastActionSuccess && (
@@ -299,6 +302,16 @@ export default function PatientsListPage() {
               lastActionSuccess: null,
               lastActionError: msg,
             });
+          }}
+        />
+      )}
+
+      {createOpen && canRegister && (
+        <RegisterPatientModal
+          onClose={() => setCreateOpen(false)}
+          onCreated={() => {
+            setCreateOpen(false);
+            void loadList(isDoctor ? "doctor" : "all");
           }}
         />
       )}
