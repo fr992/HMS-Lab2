@@ -1,6 +1,7 @@
 using HMS.Application.Abstractions.Identity;
 using HMS.Application.Exceptions;
 using HMS.Contracts.Identity;
+using Identity.Infrastructure.Common;
 using HMS.Persistence;
 using Identity.Domain.Entities;
 using Microsoft.EntityFrameworkCore;
@@ -17,8 +18,9 @@ public sealed class LabTestService : ILabTestService
         _db = db;
     }
 
-    public async Task<List<LabTestDto>> GetLabTestsAsync(
+    public async Task<PaginatedResponse<LabTestDto>> GetLabTestsAsync(
         bool? isActive,
+        PaginationQuery pagination,
         CancellationToken cancellationToken)
     {
         var query = _db.LabTests
@@ -30,10 +32,20 @@ public sealed class LabTestService : ILabTestService
             query = query.Where(lt => lt.IsActive == isActive.Value);
         }
 
+        if (!string.IsNullOrWhiteSpace(pagination.Search))
+        {
+            var search = pagination.Search.Trim();
+            query = query.Where(lt =>
+                (lt.TestCode != null && lt.TestCode.Contains(search))
+                || lt.Name.Contains(search)
+                || (lt.SpecimenType != null && lt.SpecimenType.Contains(search))
+                || (lt.Description != null && lt.Description.Contains(search)));
+        }
+
         return await query
             .OrderBy(test => test.Name)
             .Select(MapToDto)
-            .ToListAsync(cancellationToken);
+            .ToPaginatedResponseAsync(pagination, cancellationToken);
     }
 
     public async Task<LabTestDto?> GetByIdAsync(

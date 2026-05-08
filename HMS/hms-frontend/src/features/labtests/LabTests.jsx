@@ -8,6 +8,7 @@ import {
   getApiErrorMessage,
   updateLabTest,
 } from "@/features/labtests/api/labTests";
+import { getPagedItems, getPagination, PaginationBar } from "@/lib/pagination.jsx";
 
 const FILTER_OPTIONS = [
   { value: "all", label: "All" },
@@ -62,6 +63,8 @@ export default function LabTestsPage() {
   const [error, setError] = useState("");
   const [toast, setToast] = useState(null);
   const [search, setSearch] = useState("");
+  const [page, setPage] = useState(1);
+  const [pagination, setPagination] = useState(null);
   const [statusFilter, setStatusFilter] = useState("all");
   const [editing, setEditing] = useState(null);
   const [formOpen, setFormOpen] = useState(false);
@@ -78,8 +81,14 @@ export default function LabTestsPage() {
     setLoading(true);
     setError("");
     try {
-      const data = await fetchLabTests({ isActive: toFilterParam(statusFilter) });
-      setItems(Array.isArray(data) ? data : []);
+      const data = await fetchLabTests({
+        isActive: toFilterParam(statusFilter),
+        search: search.trim() || undefined,
+        page,
+        pageSize: 25,
+      });
+      setItems(getPagedItems(data));
+      setPagination(getPagination(data));
     } catch (e) {
       setError(getApiErrorMessage(e));
       setItems([]);
@@ -87,7 +96,7 @@ export default function LabTestsPage() {
       setLoading(false);
       setRefreshing(false);
     }
-  }, [statusFilter]);
+  }, [statusFilter, search, page]);
 
   const showToast = useCallback((message, type = "success") => {
     setToast({ message, type });
@@ -101,18 +110,7 @@ export default function LabTestsPage() {
     return () => window.clearTimeout(timer);
   }, [load]);
 
-  const filteredItems = useMemo(() => {
-    const term = search.trim().toLowerCase();
-    if (!term) return items;
-
-    return items.filter((item) =>
-      [item.testCode, item.name, item.specimenType, item.description]
-        .filter(Boolean)
-        .join(" ")
-        .toLowerCase()
-        .includes(term)
-    );
-  }, [items, search]);
+  const filteredItems = items;
 
 
   function resetForm() {
@@ -266,7 +264,10 @@ export default function LabTestsPage() {
             <input
               type="search"
               value={search}
-              onChange={(event) => setSearch(event.target.value)}
+              onChange={(event) => {
+                setPage(1);
+                setSearch(event.target.value);
+              }}
               placeholder="Code, name, specimen, or description"
               className="mt-1.5 h-10 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm text-slate-900 shadow-sm outline-none transition placeholder:text-slate-400 focus:border-sky-500 focus:ring-2 focus:ring-sky-500/20"
             />
@@ -278,7 +279,10 @@ export default function LabTestsPage() {
             </span>
             <select
               value={statusFilter}
-              onChange={(event) => setStatusFilter(event.target.value)}
+              onChange={(event) => {
+                setPage(1);
+                setStatusFilter(event.target.value);
+              }}
               className="mt-1.5 h-10 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm text-slate-900 shadow-sm outline-none transition focus:border-sky-500 focus:ring-2 focus:ring-sky-500/20"
             >
               {FILTER_OPTIONS.map((option) => (
@@ -293,6 +297,7 @@ export default function LabTestsPage() {
             type="button"
             onClick={() => {
               setSearch("");
+              setPage(1);
               setStatusFilter("all");
             }}
             className="h-10 rounded-lg border border-slate-200 bg-white px-4 text-sm font-medium text-slate-800 shadow-sm transition hover:bg-slate-50"
@@ -389,6 +394,7 @@ export default function LabTestsPage() {
             </tbody>
           </table>
         )}
+        <PaginationBar pagination={pagination} loading={loading} onPageChange={setPage} />
       </div>
 
       {formOpen && (

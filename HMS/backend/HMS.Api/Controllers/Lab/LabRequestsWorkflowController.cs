@@ -19,14 +19,16 @@ public sealed class LabRequestsWorkflowController : ControllerBase
 
     [HttpGet]
     [RequirePermission("LabRequests.Read")]
-    public async Task<ActionResult<List<LabRequestDto>>> List(
+    public async Task<ActionResult<PaginatedResponse<LabRequestDto>>> List(
         [FromQuery] string? status,
+        [FromQuery] PaginationQuery pagination,
         CancellationToken cancellationToken)
     {
         try
         {
             var result = await _labRequestService.GetLabRequestsAsync(
                 status,
+                pagination,
                 cancellationToken);
 
             return Ok(result);

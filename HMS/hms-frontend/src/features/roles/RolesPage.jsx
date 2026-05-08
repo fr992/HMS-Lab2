@@ -7,7 +7,6 @@ import {
   Layers,
   Pencil,
   Plus,
-  RefreshCw,
   Shield,
   ShieldCheck,
   Stethoscope,
@@ -17,6 +16,7 @@ import {
   X,
 } from "lucide-react";
 import apiClient from "@/api/apiClient";
+import { getPagedItems } from "@/lib/pagination.jsx";
 
 const SYSTEM_ROLES = new Set([
   "SuperAdmin",
@@ -59,16 +59,11 @@ function permissionLabel(permissionName) {
   return `${action.replace(/([A-Z])/g, " $1").trim()} ${subject}`.trim();
 }
 
-function roleSummary(role) {
-  return role.description || "Custom access profile";
-}
-
 export default function RolesPage() {
   const [roles, setRoles] = useState([]);
   const [permissions, setPermissions] = useState([]);
   const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [refreshing, setRefreshing] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const [toast, setToast] = useState(null);
@@ -87,19 +82,18 @@ export default function RolesPage() {
     setError("");
     try {
       const [rolesResponse, permissionsResponse, usersResponse] = await Promise.all([
-        apiClient.get("/admin/roles"),
+        apiClient.get("/admin/roles", { params: { pageSize: 100 } }),
         apiClient.get("/admin/permissions"),
-        apiClient.get("/admin/users"),
+        apiClient.get("/admin/users", { params: { pageSize: 100 } }),
       ]);
-      setRoles(Array.isArray(rolesResponse.data) ? rolesResponse.data : []);
+      setRoles(getPagedItems(rolesResponse.data));
       setPermissions(Array.isArray(permissionsResponse.data) ? permissionsResponse.data : []);
-      setUsers(Array.isArray(usersResponse.data) ? usersResponse.data : []);
+      setUsers(getPagedItems(usersResponse.data));
     } catch (e) {
       setError(apiError(e));
       setRoles([]);
     } finally {
       setLoading(false);
-      setRefreshing(false);
     }
   }, []);
 
@@ -229,45 +223,20 @@ export default function RolesPage() {
   }
 
   return (
-    <div className="flex h-full min-h-0 flex-1 flex-col gap-6">
-      <div className="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
-        <div>
-          <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
-            Administration
-          </p>
-          <h1 className="mt-1 text-2xl font-semibold tracking-tight text-slate-900 sm:text-3xl">
-            Role Management
-          </h1>
-          <p className="mt-1.5 text-sm text-slate-600">
-            Control access and permissions across the hospital system.
-          </p>
-        </div>
-
-        <div className="flex gap-2">
-          <button
-            type="button"
-            onClick={openCreate}
-            className="inline-flex h-10 items-center justify-center gap-2 rounded-lg bg-sky-600 px-4 text-sm font-medium text-white shadow-sm transition hover:bg-sky-700"
-          >
-            <Plus className="h-4 w-4" aria-hidden />
-            New Role
-          </button>
-          <button
-            type="button"
-            onClick={() => {
-              setRefreshing(true);
-              void load();
-            }}
-            disabled={loading || refreshing}
-            className="inline-flex h-10 items-center justify-center gap-2 rounded-lg border border-slate-200 bg-white px-4 text-sm font-medium text-slate-800 shadow-sm transition hover:bg-slate-50 disabled:opacity-60"
-          >
-            <RefreshCw className={`h-4 w-4 ${refreshing ? "animate-spin" : ""}`} aria-hidden />
-            Refresh
-          </button>
-        </div>
+    <div className="flex h-full min-h-0 flex-1 flex-col gap-4">
+      <div>
+        <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+          Administration
+        </p>
+        <h1 className="mt-1 text-2xl font-semibold tracking-tight text-slate-900 sm:text-3xl">
+          Roles
+        </h1>
+        <p className="mt-1.5 text-sm text-slate-600">
+          Manage role access and permission assignments.
+        </p>
       </div>
 
-      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+      <div className="grid grid-cols-4 gap-4">
         {stats.map((stat) => (
           <StatCard key={stat.label} stat={stat} />
         ))}
@@ -293,13 +262,21 @@ export default function RolesPage() {
       )}
 
       <section className="min-h-0 flex-1">
-        <div className="mb-4 flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
+        <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div>
-            <h2 className="text-lg font-semibold text-slate-900">All Roles</h2>
+            <h2 className="text-xl font-semibold text-slate-950">All Roles</h2>
             <p className="text-sm text-slate-600">
               Click a role to view or assign permissions.
             </p>
           </div>
+          <button
+            type="button"
+            onClick={openCreate}
+            className="inline-flex h-11 items-center justify-center gap-2 rounded-lg bg-sky-600 px-5 text-sm font-semibold text-white shadow-sm transition hover:bg-sky-700"
+          >
+            <Plus className="size-4" aria-hidden />
+            New Role
+          </button>
         </div>
 
         {loading ? (
@@ -311,7 +288,7 @@ export default function RolesPage() {
             No roles found.
           </div>
         ) : (
-          <div className="grid gap-5 xl:grid-cols-3">
+          <div className="grid gap-4 xl:grid-cols-2">
             {roles.map((role) => (
               <RoleCard
                 key={role.id}
@@ -357,16 +334,16 @@ function StatCard({ stat }) {
   };
 
   return (
-    <div className="rounded-lg border border-slate-200 bg-white p-6 shadow-sm">
-      <div className="flex items-center justify-between gap-4">
+    <div className="rounded-lg border border-slate-200 bg-white px-6 py-5 shadow-sm">
+      <div className="flex items-center justify-between gap-3">
         <div>
           <p className="text-sm font-medium text-slate-600">{stat.label}</p>
-          <p className="mt-2 text-3xl font-semibold tracking-tight text-slate-950">
+          <p className="mt-1.5 text-3xl font-semibold tracking-tight text-slate-950">
             {stat.value}
           </p>
         </div>
-        <div className={`flex size-14 items-center justify-center rounded-xl ${tones[stat.tone]}`}>
-          <Icon className="size-6" aria-hidden />
+        <div className={`flex size-12 items-center justify-center rounded-xl ${tones[stat.tone]}`}>
+          <Icon className="size-5" aria-hidden />
         </div>
       </div>
     </div>
@@ -388,17 +365,14 @@ function RoleCard({
   const isSuperAdmin = role.name === "SuperAdmin";
 
   return (
-    <article className="rounded-lg border border-slate-200 bg-white p-6 shadow-sm transition hover:-translate-y-0.5 hover:shadow-md">
+    <article className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm transition hover:-translate-y-0.5 hover:shadow-md">
       <div className="flex items-start justify-between gap-4">
         <div className="flex min-w-0 items-start gap-4">
-          <div className="flex size-14 shrink-0 items-center justify-center rounded-xl bg-blue-50 text-blue-600">
-            <RoleIcon roleName={role.name} className="size-6" />
+          <div className="flex size-12 shrink-0 items-center justify-center rounded-xl bg-blue-50 text-blue-600">
+            <RoleIcon roleName={role.name} className="size-5" />
           </div>
           <div className="min-w-0">
             <h3 className="truncate text-base font-semibold text-slate-950">{role.name}</h3>
-            <p className="mt-1 line-clamp-2 min-h-10 text-sm leading-5 text-slate-600">
-              {roleSummary(role)}
-            </p>
           </div>
         </div>
         <span className="shrink-0 rounded-full bg-sky-50 px-3 py-1 text-xs font-medium text-sky-700 ring-1 ring-inset ring-sky-200">
@@ -406,7 +380,7 @@ function RoleCard({
         </span>
       </div>
 
-      <div className="mt-5 grid grid-cols-2 border-y border-slate-200 py-4">
+      <div className="mt-4 grid grid-cols-2 border-y border-slate-200 py-3">
         <div>
           <p className="text-sm text-slate-500">Users</p>
           <p className="mt-1 text-lg font-semibold text-slate-950">{userCount}</p>
@@ -420,7 +394,7 @@ function RoleCard({
         </div>
       </div>
 
-      <div className="mt-4 grid grid-cols-2 gap-2">
+      <div className="mt-3 grid grid-cols-2 gap-2">
         <button
           type="button"
           onClick={onView}
@@ -509,7 +483,7 @@ function RoleDialog({
             <div className="min-w-0">
               <h2 className="truncate text-xl font-semibold text-slate-950">{title}</h2>
               <p className="mt-1 text-sm text-slate-600">
-                {form.description || "Control access by enabling the permissions this role needs."}
+                {readonly ? "Review enabled permissions." : "Control access by enabling the permissions this role needs."}
               </p>
             </div>
           </div>
@@ -526,7 +500,7 @@ function RoleDialog({
         <form onSubmit={onSubmit} className="flex min-h-0 flex-1 flex-col">
           <div className="scrollbar-none min-h-0 flex-1 overflow-y-auto bg-slate-50 px-7 py-6">
             {!readonly && (
-              <div className="mb-5 grid gap-3 md:grid-cols-[16rem_1fr]">
+              <div className="mb-5 grid gap-3 md:grid-cols-[16rem]">
                 <label className="block">
                   <span className="mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-500">
                     Role name
@@ -536,16 +510,6 @@ function RoleDialog({
                     onChange={(e) => onChange({ name: e.target.value })}
                     className="h-11 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm text-slate-900 shadow-sm outline-none transition focus:border-sky-500 focus:ring-2 focus:ring-sky-500/20"
                     required
-                  />
-                </label>
-                <label className="block">
-                  <span className="mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-500">
-                    Description
-                  </span>
-                  <input
-                    value={form.description}
-                    onChange={(e) => onChange({ description: e.target.value })}
-                    className="h-11 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm text-slate-900 shadow-sm outline-none transition focus:border-sky-500 focus:ring-2 focus:ring-sky-500/20"
                   />
                 </label>
               </div>

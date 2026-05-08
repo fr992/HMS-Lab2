@@ -1,6 +1,7 @@
 using HMS.Application.Abstractions.Identity;
 using HMS.Application.Exceptions;
 using HMS.Contracts.Identity;
+using Identity.Infrastructure.Common;
 using HMS.Persistence;
 using Identity.Domain.Entities;
 using Microsoft.EntityFrameworkCore;
@@ -155,8 +156,9 @@ public sealed class LabRequestService : ILabRequestService
             .ToListAsync(cancellationToken);
     }
 
-    public async Task<List<LabRequestDto>> GetLabRequestsAsync(
+    public async Task<PaginatedResponse<LabRequestDto>> GetLabRequestsAsync(
         string? status,
+        PaginationQuery pagination,
         CancellationToken cancellationToken)
     {
         var query = BaseQuery();
@@ -171,11 +173,24 @@ public sealed class LabRequestService : ILabRequestService
             query = query.Where(lr => lr.Status == normalizedStatus);
         }
 
+        if (!string.IsNullOrWhiteSpace(pagination.Search))
+        {
+            var search = pagination.Search.Trim();
+            query = query.Where(lr =>
+                lr.RequestNumber.Contains(search)
+                || lr.Encounter.PatientProfile.Person.FirstName.Contains(search)
+                || lr.Encounter.PatientProfile.Person.LastName.Contains(search)
+                || lr.RequestedByDoctor.StaffProfile.Person.FirstName.Contains(search)
+                || lr.RequestedByDoctor.StaffProfile.Person.LastName.Contains(search)
+                || lr.Priority.Contains(search)
+                || lr.Status.Contains(search));
+        }
+
         return await query
             .OrderByDescending(lr => lr.RequestedAt)
             .ThenByDescending(lr => lr.Id)
             .Select(MapToDto)
-            .ToListAsync(cancellationToken);
+            .ToPaginatedResponseAsync(pagination, cancellationToken);
     }
 
     public async Task<LabRequestDto> UpdateStatusAsync(

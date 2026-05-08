@@ -1,20 +1,17 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
-  Crown,
   KeyRound,
+  MoreHorizontal,
   Plus,
-  RefreshCw,
-  Shield,
+  Search,
   ShieldCheck,
-  Stethoscope,
-  User,
   UserCheck,
-  UserCog,
   UserX,
   Users,
   X,
 } from "lucide-react";
 import apiClient from "@/api/apiClient";
+import { getPagedItems, getPagination, PaginationBar } from "@/lib/pagination.jsx";
 
 const emptyForm = {
   userName: "",
@@ -47,18 +44,9 @@ function initials(user) {
     .toUpperCase() || "U";
 }
 
-function RoleIcon({ roleName, className }) {
-  const normalized = roleName.toLowerCase().replace(/\s+/g, "");
-  if (normalized === "superadmin") return <Crown className={className} aria-hidden />;
-  if (normalized === "admin") return <Shield className={className} aria-hidden />;
-  if (normalized === "doctor") return <Stethoscope className={className} aria-hidden />;
-  return <User className={className} aria-hidden />;
-}
-
 function RoleLabel({ roleName }) {
   return (
-    <span className="inline-flex items-center gap-1.5 rounded-full bg-sky-50 px-2.5 py-1 text-xs font-medium text-sky-700 ring-1 ring-inset ring-sky-200">
-      <RoleIcon roleName={roleName} className="size-3.5" />
+    <span className="inline-flex items-center gap-1 rounded-full bg-sky-50 px-2.5 py-1 text-xs font-semibold text-sky-700 ring-1 ring-inset ring-sky-200">
       {roleName}
     </span>
   );
@@ -68,11 +56,12 @@ export default function UsersPage() {
   const [users, setUsers] = useState([]);
   const [roles, setRoles] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [refreshing, setRefreshing] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const [toast, setToast] = useState(null);
   const [search, setSearch] = useState("");
+  const [page, setPage] = useState(1);
+  const [pagination, setPagination] = useState(null);
   const [roleFilter, setRoleFilter] = useState("all");
   const [statusFilter, setStatusFilter] = useState("all");
   const [editingUser, setEditingUser] = useState(null);
@@ -89,51 +78,38 @@ export default function UsersPage() {
     setError("");
     try {
       const [usersResponse, rolesResponse] = await Promise.all([
-        apiClient.get("/admin/users"),
-        apiClient.get("/admin/roles"),
+        apiClient.get("/admin/users", {
+          params: {
+            page,
+            pageSize: 25,
+            q: search.trim() || undefined,
+            role: roleFilter !== "all" ? roleFilter : undefined,
+            isActive:
+              statusFilter === "all" ? undefined : statusFilter === "active",
+          },
+        }),
+        apiClient.get("/admin/roles", { params: { pageSize: 100 } }),
       ]);
-      setUsers(Array.isArray(usersResponse.data) ? usersResponse.data : []);
-      setRoles(Array.isArray(rolesResponse.data) ? rolesResponse.data : []);
+      setUsers(getPagedItems(usersResponse.data));
+      setPagination(getPagination(usersResponse.data));
+      setRoles(getPagedItems(rolesResponse.data));
     } catch (e) {
       setError(apiError(e));
       setUsers([]);
     } finally {
       setLoading(false);
-      setRefreshing(false);
     }
-  }, []);
+  }, [page, search, roleFilter, statusFilter]);
 
   useEffect(() => {
     void load();
   }, [load]);
 
-  const filteredUsers = useMemo(() => {
-    const term = search.trim().toLowerCase();
-    return users.filter((user) => {
-      const haystack = [
-        user.userName,
-        user.email,
-        user.firstName,
-        user.lastName,
-        user.phoneNumber,
-        ...(user.roleNames ?? []),
-      ]
-        .filter(Boolean)
-        .join(" ")
-        .toLowerCase();
-      const matchesSearch = !term || haystack.includes(term);
-      const matchesRole =
-        roleFilter === "all" || (user.roleNames ?? []).includes(roleFilter);
-      const matchesStatus =
-        statusFilter === "all" ||
-        (statusFilter === "active" ? user.isActive : !user.isActive);
-      return matchesSearch && matchesRole && matchesStatus;
-    });
-  }, [users, search, roleFilter, statusFilter]);
+  const filteredUsers = users;
 
   const stats = useMemo(
     () => [
-      { label: "Total Users", value: users.length, icon: Users, tone: "blue" },
+      { label: "Total Users", value: pagination?.totalCount ?? users.length, icon: Users, tone: "blue" },
       {
         label: "Active Users",
         value: users.filter((user) => user.isActive).length,
@@ -153,7 +129,7 @@ export default function UsersPage() {
         tone: "teal",
       },
     ],
-    [users]
+    [users, pagination]
   );
 
   function beginCreate() {
@@ -248,73 +224,53 @@ export default function UsersPage() {
   }
 
   return (
-    <div className="flex h-full min-h-0 flex-1 flex-col gap-6">
-      <div className="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
-        <div>
-          <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
-            Administration
-          </p>
-          <h1 className="mt-1 text-2xl font-semibold tracking-tight text-slate-900 sm:text-3xl">
-            Users Management
-          </h1>
-          <p className="mt-1.5 text-sm text-slate-600">
-            Manage staff accounts, roles, passwords, and hospital access.
-          </p>
-        </div>
-
-        <div className="flex gap-2">
-          <button
-            type="button"
-            onClick={beginCreate}
-            className="inline-flex h-10 items-center justify-center gap-2 rounded-lg bg-sky-600 px-4 text-sm font-medium text-white shadow-sm transition hover:bg-sky-700"
-          >
-            <Plus className="h-4 w-4" aria-hidden />
-            Add User
-          </button>
-          <button
-            type="button"
-            onClick={() => {
-              setRefreshing(true);
-              void load();
-            }}
-            disabled={loading || refreshing}
-            className="inline-flex h-10 items-center justify-center gap-2 rounded-lg border border-slate-200 bg-white px-4 text-sm font-medium text-slate-800 shadow-sm transition hover:bg-slate-50 disabled:opacity-60"
-          >
-            <RefreshCw className={`h-4 w-4 ${refreshing ? "animate-spin" : ""}`} aria-hidden />
-            Refresh
-          </button>
-        </div>
+    <div className="flex h-full min-h-0 flex-1 flex-col gap-4">
+      <div>
+        <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+          Administration
+        </p>
+        <h1 className="mt-1 text-2xl font-semibold tracking-tight text-slate-900 sm:text-3xl">
+          Users
+        </h1>
+        <p className="mt-1.5 text-sm text-slate-600">
+          Manage system users, access, roles, and account status.
+        </p>
       </div>
 
-      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+      <div className="grid grid-cols-4 gap-4">
         {stats.map((stat) => (
           <StatCard key={stat.label} stat={stat} />
         ))}
       </div>
 
       <section className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
-        <div className="grid gap-3 lg:grid-cols-[1fr_14rem_14rem_auto] lg:items-end">
+        <div className="grid gap-3 lg:grid-cols-[minmax(20rem,40rem)_13rem_13rem_auto] lg:items-center">
           <label className="block">
-            <span className="text-xs font-semibold uppercase tracking-wide text-slate-500">
-              Search
+            <span className="sr-only">Search</span>
+            <span className="relative block">
+              <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-slate-500" />
+              <input
+                type="search"
+                value={search}
+                onChange={(event) => {
+                  setPage(1);
+                  setSearch(event.target.value);
+                }}
+                placeholder="Search by name, email or username..."
+                className="h-11 w-full rounded-lg border border-slate-100 bg-slate-100/80 pl-10 pr-3 text-sm text-slate-900 outline-none transition placeholder:text-slate-500 focus:border-sky-500 focus:bg-white focus:ring-2 focus:ring-sky-500/20"
+              />
             </span>
-            <input
-              type="search"
-              value={search}
-              onChange={(event) => setSearch(event.target.value)}
-              placeholder="Search by name, email, username..."
-              className="mt-1.5 h-11 w-full rounded-lg border border-slate-200 bg-slate-50 px-3 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-sky-500 focus:bg-white focus:ring-2 focus:ring-sky-500/20"
-            />
           </label>
 
           <label className="block">
-            <span className="text-xs font-semibold uppercase tracking-wide text-slate-500">
-              Role
-            </span>
+            <span className="sr-only">Role</span>
             <select
               value={roleFilter}
-              onChange={(event) => setRoleFilter(event.target.value)}
-              className="mt-1.5 h-11 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm text-slate-900 shadow-sm outline-none transition focus:border-sky-500 focus:ring-2 focus:ring-sky-500/20"
+              onChange={(event) => {
+                setPage(1);
+                setRoleFilter(event.target.value);
+              }}
+              className="h-11 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm text-slate-900 shadow-sm outline-none transition focus:border-sky-500 focus:ring-2 focus:ring-sky-500/20"
             >
               <option value="all">All roles</option>
               {roles.map((role) => (
@@ -326,13 +282,14 @@ export default function UsersPage() {
           </label>
 
           <label className="block">
-            <span className="text-xs font-semibold uppercase tracking-wide text-slate-500">
-              Status
-            </span>
+            <span className="sr-only">Status</span>
             <select
               value={statusFilter}
-              onChange={(event) => setStatusFilter(event.target.value)}
-              className="mt-1.5 h-11 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm text-slate-900 shadow-sm outline-none transition focus:border-sky-500 focus:ring-2 focus:ring-sky-500/20"
+              onChange={(event) => {
+                setPage(1);
+                setStatusFilter(event.target.value);
+              }}
+              className="h-11 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm text-slate-900 shadow-sm outline-none transition focus:border-sky-500 focus:ring-2 focus:ring-sky-500/20"
             >
               <option value="all">All statuses</option>
               <option value="active">Active</option>
@@ -342,14 +299,11 @@ export default function UsersPage() {
 
           <button
             type="button"
-            onClick={() => {
-              setSearch("");
-              setRoleFilter("all");
-              setStatusFilter("all");
-            }}
-            className="h-11 rounded-lg border border-slate-200 bg-white px-4 text-sm font-medium text-slate-800 shadow-sm transition hover:bg-slate-50"
+            onClick={beginCreate}
+            className="inline-flex h-11 items-center justify-center gap-2 whitespace-nowrap rounded-lg bg-sky-600 px-5 text-sm font-semibold text-white shadow-sm transition hover:bg-sky-700"
           >
-            Clear
+            <Plus className="size-4" aria-hidden />
+            Add User
           </button>
         </div>
       </section>
@@ -386,20 +340,20 @@ export default function UsersPage() {
           <table className="min-w-full divide-y divide-slate-200 text-sm">
             <thead className="bg-slate-50 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">
               <tr>
-                <th className="px-6 py-4">User</th>
+                <th className="px-5 py-4">User</th>
                 <th className="px-4 py-4">Username</th>
                 <th className="px-4 py-4">Role</th>
                 <th className="px-4 py-4">Status</th>
                 <th className="px-4 py-4">Phone</th>
-                <th className="px-6 py-4 text-right">Actions</th>
+                <th className="px-5 py-4 text-right">Actions</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100 bg-white">
               {filteredUsers.map((user) => (
                 <tr key={user.id} className="align-middle transition hover:bg-slate-50/70">
-                  <td className="px-6 py-4">
+                  <td className="px-5 py-4">
                     <div className="flex items-center gap-3">
-                      <div className="flex size-11 shrink-0 items-center justify-center rounded-full bg-blue-50 text-sm font-semibold text-blue-700">
+                      <div className="flex size-12 shrink-0 items-center justify-center rounded-full bg-blue-50 text-sm font-semibold text-blue-700">
                         {initials(user)}
                       </div>
                       <div className="min-w-0">
@@ -429,15 +383,15 @@ export default function UsersPage() {
                     </span>
                   </td>
                   <td className="px-4 py-4 text-slate-600">{user.phoneNumber || "-"}</td>
-                  <td className="px-6 py-4">
+                  <td className="px-5 py-4">
                     <div className="flex justify-end">
                       <button
                         type="button"
                         onClick={() => beginEdit(user)}
-                        className="inline-flex h-9 items-center gap-2 rounded-lg border border-slate-200 px-3 text-sm font-medium text-slate-700 transition hover:bg-slate-50"
+                        className="inline-flex size-9 items-center justify-center rounded-lg text-slate-700 transition hover:bg-slate-100"
+                        aria-label={`Edit ${fullName(user)}`}
                       >
-                        <UserCog className="h-4 w-4" aria-hidden />
-                        Edit
+                        <MoreHorizontal className="size-5" aria-hidden />
                       </button>
                     </div>
                   </td>
@@ -446,6 +400,11 @@ export default function UsersPage() {
             </tbody>
           </table>
         )}
+        <PaginationBar
+          pagination={pagination}
+          loading={loading}
+          onPageChange={setPage}
+        />
       </div>
 
       {(creating || editingUser) && (
@@ -474,16 +433,16 @@ function StatCard({ stat }) {
   };
 
   return (
-    <div className="rounded-lg border border-slate-200 bg-white p-6 shadow-sm">
-      <div className="flex items-center justify-between gap-4">
+    <div className="rounded-lg border border-slate-200 bg-white px-6 py-5 shadow-sm">
+      <div className="flex items-center justify-between gap-3">
         <div>
           <p className="text-sm font-medium text-slate-600">{stat.label}</p>
-          <p className="mt-2 text-3xl font-semibold tracking-tight text-slate-950">
+          <p className="mt-1.5 text-3xl font-semibold tracking-tight text-slate-950">
             {stat.value}
           </p>
         </div>
-        <div className={`flex size-14 items-center justify-center rounded-xl ${tones[stat.tone]}`}>
-          <Icon className="size-6" aria-hidden />
+        <div className={`flex size-12 items-center justify-center rounded-xl ${tones[stat.tone]}`}>
+          <Icon className="size-5" aria-hidden />
         </div>
       </div>
     </div>

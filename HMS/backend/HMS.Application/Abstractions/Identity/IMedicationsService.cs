@@ -13,8 +13,9 @@ public interface IMedicationsService
         int id,
         CancellationToken cancellationToken);
 
-    Task<List<MedicationDto>> GetAllAsync(
+    Task<PaginatedResponse<MedicationDto>> GetAllAsync(
         bool? isActive,
+        PaginationQuery pagination,
         CancellationToken cancellationToken);
 
     Task<MedicationDto> UpdateAsync(

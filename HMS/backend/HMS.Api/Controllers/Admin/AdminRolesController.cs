@@ -1,4 +1,6 @@
 using HMS.Api.Authorization;
+using HMS.Contracts.Identity;
+using Identity.Infrastructure.Common;
 using HMS.Persistence;
 using Identity.Domain.Entities;
 using Microsoft.AspNetCore.Authorization;
@@ -26,9 +28,19 @@ public sealed class AdminRolesController : ControllerBase
     [HttpGet]
     [RequirePermission("Roles.Read")]
     [ProducesResponseType(StatusCodes.Status200OK)]
-    public async Task<IActionResult> ListRoles(CancellationToken cancellationToken)
+    public async Task<ActionResult<PaginatedResponse<object>>> ListRoles(
+        [FromQuery] PaginationQuery pagination,
+        CancellationToken cancellationToken)
     {
-        var roles = await _db.Roles.AsNoTracking()
+        var query = _db.Roles.AsNoTracking();
+
+        if (!string.IsNullOrWhiteSpace(pagination.Search))
+        {
+            var search = pagination.Search.Trim();
+            query = query.Where(r => r.Name.Contains(search));
+        }
+
+        var roles = await query
             .OrderBy(r => r.Name)
             .Select(r => new
             {
@@ -40,7 +52,7 @@ public sealed class AdminRolesController : ControllerBase
                     .OrderBy(n => n)
                     .ToList()
             })
-            .ToListAsync(cancellationToken);
+            .ToPaginatedResponseAsync(pagination, cancellationToken);
 
         return Ok(roles);
     }

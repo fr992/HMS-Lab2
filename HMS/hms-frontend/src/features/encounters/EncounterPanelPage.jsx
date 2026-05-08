@@ -154,7 +154,7 @@ export default function EncounterPanelPage() {
       try {
         const response = await encountersApi.getActiveMedications();
         if (!cancelled) {
-          setMedications(Array.isArray(response.data) ? response.data : []);
+          setMedications(Array.isArray(response.data) ? response.data : response.data?.items ?? []);
         }
       } catch (err) {
         console.error("Failed to load medications", err);
@@ -188,7 +188,7 @@ export default function EncounterPanelPage() {
       try {
         const response = await encountersApi.getActiveLabTests();
         if (!cancelled) {
-          setLabTests(Array.isArray(response.data) ? response.data : []);
+          setLabTests(Array.isArray(response.data) ? response.data : response.data?.items ?? []);
         }
       } catch (err) {
         console.error("Failed to load lab tests", err);

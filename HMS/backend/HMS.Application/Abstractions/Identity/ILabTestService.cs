@@ -4,8 +4,9 @@ namespace HMS.Application.Abstractions.Identity;
 
 public interface ILabTestService
 {
-    Task<List<LabTestDto>> GetLabTestsAsync(
+    Task<PaginatedResponse<LabTestDto>> GetLabTestsAsync(
         bool? isActive,
+        PaginationQuery pagination,
         CancellationToken cancellationToken);
 
     Task<LabTestDto?> GetByIdAsync(

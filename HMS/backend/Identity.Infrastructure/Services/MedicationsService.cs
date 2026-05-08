@@ -1,5 +1,6 @@
 ﻿using HMS.Application.Abstractions.Identity;
 using HMS.Contracts.Identity;
+using Identity.Infrastructure.Common;
 using HMS.Application.Exceptions;
 using HMS.Persistence;
 using Identity.Domain.Entities;
@@ -72,8 +73,9 @@ public sealed class MedicationsService : IMedicationsService
             .FirstOrDefaultAsync(cancellationToken);
     }
 
-    public async Task<List<MedicationDto>> GetAllAsync(
+    public async Task<PaginatedResponse<MedicationDto>> GetAllAsync(
         bool? isActive,
+        PaginationQuery pagination,
         CancellationToken cancellationToken)
     {
         var query = _db.Medications
@@ -83,6 +85,14 @@ public sealed class MedicationsService : IMedicationsService
         if (isActive.HasValue)
         {
             query = query.Where(m => m.IsActive == isActive.Value);
+        }
+
+        if (!string.IsNullOrWhiteSpace(pagination.Search))
+        {
+            var search = pagination.Search.Trim();
+            query = query.Where(m =>
+                m.Name.Contains(search)
+                || (m.Description != null && m.Description.Contains(search)));
         }
 
         return await query
@@ -96,7 +106,7 @@ public sealed class MedicationsService : IMedicationsService
                 CreatedAt = m.CreatedAt,
                 UpdatedAt = m.UpdatedAt
             })
-            .ToListAsync(cancellationToken);
+            .ToPaginatedResponseAsync(pagination, cancellationToken);
     }
 
     public async Task<MedicationDto> UpdateAsync(

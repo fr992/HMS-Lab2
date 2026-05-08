@@ -19,6 +19,9 @@ export async function fetchLabTests(params = {}) {
   if (params.isActive !== undefined && params.isActive !== "all") {
     query.isActive = params.isActive;
   }
+  if (params.search) query.search = params.search;
+  if (params.page) query.page = params.page;
+  if (params.pageSize) query.pageSize = params.pageSize;
 
   const { data } = await apiClient.get("/admin/lab-tests", { params: query });
   return data;

@@ -45,11 +45,19 @@ public sealed class AdminUsersController : ControllerBase
 
     [HttpGet]
     [RequirePermission("Users.Read")]
-    public async Task<ActionResult<IReadOnlyList<UserListItemResponseDto>>> List(
-        [FromQuery] string? q,
+    public async Task<ActionResult<PaginatedResponse<UserListItemResponseDto>>> List(
+        [FromQuery] string? search,
+        [FromQuery] string? role,
+        [FromQuery] string? status,
+        [FromQuery] PaginationQuery pagination,
         CancellationToken cancellationToken)
     {
-        var (items, error) = await _userManagement.ListUsersAsync(q, cancellationToken);
+        var (items, error) = await _userManagement.ListUsersAsync(
+            search ?? pagination.Search,
+            role,
+            status,
+            pagination,
+            cancellationToken);
         if (error is not null)
             return BadRequest(new { error });
         return Ok(items);

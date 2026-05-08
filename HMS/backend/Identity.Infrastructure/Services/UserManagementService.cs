@@ -1,5 +1,6 @@
 using HMS.Application.Abstractions.Identity;
 using HMS.Contracts.Identity;
+using Identity.Infrastructure.Common;
 using HMS.Domain.Entities;
 using HMS.Persistence;
 using Identity.Domain.Entities;
@@ -96,8 +97,11 @@ public sealed class UserManagementService : IUserManagementService
         }, null);
     }
 
-    public async Task<(IReadOnlyList<UserListItemResponseDto>? items, string? error)> ListUsersAsync(
+    public async Task<(PaginatedResponse<UserListItemResponseDto>? items, string? error)> ListUsersAsync(
         string? search,
+        string? role,
+        string? status,
+        PaginationQuery pagination,
         CancellationToken cancellationToken = default)
     {
         var query = _db.Users
@@ -119,6 +123,22 @@ public sealed class UserManagementService : IUserManagementService
                     || (u.Person.Phone != null && u.Person.Phone.Contains(s)))));
         }
 
+        if (!string.IsNullOrWhiteSpace(role) && !role.Equals("all", StringComparison.OrdinalIgnoreCase))
+        {
+            var roleName = role.Trim();
+            query = query.Where(u => u.UserRoles.Any(ur => ur.Role.Name == roleName));
+        }
+
+        if (!string.IsNullOrWhiteSpace(status) && !status.Equals("all", StringComparison.OrdinalIgnoreCase))
+        {
+            var normalizedStatus = status.Trim().ToLowerInvariant();
+            if (normalizedStatus is not ("active" or "inactive"))
+                return (null, "Invalid user status filter.");
+
+            var isActive = normalizedStatus == "active";
+            query = query.Where(u => u.IsActive == isActive);
+        }
+
         var list = await query
             .OrderBy(u => u.UserName)
             .Select(u => new UserListItemResponseDto
@@ -132,7 +152,7 @@ public sealed class UserManagementService : IUserManagementService
                 IsActive = u.IsActive,
                 RoleNames = u.UserRoles.Select(ur => ur.Role.Name).OrderBy(n => n).ToList()
             })
-            .ToListAsync(cancellationToken);
+            .ToPaginatedResponseAsync(pagination, cancellationToken);
 
         return (list, null);
     }

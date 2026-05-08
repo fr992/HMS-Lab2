@@ -19,6 +19,7 @@ import {
   LAB_REQUEST_STATUS,
   updateLabRequestStatus,
 } from "@/features/labRequests/api/labRequestsApi";
+import { getPagedItems, getPagination, PaginationBar } from "@/lib/pagination.jsx";
 
 const STATUS_OPTIONS = [
   { value: "all", label: "All statuses" },
@@ -403,6 +404,8 @@ export default function LabRequestsPage() {
   const [items, setItems] = useState([]);
   const [statusFilter, setStatusFilter] = useState("all");
   const [search, setSearch] = useState("");
+  const [page, setPage] = useState(1);
+  const [pagination, setPagination] = useState(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState("");
@@ -415,8 +418,14 @@ export default function LabRequestsPage() {
     setLoading(true);
     setError("");
     try {
-      const data = await fetchLabRequests({ status: statusFilter });
-      setItems(Array.isArray(data) ? data : []);
+      const data = await fetchLabRequests({
+        status: statusFilter,
+        search: search.trim() || undefined,
+        page,
+        pageSize: 25,
+      });
+      setItems(getPagedItems(data));
+      setPagination(getPagination(data));
     } catch (e) {
       setError(getApiErrorMessage(e));
       setItems([]);
@@ -424,7 +433,7 @@ export default function LabRequestsPage() {
       setLoading(false);
       setRefreshing(false);
     }
-  }, [statusFilter]);
+  }, [statusFilter, search, page]);
 
   useEffect(() => {
     const timer = window.setTimeout(() => {
@@ -438,25 +447,7 @@ export default function LabRequestsPage() {
     window.setTimeout(() => setToast(null), 5000);
   }, []);
 
-  const filteredItems = useMemo(() => {
-    const term = search.trim().toLowerCase();
-    if (!term) return items;
-
-    return items.filter((request) =>
-      [
-        request.requestNumber,
-        request.patientName,
-        request.requestedByDoctorName,
-        request.priority,
-        request.status,
-        request.clinicalNotes,
-      ]
-        .filter(Boolean)
-        .join(" ")
-        .toLowerCase()
-        .includes(term)
-    );
-  }, [items, search]);
+  const filteredItems = items;
 
   const counts = useMemo(() => {
     const next = {
@@ -561,7 +552,10 @@ export default function LabRequestsPage() {
               <input
                 type="search"
                 value={search}
-                onChange={(event) => setSearch(event.target.value)}
+                onChange={(event) => {
+                  setPage(1);
+                  setSearch(event.target.value);
+                }}
                 placeholder="Request, patient, doctor, priority"
                 className="h-10 w-full rounded-lg border border-slate-200 bg-white pl-9 pr-3 text-sm text-slate-900 shadow-sm outline-none transition placeholder:text-slate-400 focus:border-sky-500 focus:ring-2 focus:ring-sky-500/20"
               />
@@ -574,7 +568,10 @@ export default function LabRequestsPage() {
             </span>
             <select
               value={statusFilter}
-              onChange={(event) => setStatusFilter(event.target.value)}
+              onChange={(event) => {
+                setPage(1);
+                setStatusFilter(event.target.value);
+              }}
               className="mt-1.5 h-10 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm text-slate-900 shadow-sm outline-none transition focus:border-sky-500 focus:ring-2 focus:ring-sky-500/20"
             >
               {STATUS_OPTIONS.map((option) => (
@@ -589,6 +586,7 @@ export default function LabRequestsPage() {
             type="button"
             onClick={() => {
               setSearch("");
+              setPage(1);
               setStatusFilter("all");
             }}
             className="h-10 rounded-lg border border-slate-200 bg-white px-4 text-sm font-medium text-slate-800 shadow-sm transition hover:bg-slate-50"
@@ -692,6 +690,7 @@ export default function LabRequestsPage() {
             </tbody>
           </table>
         )}
+        <PaginationBar pagination={pagination} loading={loading} onPageChange={setPage} />
       </div>
 
       <RequestItemsModal

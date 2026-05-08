@@ -11,6 +11,9 @@ export async function fetchMedications(params = {}) {
   if (params.isActive !== undefined && params.isActive !== "all") {
     query.isActive = params.isActive;
   }
+  if (params.search) query.search = params.search;
+  if (params.page) query.page = params.page;
+  if (params.pageSize) query.pageSize = params.pageSize;
 
   const { data } = await api.get("/admin/medications", { params: query });
   return data;

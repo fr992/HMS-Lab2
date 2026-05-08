@@ -9,8 +9,11 @@ public interface IUserManagementService
         int? createdByUserId,
         CancellationToken cancellationToken = default);
 
-    Task<(IReadOnlyList<UserListItemResponseDto>? items, string? error)> ListUsersAsync(
+    Task<(PaginatedResponse<UserListItemResponseDto>? items, string? error)> ListUsersAsync(
         string? search,
+        string? role,
+        string? status,
+        PaginationQuery pagination,
         CancellationToken cancellationToken = default);
     Task<(UserDetailResponseDto? user, string? error)> GetUserByIdAsync(
         int id,

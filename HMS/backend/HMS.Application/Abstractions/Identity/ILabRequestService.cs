@@ -19,8 +19,9 @@ public interface ILabRequestService
         int encounterId,
         CancellationToken cancellationToken);
 
-    Task<List<LabRequestDto>> GetLabRequestsAsync(
+    Task<PaginatedResponse<LabRequestDto>> GetLabRequestsAsync(
         string? status,
+        PaginationQuery pagination,
         CancellationToken cancellationToken);
 
     Task<LabRequestDto> UpdateStatusAsync(

@@ -20,11 +20,12 @@ public sealed class LabTestsController : ControllerBase
 
     [HttpGet]
     [RequirePermission("LabTests.Read")]
-    public async Task<ActionResult<List<LabTestDto>>> List(
+    public async Task<ActionResult<PaginatedResponse<LabTestDto>>> List(
         [FromQuery] bool? isActive,
+        [FromQuery] PaginationQuery pagination,
         CancellationToken cancellationToken)
     {
-        var result = await _labTestService.GetLabTestsAsync(isActive, cancellationToken);
+        var result = await _labTestService.GetLabTestsAsync(isActive, pagination, cancellationToken);
 
         return Ok(result);
     }

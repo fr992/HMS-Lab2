@@ -11,10 +11,10 @@ export const encountersApi = {
     apiClient.get("/encounters/patient"),
 
   getActiveMedications: () =>
-    apiClient.get("/admin/medications", { params: { isActive: true } }),
+    apiClient.get("/admin/medications", { params: { isActive: true, pageSize: 100 } }),
 
   getActiveLabTests: () =>
-    apiClient.get("/admin/lab-tests", { params: { isActive: true } }),
+    apiClient.get("/admin/lab-tests", { params: { isActive: true, pageSize: 100 } }),
 
   createDiagnosis: (encounterId, payload) =>
     apiClient.post(`/encounters/${encounterId}/diagnoses`, payload),

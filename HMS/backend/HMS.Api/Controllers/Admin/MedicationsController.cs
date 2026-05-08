@@ -33,12 +33,14 @@ public sealed class MedicationsController : ControllerBase
 
     [HttpGet]
     [RequirePermission("Medications.Read")]
-    public async Task<ActionResult<List<MedicationDto>>> GetAll(
+    public async Task<ActionResult<PaginatedResponse<MedicationDto>>> GetAll(
         [FromQuery] bool? isActive,
+        [FromQuery] PaginationQuery pagination,
         CancellationToken cancellationToken)
     {
         var result = await _medicationsService.GetAllAsync(
             isActive,
+            pagination,
             cancellationToken);
 
         return Ok(result);

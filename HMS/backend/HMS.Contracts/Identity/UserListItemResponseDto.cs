@@ -8,6 +8,9 @@ public sealed class UserListItemResponseDto
     public string? FirstName { get; set; }
     public string? LastName { get; set; }
     public string? PhoneNumber { get; set; }
+    public string? DepartmentName { get; set; }
+    public DateTime? LastLoginAt { get; set; }
+    public DateTime CreatedAt { get; set; }
     public bool IsActive { get; set; }
     public IReadOnlyList<string> RoleNames { get; set; } = Array.Empty<string>();
 }
