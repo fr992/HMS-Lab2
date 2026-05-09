@@ -33,6 +33,8 @@ public class HmsDbContext : DbContext
     public DbSet<LabTest> LabTests => Set<LabTest>();
     public DbSet<NurseProfile> NurseProfiles => Set<NurseProfile>();
     public DbSet<NurseTask> NurseTasks => Set<NurseTask>();
+    public DbSet<Bed> Beds => Set<Bed>();
+    public DbSet<BedAssignment> BedAssignments => Set<BedAssignment>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {

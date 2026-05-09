@@ -72,6 +72,7 @@ builder.Services.AddScoped<ILabResultService, LabResultService>();
 builder.Services.AddScoped<ILabTestService, LabTestService>();
 builder.Services.AddScoped<IDoctorDashboardService, DoctorDashboardService>();
 builder.Services.AddScoped<INurseTaskService, NurseTaskService>();
+builder.Services.AddScoped<IBedService, BedService>();
 
 
 builder.Services.AddAuthorization(options =>

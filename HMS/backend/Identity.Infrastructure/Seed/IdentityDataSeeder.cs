@@ -74,6 +74,11 @@ public sealed class IdentityDataSeeder
             ["NurseTasks.Assign"] = "Assigns nurse tasks.",
             ["NurseTasks.Read"] = "Reads nurse tasks.",
             ["NurseTasks.Complete"] = "Completes nurse tasks.",
+            ["Beds.Read"] = "Reads beds and occupancy.",
+            ["Beds.Create"] = "Creates beds.",
+            ["Beds.Update"] = "Updates beds.",
+            ["Beds.Assign"] = "Assigns beds to patients.",
+            ["Beds.Release"] = "Releases beds from patients.",
             ["LabRequests.Read"] = "Reads lab requests.",
             ["LabRequests.UpdateStatus"] = "Updates lab request status.",
             ["LabResults.Create"] = "Creates lab results.",
@@ -106,6 +111,7 @@ public sealed class IdentityDataSeeder
             "LabRequests.Read", "LabRequests.Create", "LabRequests.UpdateStatus",
             "LabResults.Update",
             "Nurses.Read", "NurseTasks.Assign", "NurseTasks.Read", "NurseTasks.Complete",
+            "Beds.Read", "Beds.Create", "Beds.Update", "Beds.Assign", "Beds.Release",
         ]),
         ("Receptionist",
         [
@@ -113,7 +119,8 @@ public sealed class IdentityDataSeeder
             "Appointments.Read", "Appointments.Create", "Appointments.ManageStatus",
             "Invoices.Read", "Payments.ConfirmCash",
             "LabResults.Read",
-            "LabTests.Read"
+            "LabTests.Read",
+            "Beds.Read", "Beds.Assign", "Beds.Release"
         ]),
         ("Doctor",
         [
@@ -128,15 +135,16 @@ public sealed class IdentityDataSeeder
             "Nurses.Read",
             "NurseTasks.Assign",
             "NurseTasks.Read",
-            "LabResults.Create"
+            "LabResults.Create",
+            "Beds.Read"
         ]),
         ("Nurse",
         [
-            "NurseTasks.Read", "NurseTasks.Complete"
+            "NurseTasks.Read", "NurseTasks.Complete", "Beds.Read"
         ]),
         ("Infermier",
         [
-            "NurseTasks.Read", "NurseTasks.Complete"
+            "NurseTasks.Read", "NurseTasks.Complete", "Beds.Read"
         ]),
         ("Laboratorant",
         [
