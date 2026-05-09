@@ -87,6 +87,25 @@ public sealed class NurseTaskService : INurseTaskService
                 .ToListAsync(cancellationToken);
         }
 
+        if (HasRole(actorRoles, "Doctor"))
+        {
+            var doctorId = await _db.DoctorProfiles
+                .AsNoTracking()
+                .Where(x => x.IsActive && x.StaffProfile.Person.UserId == actorUserId)
+                .Select(x => (int?)x.Id)
+                .FirstOrDefaultAsync(cancellationToken);
+
+            if (!doctorId.HasValue)
+                throw new ForbiddenException("Current user is not linked to an active doctor profile.");
+
+            return await ProjectToDto(_db.NurseTasks
+                    .AsNoTracking()
+                    .Where(x => x.AssignedByDoctorId == doctorId.Value)
+                    .OrderBy(x => x.DueAt ?? DateTime.MaxValue)
+                    .ThenByDescending(x => x.CreatedAt))
+                .ToListAsync(cancellationToken);
+        }
+
         var nurseId = await _db.NurseProfiles
             .AsNoTracking()
             .Where(x => x.StaffProfile.Person.UserId == actorUserId)
@@ -215,8 +234,14 @@ public sealed class NurseTaskService : INurseTaskService
         {
             Id = task.Id,
             EncounterId = task.EncounterId,
+            EncounterNumber = task.Encounter.EncounterNumber,
+            PatientName = task.Encounter.PatientProfile.Person.FirstName + " " + task.Encounter.PatientProfile.Person.LastName,
             AssignedByDoctorId = task.AssignedByDoctorId,
+            AssignedByDoctorName = task.AssignedByDoctor.StaffProfile.Person.FirstName + " " + task.AssignedByDoctor.StaffProfile.Person.LastName,
             AssignedToNurseId = task.AssignedToNurseId,
+            AssignedToNurseName = task.AssignedToNurse == null
+                ? null
+                : task.AssignedToNurse.StaffProfile.Person.FirstName + " " + task.AssignedToNurse.StaffProfile.Person.LastName,
             Type = task.Type,
             Priority = task.Priority,
             Status = task.Status,

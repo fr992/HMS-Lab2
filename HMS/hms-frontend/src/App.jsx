@@ -27,6 +27,7 @@ import MedicationsPage from "@/features/medications/MedicationsPage";
 import LabTestPage from "@/features/labtests/LabTests";
 import LabRequestsPage from "@/features/labRequests/LabRequestsPage";
 import LabRequestDetailPage from "@/features/labRequests/LabRequestDetailPage";
+import NurseTasksPage from "@/features/nurseTasks/NurseTasksPage";
 
 
 export default function App() {
@@ -182,6 +183,17 @@ export default function App() {
           >
             <Route index element={<LabRequestsPage />} />
             <Route path=":requestNumber/:id" element={<LabRequestDetailPage />} />
+          </Route>
+
+          <Route
+            path="/nurse-tasks"
+            element={
+              <PermissionRoute anyPermission={["NurseTasks.Read"]}>
+                <AdminLayout />
+              </PermissionRoute>
+            }
+          >
+            <Route index element={<NurseTasksPage />} />
           </Route>
 
           <Route

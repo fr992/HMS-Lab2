@@ -2,6 +2,7 @@ import { useState } from "react";
 import { useAuth } from "@/auth/AuthContext";
 import {
   CalendarDays,
+  ClipboardCheck,
   ClipboardList,
   LayoutDashboard,
   LogOut,
@@ -29,6 +30,7 @@ export default function Sidebar() {
   const canReadMedications = auth.hasPermission("Medications.Read");
   const canReadLabTests = auth.hasPermission("LabTests.Read");
   const canReadLabRequests = auth.hasPermission("LabRequests.Read");
+  const canReadNurseTasks = auth.hasPermission("NurseTasks.Read");
   const isAdmin = auth.hasRole("Admin");
   const isSuperAdmin = auth.hasRole("SuperAdmin");
   const isDoctor = auth.userRole === "Doctor";
@@ -116,7 +118,7 @@ export default function Sidebar() {
         )}
 
         {isAdmin &&
-          (canReadPatients || canReadAppointments || canReadEncounters) && (
+          (canReadPatients || canReadAppointments || canReadEncounters || canReadNurseTasks) && (
             <Section title="Patient Care" collapsed={collapsed}>
               {canReadPatients && (
                 <NavLink
@@ -151,6 +153,15 @@ export default function Sidebar() {
                   icon={Stethoscope}
                   label="Encounters"
                   className={linkClass("/admin/encounters")}
+                  collapsed={collapsed}
+                />
+              )}
+              {canReadNurseTasks && (
+                <NavLink
+                  to="/nurse-tasks"
+                  icon={ClipboardCheck}
+                  label="Nurse Tasks"
+                  className={linkClass("/nurse-tasks")}
                   collapsed={collapsed}
                 />
               )}
@@ -193,7 +204,8 @@ export default function Sidebar() {
           (isPatient ||
             canReadPatients ||
             canReadAppointments ||
-            canReadEncounters) && (
+            canReadEncounters ||
+            canReadNurseTasks) && (
           <Section title="Clinical" collapsed={collapsed}>
             {isDoctor && (
               <NavLink
@@ -228,6 +240,15 @@ export default function Sidebar() {
                 icon={Stethoscope}
                 label="Encounters"
                 className={linkClass("/doctor/encounters")}
+                collapsed={collapsed}
+              />
+            )}
+            {canReadNurseTasks && (
+              <NavLink
+                to="/nurse-tasks"
+                icon={ClipboardCheck}
+                label="Nurse Tasks"
+                className={linkClass("/nurse-tasks")}
                 collapsed={collapsed}
               />
             )}
