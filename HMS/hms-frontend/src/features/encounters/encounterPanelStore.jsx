@@ -45,14 +45,9 @@ createDiagnosis: async (encounterId, payload) => {
   } catch (err) {
     console.error("Create diagnosis error:", err);
 
-    set({
-      error:
-        err?.response?.data?.error ||
-        err?.response?.data?.message ||
-        err?.response?.data?.title ||
-        `Failed to create diagnosis. Status: ${err?.response?.status}`,
-      saving: false,
-    });
+    set({ saving: false });
+
+    throw err;
   }
 },
 

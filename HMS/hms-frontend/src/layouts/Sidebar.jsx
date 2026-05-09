@@ -2,6 +2,7 @@ import { useState } from "react";
 import { useAuth } from "@/auth/AuthContext";
 import {
   CalendarDays,
+  BedDouble,
   ClipboardCheck,
   ClipboardList,
   LayoutDashboard,
@@ -11,6 +12,7 @@ import {
   Pill,
   Stethoscope,
   UserCog,
+  UserRoundCog,
   UserRound,
   Users,
   BriefcaseMedical,
@@ -31,6 +33,7 @@ export default function Sidebar() {
   const canReadLabTests = auth.hasPermission("LabTests.Read");
   const canReadLabRequests = auth.hasPermission("LabRequests.Read");
   const canReadNurseTasks = auth.hasPermission("NurseTasks.Read");
+  const canReadBeds = auth.hasPermission("Beds.Read");
   const isAdmin = auth.hasRole("Admin");
   const isSuperAdmin = auth.hasRole("SuperAdmin");
   const isDoctor = auth.userRole === "Doctor";
@@ -118,7 +121,7 @@ export default function Sidebar() {
         )}
 
         {isAdmin &&
-          (canReadPatients || canReadAppointments || canReadEncounters || canReadNurseTasks) && (
+          (canReadPatients || canReadAppointments || canReadEncounters || canReadNurseTasks || canReadBeds) && (
             <Section title="Patient Care" collapsed={collapsed}>
               {canReadPatients && (
                 <NavLink
@@ -165,6 +168,15 @@ export default function Sidebar() {
                   collapsed={collapsed}
                 />
               )}
+              {canReadBeds && (
+                <NavLink
+                  to="/bed-assignments"
+                  icon={BedDouble}
+                  label="Bed Assignments"
+                  className={linkClass("/bed-assignments")}
+                  collapsed={collapsed}
+                />
+              )}
             </Section>
           )}
 
@@ -205,7 +217,8 @@ export default function Sidebar() {
             canReadPatients ||
             canReadAppointments ||
             canReadEncounters ||
-            canReadNurseTasks) && (
+            canReadNurseTasks ||
+            canReadBeds) && (
           <Section title="Clinical" collapsed={collapsed}>
             {isDoctor && (
               <NavLink
@@ -249,6 +262,15 @@ export default function Sidebar() {
                 icon={ClipboardCheck}
                 label="Nurse Tasks"
                 className={linkClass("/nurse-tasks")}
+                collapsed={collapsed}
+              />
+            )}
+            {canReadBeds && (
+              <NavLink
+                to="/bed-assignments"
+                icon={BedDouble}
+                label="Bed Assignments"
+                className={linkClass("/bed-assignments")}
                 collapsed={collapsed}
               />
             )}
@@ -312,6 +334,13 @@ export default function Sidebar() {
               icon={UserCog}
               label="Users"
               className={linkClass("/admin/users")}
+              collapsed={collapsed}
+            />
+            <NavLink
+              to="/admin/staff"
+              icon={UserRoundCog}
+              label="Staff"
+              className={linkClass("/admin/staff")}
               collapsed={collapsed}
             />
             <NavLink

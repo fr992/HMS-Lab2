@@ -28,6 +28,8 @@ import LabTestPage from "@/features/labtests/LabTests";
 import LabRequestsPage from "@/features/labRequests/LabRequestsPage";
 import LabRequestDetailPage from "@/features/labRequests/LabRequestDetailPage";
 import NurseTasksPage from "@/features/nurseTasks/NurseTasksPage";
+import BedAssignmentsPage from "@/features/bedAssignments/BedAssignmentsPage";
+import StaffManagementPage from "@/features/staff/StaffManagementPage";
 
 
 export default function App() {
@@ -63,6 +65,14 @@ export default function App() {
               element={
                 <PermissionRoute requireRole="SuperAdmin">
                   <RolesPage />
+                </PermissionRoute>
+              }
+            />
+            <Route
+              path="staff"
+              element={
+                <PermissionRoute requireRole="SuperAdmin">
+                  <StaffManagementPage />
                 </PermissionRoute>
               }
             />
@@ -194,6 +204,17 @@ export default function App() {
             }
           >
             <Route index element={<NurseTasksPage />} />
+          </Route>
+
+          <Route
+            path="/bed-assignments"
+            element={
+              <PermissionRoute anyPermission={["Beds.Read"]}>
+                <AdminLayout />
+              </PermissionRoute>
+            }
+          >
+            <Route index element={<BedAssignmentsPage />} />
           </Route>
 
           <Route

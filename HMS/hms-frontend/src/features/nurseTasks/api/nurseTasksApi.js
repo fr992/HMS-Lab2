@@ -11,6 +11,11 @@ export async function fetchNurseTasks() {
   return Array.isArray(data) ? data : [];
 }
 
+export async function fetchNurseTasksByEncounter(encounterId) {
+  const { data } = await apiClient.get(`/nurse-tasks/encounter/${encounterId}`);
+  return Array.isArray(data) ? data : [];
+}
+
 export async function createNurseTask(payload) {
   const { data } = await apiClient.post("/nurse-tasks", payload);
   return data;
