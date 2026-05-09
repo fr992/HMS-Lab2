@@ -74,6 +74,22 @@ public sealed class LabResultsWorkflowController : ControllerBase
         }
     }
 
+    [HttpPut("{id:int}")]
+    [RequirePermission("LabResults.Update")]
+    public async Task<ActionResult<LabResultDto>> Update(
+        int id,
+        [FromBody] UpdateLabResultDto request,
+        CancellationToken cancellationToken)
+    {
+        var result = await _labResultService.UpdateAsync(
+            id,
+            request,
+            CurrentUserId(),
+            cancellationToken);
+
+        return Ok(result);
+    }
+
     [HttpPost("{id:int}/publish")]
     [RequirePermission("LabResults.Publish")]
     public async Task<ActionResult<LabResultDto>> Publish(

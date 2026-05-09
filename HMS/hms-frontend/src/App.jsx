@@ -26,6 +26,7 @@ import PatientEncountersListPage from "@/features/encounters/PatientEncountersLi
 import MedicationsPage from "@/features/medications/MedicationsPage";
 import LabTestPage from "@/features/labtests/LabTests";
 import LabRequestsPage from "@/features/labRequests/LabRequestsPage";
+import LabRequestDetailPage from "@/features/labRequests/LabRequestDetailPage";
 
 
 export default function App() {
@@ -180,6 +181,7 @@ export default function App() {
             }
           >
             <Route index element={<LabRequestsPage />} />
+            <Route path=":requestNumber/:id" element={<LabRequestDetailPage />} />
           </Route>
 
           <Route

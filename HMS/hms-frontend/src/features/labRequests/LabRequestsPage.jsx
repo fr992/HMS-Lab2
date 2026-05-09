@@ -1,23 +1,20 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import {
   Beaker,
   CheckCircle2,
   Clock3,
   FileText,
   FlaskConical,
-  MoreVertical,
   RefreshCw,
   Search,
   TestTube2,
-  X,
   XCircle,
 } from "lucide-react";
-import { useAuth } from "@/auth/AuthContext";
 import {
   fetchLabRequests,
   getApiErrorMessage,
   LAB_REQUEST_STATUS,
-  updateLabRequestStatus,
 } from "@/features/labRequests/api/labRequestsApi";
 import { getPagedItems, getPagination, PaginationBar } from "@/lib/pagination.jsx";
 
@@ -129,226 +126,7 @@ function SummaryTile({ label, value, icon }) {
   );
 }
 
-function getNextStatuses(status) {
-  const key = statusKey(status);
-  if (key === LAB_REQUEST_STATUS.REQUESTED) {
-    return [
-      { label: "Mark sample collected", status: LAB_REQUEST_STATUS.SAMPLE_COLLECTED },
-      { label: "Cancel", status: LAB_REQUEST_STATUS.CANCELLED, danger: true },
-    ];
-  }
-  if (key === LAB_REQUEST_STATUS.SAMPLE_COLLECTED) {
-    return [
-      { label: "Start processing", status: LAB_REQUEST_STATUS.IN_PROGRESS },
-      { label: "Cancel", status: LAB_REQUEST_STATUS.CANCELLED, danger: true },
-    ];
-  }
-  if (key === LAB_REQUEST_STATUS.IN_PROGRESS) {
-    return [
-      { label: "Complete", status: LAB_REQUEST_STATUS.COMPLETED },
-      { label: "Cancel", status: LAB_REQUEST_STATUS.CANCELLED, danger: true },
-    ];
-  }
-  return [];
-}
-
-function RequestItemsModal({
-  request,
-  canUpdateStatus,
-  mutating,
-  onClose,
-  onStatus,
-}) {
-  const requestId = request?.id;
-  const requestStatus = request?.status;
-  const statusActions = useMemo(
-    () => (canUpdateStatus && requestStatus ? getNextStatuses(requestStatus) : []),
-    [canUpdateStatus, requestStatus]
-  );
-  const [nextStatus, setNextStatus] = useState("");
-
-  useEffect(() => {
-    setNextStatus(statusActions[0]?.status ?? "");
-  }, [requestId, requestStatus, statusActions]);
-
-  if (!request) return null;
-
-  return (
-    <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/45 p-4"
-      role="dialog"
-      aria-modal="true"
-      aria-labelledby="lab-request-modal-title"
-    >
-      <section className="flex max-h-[90vh] w-full max-w-4xl flex-col rounded-lg border border-slate-200 bg-white shadow-xl">
-        <div className="flex items-start justify-between gap-4 border-b border-slate-200 p-5">
-          <div className="min-w-0">
-            <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
-              Lab request
-            </p>
-            <h2
-              id="lab-request-modal-title"
-              className="mt-1 truncate text-lg font-semibold text-slate-950"
-            >
-              {request.requestNumber}
-            </h2>
-            <p className="mt-1 text-sm text-slate-600">
-              {request.patientName} - {request.requestedByDoctorName}
-            </p>
-          </div>
-          <button
-            type="button"
-            onClick={onClose}
-            className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-500 transition hover:bg-slate-50"
-            aria-label="Close lab request details"
-          >
-            <X className="h-4 w-4" aria-hidden />
-          </button>
-        </div>
-
-        <div className="min-h-0 overflow-auto p-5">
-          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-            <InfoTile label="Priority" value={titleCase(request.priority) || "-"} />
-            <InfoTile
-              label="Status"
-              value={STATUS_META[statusKey(request.status)]?.label ?? titleCase(request.status)}
-            />
-            <InfoTile label="Requested" value={formatDateTime(request.requestedAt)} />
-            <InfoTile label="Completed" value={formatDateTime(request.completedAt)} />
-          </div>
-
-          {request.clinicalNotes && (
-            <div className="mt-4 rounded-lg border border-slate-200 bg-slate-50 p-4">
-              <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
-                Clinical notes
-              </p>
-              <p className="mt-1 text-sm leading-6 text-slate-700">
-                {request.clinicalNotes}
-              </p>
-            </div>
-          )}
-
-          <section className="mt-4 rounded-lg border border-slate-200 bg-white p-4">
-            <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
-              <div>
-                <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
-                  Current status
-                </p>
-                <div className="mt-2">
-                  <LabRequestStatusBadge status={request.status} />
-                </div>
-              </div>
-
-              {canUpdateStatus && statusActions.length > 0 ? (
-                <form
-                  className="grid gap-3 sm:grid-cols-[minmax(12rem,16rem)_auto]"
-                  onSubmit={(event) => {
-                    event.preventDefault();
-                    if (!nextStatus || mutating) return;
-                    void onStatus(request, nextStatus);
-                  }}
-                >
-                  <label className="block">
-                    <span className="text-xs font-semibold uppercase tracking-wide text-slate-500">
-                      Change status
-                    </span>
-                    <select
-                      value={nextStatus}
-                      onChange={(event) => setNextStatus(event.target.value)}
-                      disabled={mutating}
-                      className="mt-1.5 h-10 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm text-slate-900 shadow-sm outline-none transition focus:border-sky-500 focus:ring-2 focus:ring-sky-500/20 disabled:opacity-60"
-                    >
-                      {statusActions.map((action) => (
-                        <option key={action.status} value={action.status}>
-                          {action.label}
-                        </option>
-                      ))}
-                    </select>
-                  </label>
-                  <button
-                    type="submit"
-                    disabled={mutating || !nextStatus}
-                    className="h-10 rounded-lg bg-sky-600 px-4 text-sm font-medium text-white shadow-sm transition hover:bg-sky-700 disabled:opacity-60"
-                  >
-                    {mutating ? "Saving..." : "Update status"}
-                  </button>
-                </form>
-              ) : (
-                <p className="text-sm text-slate-500">
-                  {canUpdateStatus
-                    ? "No status changes are available for this request."
-                    : "You do not have permission to change this status."}
-                </p>
-              )}
-            </div>
-          </section>
-
-          <div className="mt-5 overflow-hidden rounded-lg border border-slate-200">
-            <table className="min-w-full divide-y divide-slate-200 text-sm">
-              <thead className="bg-slate-50 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">
-                <tr>
-                  <th className="px-4 py-3">Code</th>
-                  <th className="px-4 py-3">Test</th>
-                  <th className="px-4 py-3">Specimen</th>
-                  <th className="px-4 py-3">Status</th>
-                  <th className="px-4 py-3">Notes</th>
-                  <th className="px-4 py-3">Results</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100 bg-white">
-                {(request.items ?? []).map((item) => (
-                  <tr key={item.id} className="align-top">
-                    <td className="px-4 py-3 text-slate-600">{item.testCode || "-"}</td>
-                    <td className="px-4 py-3 font-medium text-slate-900">
-                      {item.testName}
-                    </td>
-                    <td className="px-4 py-3 text-slate-600">
-                      {item.specimenType || "-"}
-                    </td>
-                    <td className="px-4 py-3">
-                      <LabRequestStatusBadge status={item.status} />
-                    </td>
-                    <td className="px-4 py-3 text-slate-600">{item.notes || "-"}</td>
-                    <td className="px-4 py-3 text-slate-600">
-                      {Array.isArray(item.results) && item.results.length > 0
-                        ? item.results.length
-                        : "-"}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </div>
-      </section>
-    </div>
-  );
-}
-
-function InfoTile({ label, value }) {
-  return (
-    <div className="rounded-lg border border-slate-200 bg-white p-3">
-      <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">
-        {label}
-      </p>
-      <p className="mt-1 text-sm font-medium text-slate-900">{value || "-"}</p>
-    </div>
-  );
-}
-
-function RowActions({
-  request,
-  canUpdateStatus,
-  mutatingId,
-  openMenuId,
-  onMenuToggle,
-  onView,
-  onStatus,
-}) {
-  const actions = canUpdateStatus ? getNextStatuses(request.status) : [];
-  const isOpen = openMenuId === request.id;
-  const busy = mutatingId === request.id;
-
+function RowActions({ request, onView }) {
   return (
     <div className="relative flex justify-end gap-2">
       <button
@@ -359,47 +137,12 @@ function RowActions({
         <FileText className="h-4 w-4" aria-hidden />
         View
       </button>
-      {actions.length > 0 && (
-        <>
-          <button
-            type="button"
-            onClick={() => onMenuToggle(isOpen ? null : request.id)}
-            disabled={mutatingId != null}
-            className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-500 shadow-sm transition hover:bg-slate-50 disabled:opacity-50"
-            aria-label="More lab request actions"
-            aria-haspopup="menu"
-            aria-expanded={isOpen}
-          >
-            <MoreVertical className="h-4 w-4" aria-hidden />
-          </button>
-          {isOpen && (
-            <div className="absolute right-0 top-10 z-20 w-56 rounded-lg border border-slate-200 bg-white py-1.5 shadow-xl">
-              {actions.map((action) => (
-                <button
-                  key={action.status}
-                  type="button"
-                  disabled={mutatingId != null}
-                  onClick={() => onStatus(request, action.status)}
-                  className={
-                    action.danger
-                      ? "w-full px-3 py-2 text-left text-sm text-rose-700 transition hover:bg-rose-50 disabled:opacity-50"
-                      : "w-full px-3 py-2 text-left text-sm text-slate-800 transition hover:bg-slate-100 disabled:opacity-50"
-                  }
-                >
-                  {busy ? "Saving..." : action.label}
-                </button>
-              ))}
-            </div>
-          )}
-        </>
-      )}
     </div>
   );
 }
 
 export default function LabRequestsPage() {
-  const auth = useAuth();
-  const canUpdateStatus = auth.hasPermission("LabRequests.UpdateStatus");
+  const navigate = useNavigate();
 
   const [items, setItems] = useState([]);
   const [statusFilter, setStatusFilter] = useState("all");
@@ -409,10 +152,6 @@ export default function LabRequestsPage() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState("");
-  const [toast, setToast] = useState(null);
-  const [mutatingId, setMutatingId] = useState(null);
-  const [selectedRequest, setSelectedRequest] = useState(null);
-  const [openMenuId, setOpenMenuId] = useState(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -442,11 +181,6 @@ export default function LabRequestsPage() {
     return () => window.clearTimeout(timer);
   }, [load]);
 
-  const showToast = useCallback((message, type = "success") => {
-    setToast({ message, type });
-    window.setTimeout(() => setToast(null), 5000);
-  }, []);
-
   const filteredItems = items;
 
   const counts = useMemo(() => {
@@ -464,27 +198,6 @@ export default function LabRequestsPage() {
     }
     return next;
   }, [items]);
-
-  async function handleStatusUpdate(request, nextStatus) {
-    if (!canUpdateStatus || mutatingId != null) return;
-    setMutatingId(request.id);
-    setOpenMenuId(null);
-    try {
-      const updated = await updateLabRequestStatus(request.id, nextStatus);
-      setSelectedRequest((current) =>
-        current?.id === updated.id ? updated : current
-      );
-      setItems((current) =>
-        current.map((item) => (item.id === updated.id ? updated : item))
-      );
-      showToast("Lab request status updated.");
-      await load();
-    } catch (e) {
-      showToast(getApiErrorMessage(e), "error");
-    } finally {
-      setMutatingId(null);
-    }
-  }
 
   return (
     <div className="flex h-full min-h-0 flex-1 flex-col gap-5">
@@ -596,26 +309,6 @@ export default function LabRequestsPage() {
         </div>
       </section>
 
-      {toast && (
-        <div
-          role={toast.type === "error" ? "alert" : "status"}
-          className={
-            toast.type === "error"
-              ? "flex items-start justify-between gap-3 rounded-lg border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-900"
-              : "flex items-start justify-between gap-3 rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-900"
-          }
-        >
-          <span>{toast.message}</span>
-          <button
-            type="button"
-            onClick={() => setToast(null)}
-            className="shrink-0 font-medium hover:underline"
-          >
-            Dismiss
-          </button>
-        </div>
-      )}
-
       {error && (
         <div
           className="rounded-lg border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-900"
@@ -677,12 +370,12 @@ export default function LabRequestsPage() {
                   <td className="px-4 py-3">
                     <RowActions
                       request={request}
-                      canUpdateStatus={canUpdateStatus}
-                      mutatingId={mutatingId}
-                      openMenuId={openMenuId}
-                      onMenuToggle={setOpenMenuId}
-                      onView={setSelectedRequest}
-                      onStatus={handleStatusUpdate}
+                      onView={(item) =>
+                        navigate(
+                          `/lab-requests/${encodeURIComponent(item.requestNumber)}/${item.id}`,
+                          { state: { request: item } }
+                        )
+                      }
                     />
                   </td>
                 </tr>
@@ -693,13 +386,6 @@ export default function LabRequestsPage() {
         <PaginationBar pagination={pagination} loading={loading} onPageChange={setPage} />
       </div>
 
-      <RequestItemsModal
-        request={selectedRequest}
-        canUpdateStatus={canUpdateStatus}
-        mutating={mutatingId === selectedRequest?.id}
-        onClose={() => setSelectedRequest(null)}
-        onStatus={handleStatusUpdate}
-      />
     </div>
   );
 }

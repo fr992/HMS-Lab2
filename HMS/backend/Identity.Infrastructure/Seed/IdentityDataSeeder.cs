@@ -77,6 +77,7 @@ public sealed class IdentityDataSeeder
             ["LabRequests.Read"] = "Reads lab requests.",
             ["LabRequests.UpdateStatus"] = "Updates lab request status.",
             ["LabResults.Create"] = "Creates lab results.",
+            ["LabResults.Update"] = "Updates lab results.",
             ["LabResults.Publish"] = "Publishes lab results.",
             ["Own.Appointments.View"] = "Views own appointments.",
             ["Own.Appointments.Request"] = "Requests own appointments.",
@@ -103,6 +104,7 @@ public sealed class IdentityDataSeeder
             "Medications.Read", "Medications.Create", "Medications.Update", "Medications.Delete",
             "LabTests.Read", "LabTests.Create", "LabTests.Update", "LabTests.Delete",
             "LabRequests.Read", "LabRequests.Create", "LabRequests.UpdateStatus",
+            "LabResults.Update",
             "Nurses.Read", "NurseTasks.Assign", "NurseTasks.Read", "NurseTasks.Complete",
         ]),
         ("Receptionist",
@@ -140,7 +142,7 @@ public sealed class IdentityDataSeeder
         [
             "LabTests.Read",
             "LabRequests.Read", "LabRequests.UpdateStatus",
-            "LabResults.Create", "LabResults.Publish"
+            "LabResults.Create", "LabResults.Update", "LabResults.Publish"
         ]),
         ("Patient",
         [

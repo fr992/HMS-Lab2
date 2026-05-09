@@ -16,14 +16,68 @@ export async function fetchLabRequests(filters = {}) {
   if (filters.status && filters.status !== "all") {
     params.status = filters.status;
   }
+  if (filters.search) params.search = filters.search;
+  if (filters.page) params.page = filters.page;
+  if (filters.pageSize) params.pageSize = filters.pageSize;
 
   const { data } = await apiClient.get("/lab/requests", { params });
   return data;
 }
 
-export async function updateLabRequestStatus(id, status) {
-  const { data } = await apiClient.patch(`/lab/requests/${id}/status`, {
-    status,
+export async function fetchLabRequestDetails(requestNumber, id) {
+  const { data } = await apiClient.get("/lab/requests", {
+    params: {
+      search: requestNumber,
+      pageSize: 25,
+    },
   });
+
+  const items = Array.isArray(data?.items)
+    ? data.items
+    : Array.isArray(data?.data)
+      ? data.data
+      : Array.isArray(data)
+        ? data
+        : [];
+
+  return items.find((item) => Number(item.id) === Number(id)) ?? null;
+}
+
+export async function createLabResult(body) {
+  const form = new FormData();
+  form.append("LabRequestItemId", String(body.labRequestItemId));
+  form.append("ResultData", body.resultData);
+
+  if (body.referenceRange?.trim()) {
+    form.append("ReferenceRange", body.referenceRange.trim());
+  }
+  if (body.interpretation?.trim()) {
+    form.append("Interpretation", body.interpretation.trim());
+  }
+  if (body.attachment) {
+    form.append("Attachment", body.attachment);
+  }
+
+  const { data } = await apiClient.post("/lab/results", form);
+  return data;
+}
+
+export async function updateLabResult(id, body) {
+  const payload = {
+    resultData: body.resultData,
+    referenceRange: body.referenceRange?.trim()
+      ? body.referenceRange.trim()
+      : null,
+    interpretation: body.interpretation?.trim()
+      ? body.interpretation.trim()
+      : null,
+  };
+
+  const { data } = await apiClient.put(`/lab/results/${id}`, payload);
+  return data;
+}
+
+export async function publishLabResult(id) {
+  const { data } = await apiClient.post(`/lab/results/${id}/publish`);
   return data;
 }

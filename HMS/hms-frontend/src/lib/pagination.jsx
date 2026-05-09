@@ -1,3 +1,5 @@
+/* eslint-disable react-refresh/only-export-components */
+
 export const DEFAULT_PAGE_SIZE = 25;
 
 export function getPagedItems(data) {

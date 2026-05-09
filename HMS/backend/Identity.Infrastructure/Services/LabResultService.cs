@@ -113,6 +113,52 @@ public sealed class LabResultService : ILabResultService
             .FirstOrDefaultAsync(cancellationToken);
     }
 
+    public async Task<LabResultDto> UpdateAsync(
+        int id,
+        UpdateLabResultDto request,
+        int? actorUserId,
+        CancellationToken cancellationToken)
+    {
+        if (actorUserId == null)
+            throw new UnauthorizedException("Authenticated user is required.");
+
+        if (request == null)
+            throw new BadRequestException("Lab result payload is required.");
+
+        if (string.IsNullOrWhiteSpace(request.ResultData))
+            throw new BadRequestException("Result data is required.");
+
+        var resultData = request.ResultData.Trim();
+        var referenceRange = NormalizeOptional(request.ReferenceRange);
+        var interpretation = NormalizeOptional(request.Interpretation);
+
+        if (resultData.Length > 4000)
+            throw new BadRequestException("Result data cannot exceed 4000 characters.");
+
+        if (referenceRange?.Length > 200)
+            throw new BadRequestException("Reference range cannot exceed 200 characters.");
+
+        if (interpretation?.Length > 200)
+            throw new BadRequestException("Interpretation cannot exceed 200 characters.");
+
+        var labResult = await _db.LabResults
+            .FirstOrDefaultAsync(r => r.Id == id, cancellationToken);
+
+        if (labResult == null)
+            throw new NotFoundException("Lab result not found.");
+
+        labResult.ResultData = resultData;
+        labResult.ReferenceRange = referenceRange;
+        labResult.Interpretation = interpretation;
+        labResult.UpdatedAt = DateTime.UtcNow;
+        labResult.UpdatedById = actorUserId;
+
+        await _db.SaveChangesAsync(cancellationToken);
+
+        return await GetByIdAsync(labResult.Id, cancellationToken)
+            ?? throw new Exception("Lab result was updated but could not be loaded.");
+    }
+
     public async Task<List<LabResultDto>> GetLabResultsAsync(
         int? patientProfileId,
         CancellationToken cancellationToken)

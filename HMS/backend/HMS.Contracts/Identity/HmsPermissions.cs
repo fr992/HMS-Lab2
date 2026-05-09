@@ -48,6 +48,7 @@ public static class HmsPermissions
         "LabRequests.Read",
         "LabRequests.UpdateStatus",
         "LabResults.Create",
+        "LabResults.Update",
         "LabResults.Publish",
         "Own.Appointments.View",
         "Own.Appointments.Request",

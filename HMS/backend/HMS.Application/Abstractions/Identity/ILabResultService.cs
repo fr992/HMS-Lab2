@@ -13,6 +13,12 @@ public interface ILabResultService
         int id,
         CancellationToken cancellationToken);
 
+    Task<LabResultDto> UpdateAsync(
+        int id,
+        UpdateLabResultDto request,
+        int? actorUserId,
+        CancellationToken cancellationToken);
+
     Task<List<LabResultDto>> GetLabResultsAsync(
         int? patientProfileId,
         CancellationToken cancellationToken);
