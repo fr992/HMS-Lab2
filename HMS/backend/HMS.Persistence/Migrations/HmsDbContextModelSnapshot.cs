@@ -560,6 +560,68 @@ namespace HMS.Persistence.Migrations
                     b.ToTable("PatientProfiles");
                 });
 
+            modelBuilder.Entity("HMS.Domain.Entities.Payment", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<decimal>("Amount")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int?>("CreatedById")
+                        .HasColumnType("int");
+
+                    b.Property<int>("InvoiceId")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime?>("PaidAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("PaymentMethod")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
+                    b.Property<int?>("ReceivedByUserId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
+                    b.Property<string>("TransactionReference")
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int?>("UpdatedById")
+                        .HasColumnType("int");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("InvoiceId");
+
+                    b.HasIndex("PaidAt");
+
+                    b.HasIndex("PaymentMethod");
+
+                    b.HasIndex("ReceivedByUserId");
+
+                    b.HasIndex("Status");
+
+                    b.ToTable("Payments", (string)null);
+                });
+
             modelBuilder.Entity("HMS.Domain.Entities.Person", b =>
                 {
                     b.Property<int>("Id")
@@ -1873,6 +1935,24 @@ namespace HMS.Persistence.Migrations
                     b.Navigation("Person");
 
                     b.Navigation("PrimaryDoctor");
+                });
+
+            modelBuilder.Entity("HMS.Domain.Entities.Payment", b =>
+                {
+                    b.HasOne("HMS.Domain.Entities.Invoice", "Invoice")
+                        .WithMany()
+                        .HasForeignKey("InvoiceId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("Identity.Domain.Entities.User", "ReceivedByUser")
+                        .WithMany()
+                        .HasForeignKey("ReceivedByUserId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.Navigation("Invoice");
+
+                    b.Navigation("ReceivedByUser");
                 });
 
             modelBuilder.Entity("HMS.Domain.Entities.Person", b =>
