@@ -32,6 +32,7 @@ import BedAssignmentsPage from "@/features/bedAssignments/BedAssignmentsPage";
 import StaffManagementPage from "@/features/staff/StaffManagementPage";
 import InvoicesListPage from "@/features/invoices/InvoicesListPage";
 import InvoiceDetailPage from "@/features/invoices/InvoiceDetailPage";
+import PaymentsPage from "@/features/payments/PaymentsPage";
 
 
 export default function App() {
@@ -229,6 +230,17 @@ export default function App() {
           >
             <Route index element={<InvoicesListPage />} />
             <Route path=":id" element={<InvoiceDetailPage />} />
+          </Route>
+
+          <Route
+            path="/payments"
+            element={
+              <PermissionRoute anyPermission={["Payments.Read"]}>
+                <AdminLayout />
+              </PermissionRoute>
+            }
+          >
+            <Route index element={<PaymentsPage />} />
           </Route>
 
           <Route
