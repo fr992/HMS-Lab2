@@ -35,6 +35,8 @@ public class HmsDbContext : DbContext
     public DbSet<NurseTask> NurseTasks => Set<NurseTask>();
     public DbSet<Bed> Beds => Set<Bed>();
     public DbSet<BedAssignment> BedAssignments => Set<BedAssignment>();
+    public DbSet<Invoice> Invoices => Set<Invoice>();
+    public DbSet<InvoiceItem> InvoiceItems => Set<InvoiceItem>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {

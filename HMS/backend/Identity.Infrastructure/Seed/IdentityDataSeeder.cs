@@ -50,6 +50,9 @@ public sealed class IdentityDataSeeder
             ["Appointments.Create"] = "Creates appointments.",
             ["Appointments.ManageStatus"] = "Manages appointment status.",
             ["Invoices.Read"] = "Reads invoices.",
+            ["Invoices.Create"] = "Creates invoices.",
+            ["Invoices.Update"] = "Updates invoices.",
+            ["Invoices.Cancel"] = "Cancels invoices.",
             ["Payments.ConfirmCash"] = "Confirms cash payments.",
             ["LabResults.Read"] = "Reads lab results.",
             ["Encounters.Create"] = "Creates encounters.",
@@ -105,6 +108,7 @@ public sealed class IdentityDataSeeder
             "Appointments.Read", "Appointments.Create", "Appointments.ManageStatus",
             "Encounters.Create", "Encounters.Read", "Encounters.Update", "Encounters.Close",
             "Diagnoses.Manage",
+            "Invoices.Read", "Invoices.Create", "Invoices.Update", "Invoices.Cancel",
             "Prescriptions.Read", "Prescriptions.Create", "Prescriptions.Update", "Prescriptions.Delete",
             "Medications.Read", "Medications.Create", "Medications.Update", "Medications.Delete",
             "LabTests.Read", "LabTests.Create", "LabTests.Update", "LabTests.Delete",
@@ -117,7 +121,8 @@ public sealed class IdentityDataSeeder
         [
             "Patients.Register", "Patients.Read", "Patients.Update", "Patients.Delete",
             "Appointments.Read", "Appointments.Create", "Appointments.ManageStatus",
-            "Invoices.Read", "Payments.ConfirmCash",
+            "Invoices.Read", "Invoices.Create", "Invoices.Update", "Invoices.Cancel",
+            "Payments.ConfirmCash",
             "LabResults.Read",
             "LabTests.Read",
             "Beds.Read", "Beds.Assign", "Beds.Release"
