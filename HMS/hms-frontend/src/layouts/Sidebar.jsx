@@ -10,6 +10,7 @@ import {
   PanelLeftClose,
   PanelLeftOpen,
   Pill,
+  ReceiptText,
   Stethoscope,
   UserCog,
   UserRoundCog,
@@ -34,6 +35,7 @@ export default function Sidebar() {
   const canReadLabRequests = auth.hasPermission("LabRequests.Read");
   const canReadNurseTasks = auth.hasPermission("NurseTasks.Read");
   const canReadBeds = auth.hasPermission("Beds.Read");
+  const canReadInvoices = auth.hasPermission("Invoices.Read");
   const isAdmin = auth.hasRole("Admin");
   const isSuperAdmin = auth.hasRole("SuperAdmin");
   const isDoctor = auth.userRole === "Doctor";
@@ -180,7 +182,7 @@ export default function Sidebar() {
             </Section>
           )}
 
-        {isAdmin && (canReadMedications || canReadLabTests || canReadLabRequests) && (
+        {isAdmin && (canReadMedications || canReadLabTests || canReadLabRequests || canReadInvoices) && (
           <Section title="Operations" collapsed={collapsed}>
             {canReadMedications && (
               <NavLink
@@ -206,6 +208,15 @@ export default function Sidebar() {
                 icon={FlaskConical}
                 label="Lab Requests"
                 className={linkClass("/lab-requests")}
+                collapsed={collapsed}
+              />
+            )}
+            {canReadInvoices && (
+              <NavLink
+                to="/invoices"
+                icon={ReceiptText}
+                label="Invoices"
+                className={linkClass("/invoices")}
                 collapsed={collapsed}
               />
             )}
@@ -295,7 +306,7 @@ export default function Sidebar() {
           </Section>
         )}
 
-        {!isAdmin && (canReadMedications || canReadLabTests || canReadLabRequests) && (
+        {!isAdmin && (canReadMedications || canReadLabTests || canReadLabRequests || canReadInvoices) && (
           <Section title="Operations" collapsed={collapsed}>
             {canReadMedications && (
               <NavLink
@@ -321,6 +332,15 @@ export default function Sidebar() {
                 icon={FlaskConical}
                 label="Lab Requests"
                 className={linkClass("/lab-requests")}
+                collapsed={collapsed}
+              />
+            )}
+            {canReadInvoices && (
+              <NavLink
+                to="/invoices"
+                icon={ReceiptText}
+                label="Invoices"
+                className={linkClass("/invoices")}
                 collapsed={collapsed}
               />
             )}
