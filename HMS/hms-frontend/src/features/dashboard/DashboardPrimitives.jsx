@@ -1,3 +1,4 @@
+import { useEffect, useMemo, useRef, useState } from "react";
 import { AlertCircle, Bell, LayoutDashboard, RefreshCw, Search } from "lucide-react";
 import QuickAddMenu from "@/features/dashboard/QuickAddMenu";
 import { initials } from "@/features/dashboard/dashboardUtils";
@@ -152,4 +153,65 @@ export function EmptyState({ children = "No records found." }) {
       <p className="text-sm text-slate-600">{children}</p>
     </div>
   );
+}
+
+export function CountUpValue({
+  value,
+  durationMs = 650,
+  precision = 0,
+  locale,
+  options,
+  className,
+}) {
+  const targetNumber = useMemo(() => {
+    if (typeof value === "number") return value;
+    if (value == null) return 0;
+    const coerced = Number(value);
+    return Number.isFinite(coerced) ? coerced : 0;
+  }, [value]);
+
+  const [displayValue, setDisplayValue] = useState(targetNumber);
+  const rafRef = useRef(0);
+  const startTimeRef = useRef(0);
+  const fromRef = useRef(targetNumber);
+
+  useEffect(() => {
+    cancelAnimationFrame(rafRef.current);
+    fromRef.current = displayValue;
+    startTimeRef.current = performance.now();
+
+    const tick = (now) => {
+      const elapsed = now - startTimeRef.current;
+      const t = Math.min(1, durationMs > 0 ? elapsed / durationMs : 1);
+      const eased = 1 - Math.pow(1 - t, 3);
+      const next = fromRef.current + (targetNumber - fromRef.current) * eased;
+      setDisplayValue(next);
+      if (t < 1) rafRef.current = requestAnimationFrame(tick);
+    };
+
+    rafRef.current = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(rafRef.current);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [targetNumber, durationMs]);
+
+  const formatted = useMemo(() => {
+    const resolvedPrecision =
+      typeof options?.maximumFractionDigits === "number" ? options.maximumFractionDigits : precision;
+
+    const formatter = new Intl.NumberFormat(locale, {
+      maximumFractionDigits: resolvedPrecision,
+      minimumFractionDigits:
+        typeof options?.minimumFractionDigits === "number"
+          ? options.minimumFractionDigits
+          : Math.min(0, resolvedPrecision),
+      ...options,
+    });
+
+    const rounded =
+      resolvedPrecision <= 0 ? Math.round(displayValue) : Number(displayValue.toFixed(resolvedPrecision));
+
+    return formatter.format(rounded);
+  }, [displayValue, locale, options, precision]);
+
+  return <span className={className}>{formatted}</span>;
 }
