@@ -37,11 +37,11 @@ export default function QuickAddMenu({ actions }) {
   };
 
   return (
-    <div className="relative" ref={ref}>
+    <div className="relative sm:shrink-0" ref={ref}>
       <button
         type="button"
         onClick={() => setOpen((value) => !value)}
-        className="inline-flex h-11 items-center justify-center gap-2 rounded-lg bg-blue-600 px-4 text-sm font-semibold text-white shadow-sm shadow-blue-700/20 transition hover:bg-blue-500"
+        className="inline-flex h-11 w-full items-center justify-center gap-2 rounded-lg bg-blue-600 px-4 text-sm font-semibold text-white shadow-sm shadow-blue-700/20 transition hover:bg-blue-500 sm:w-auto"
         aria-haspopup="menu"
         aria-expanded={open}
       >
@@ -52,7 +52,7 @@ export default function QuickAddMenu({ actions }) {
       {open && (
         <div
           role="menu"
-          className="absolute right-0 top-full z-50 mt-2 w-56 rounded-lg border border-slate-200 bg-white p-1.5 shadow-lg"
+          className="absolute right-0 top-full z-50 mt-2 w-56 max-w-[calc(100vw-2rem)] rounded-lg border border-slate-200 bg-white p-1.5 shadow-lg"
         >
           {availableActions.map((action) => {
             const Icon = icons[action.kind] ?? Plus;

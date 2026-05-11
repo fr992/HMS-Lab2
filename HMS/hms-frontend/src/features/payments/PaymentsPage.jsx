@@ -18,6 +18,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { useAuth } from "@/auth/AuthContext";
+import { CountUpValue } from "@/features/dashboard/DashboardPrimitives";
 import {
   confirmCashPayment,
   createPayment,
@@ -457,7 +458,9 @@ function SummaryTile({ label, value, helper, icon }) {
         <p className="text-sm font-medium text-slate-600">{label}</p>
         {icon}
       </div>
-      <p className="mt-2 text-2xl font-semibold text-slate-900">{value}</p>
+      <p className="mt-2 text-2xl font-semibold text-slate-900">
+        <CountUpValue value={value} />
+      </p>
       <p className="mt-1 text-xs font-medium text-slate-500">{helper}</p>
     </div>
   );
@@ -915,7 +918,10 @@ function NewPaymentModal({ form, error, saving, onChange, onClose, onSubmit }) {
   }
 
   function chooseInvoice(invoice) {
-    onChange({ invoiceId: String(invoice.id) });
+    onChange({
+      invoiceId: String(invoice.id),
+      amount: String(Number(invoice.totalAmount) || ""),
+    });
     setInvoiceQuery(invoiceLabel(invoice));
     setInvoiceOpen(false);
   }

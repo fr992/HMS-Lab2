@@ -32,6 +32,8 @@ import {
   fetchBeds,
   getApiErrorMessage as getBedApiErrorMessage,
 } from "@/features/bedAssignments/api/bedAssignmentsApi";
+import InvoiceFormDialog from "@/features/invoices/components/InvoiceFormDialog";
+import { formatMoney } from "@/features/invoices/invoiceFormat";
 
 const ENCOUNTER_TYPES = [
   { value: "outpatient", label: "Outpatient" },
@@ -227,6 +229,7 @@ export default function EncounterPanelPage() {
   const [nurseTaskForm, setNurseTaskForm] = useState(EMPTY_NURSE_TASK_FORM);
   const [bedAssignForm, setBedAssignForm] = useState(EMPTY_BED_ASSIGN_FORM);
   const [bedDialogError, setBedDialogError] = useState("");
+  const [invoiceDialogOpen, setInvoiceDialogOpen] = useState(false);
 
   useEffect(() => {
     void loadPanel(encounterId);
@@ -395,12 +398,21 @@ export default function EncounterPanelPage() {
   const canReadNurseTasks = auth.hasPermission("NurseTasks.Read");
   const canReadBeds = auth.hasPermission("Beds.Read");
   const canReadNurses = auth.hasPermission("Nurses.Read");
+  const canCreateInvoice = auth.hasPermission("Invoices.Create");
   const listPath =
     auth.userRole === "Admin" ? "/admin/encounters" : "/doctor/encounters";
   const prescriptionPaging = pageItems(prescriptions, prescriptionPage);
   const labRequestPaging = pageItems(labRequests, labRequestPage);
   const filteredMedications = filterMedications(medications, medicationSearch);
   const filteredLabTests = filterLabTests(labTests, labTestSearch);
+  const labTestPriceById = new Map(
+    labTests.map((test) => [Number(test.id), Number(test.price) || 0])
+  );
+  const invoiceInitialItems = buildEncounterInvoiceItems(
+    encounter,
+    labRequests,
+    labTestPriceById
+  );
 
 
   function beginEditEncounter() {
@@ -791,6 +803,31 @@ export default function EncounterPanelPage() {
           onCreateDiagnosis={createDiagnosis}
       />
 
+      {canCreateInvoice && (
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between gap-3">
+            <CardTitle>Invoices</CardTitle>
+            <Button type="button" size="sm" variant="outline" onClick={() => setInvoiceDialogOpen(true)}>
+              <Plus className="mr-2 h-4 w-4" aria-hidden />
+              Generate Invoice
+            </Button>
+          </CardHeader>
+          <CardContent>
+            <p className="text-sm text-muted-foreground">
+              Generate an invoice for this encounter. Lab request items with catalog prices are prefilled automatically.
+            </p>
+            {invoiceInitialItems.length > 0 && (
+              <p className="mt-2 text-sm font-medium text-slate-700">
+                Estimated billable items: {invoiceInitialItems.length} · {formatMoney(
+                  invoiceInitialItems.reduce((sum, item) => sum + Number(item.unitPrice || 0), 0),
+                  "EUR"
+                )}
+              </p>
+            )}
+          </CardContent>
+        </Card>
+      )}
+
       <Card>
         <CardHeader>
           <CardTitle>Prescriptions</CardTitle>
@@ -875,8 +912,45 @@ export default function EncounterPanelPage() {
           onChange={(patch) => setBedAssignForm((current) => ({ ...current, ...patch }))}
         />
       )}
+
+      <InvoiceFormDialog
+        open={invoiceDialogOpen}
+        onOpenChange={setInvoiceDialogOpen}
+        initialPatient={patient}
+        initialEncounter={encounter}
+        initialItems={invoiceInitialItems}
+      />
     </div>
   );
+}
+
+function buildEncounterInvoiceItems(encounter, labRequests, labTestPriceById) {
+  const items = [
+    {
+      description: `Encounter: ${encounter.encounterNumber || encounter.encounterType || "Visit"}`,
+      category: "consultation",
+      quantity: 1,
+      unitPrice: 0,
+      sourceType: "encounter",
+      sourceId: encounter.id,
+    },
+  ];
+
+  for (const request of labRequests ?? []) {
+    for (const item of request.items ?? []) {
+      const price = labTestPriceById.get(Number(item.labTestId)) || 0;
+      items.push({
+        description: `Lab: ${item.testName || item.testCode || `Test #${item.labTestId}`}`,
+        category: "lab",
+        quantity: 1,
+        unitPrice: price,
+        sourceType: "lab_test",
+        sourceId: item.labTestId,
+      });
+    }
+  }
+
+  return items;
 }
 
 function CurrentBedCard({ bed, loading, error, canAssign, onAssign }) {
@@ -1584,6 +1658,10 @@ function LabRequestForm({
   onLabTestSearchChange,
   onSubmit,
 }) {
+  const selectedTotal = labTests
+    .filter((test) => form.selectedTestIds.includes(String(test.id)))
+    .reduce((sum, test) => sum + (Number(test.price) || 0), 0);
+
   function toggleTest(testId) {
     const id = String(testId);
     const selected = form.selectedTestIds.includes(id);
@@ -1652,6 +1730,9 @@ function LabRequestForm({
                   {[test.specimenType, test.description].filter(Boolean).join(" | ") || "No details"}
                 </span>
               </span>
+              <span className="shrink-0 text-sm font-semibold text-slate-700">
+                {formatMoney(test.price || 0, "EUR")}
+              </span>
             </label>
           ))}
 
@@ -1661,6 +1742,14 @@ function LabRequestForm({
       </div>
 
       {labTestsError && <p className="text-xs text-rose-600">{labTestsError}</p>}
+
+      {form.selectedTestIds.length > 0 && (
+        <div className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-700">
+          Selected tests: <span className="font-semibold">{form.selectedTestIds.length}</span>
+          <span className="mx-2 text-slate-300">|</span>
+          Estimated lab total: <span className="font-semibold">{formatMoney(selectedTotal, "EUR")}</span>
+        </div>
+      )}
 
       <Textarea
         placeholder="Clinical notes"

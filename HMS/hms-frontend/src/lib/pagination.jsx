@@ -1,6 +1,7 @@
 /* eslint-disable react-refresh/only-export-components */
 
-export const DEFAULT_PAGE_SIZE = 25;
+export const MAX_LIST_PAGE_SIZE = 30;
+export const DEFAULT_PAGE_SIZE = MAX_LIST_PAGE_SIZE;
 
 export function getPagedItems(data) {
   return Array.isArray(data) ? data : data?.items ?? [];
@@ -25,6 +26,27 @@ export function getPagination(data) {
     totalPages: data.totalPages ?? 0,
     hasNextPage: Boolean(data.hasNextPage),
     hasPreviousPage: Boolean(data.hasPreviousPage),
+  };
+}
+
+export function paginateArray(items, page = 1, pageSize = MAX_LIST_PAGE_SIZE) {
+  const source = Array.isArray(items) ? items : [];
+  const safePageSize = Math.min(Math.max(Number(pageSize) || DEFAULT_PAGE_SIZE, 1), MAX_LIST_PAGE_SIZE);
+  const totalCount = source.length;
+  const totalPages = Math.max(1, Math.ceil(totalCount / safePageSize));
+  const safePage = Math.min(Math.max(Number(page) || 1, 1), totalPages);
+  const start = (safePage - 1) * safePageSize;
+
+  return {
+    items: source.slice(start, start + safePageSize),
+    pagination: {
+      page: safePage,
+      pageSize: safePageSize,
+      totalCount,
+      totalPages,
+      hasNextPage: safePage < totalPages,
+      hasPreviousPage: safePage > 1,
+    },
   };
 }
 

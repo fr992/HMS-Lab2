@@ -13,6 +13,7 @@ import {
   X,
 } from "lucide-react";
 import { useAuth } from "@/auth/AuthContext";
+import { CountUpValue } from "@/features/dashboard/DashboardPrimitives";
 import { fetchPatients } from "@/features/patients/patientsApi";
 import {
   assignBed,
@@ -664,7 +665,9 @@ function SummaryCard({ stat }) {
       <div className="flex items-center justify-between gap-4">
         <div>
           <p className="text-sm font-medium text-slate-600">{stat.label}</p>
-          <p className="mt-2 text-3xl font-semibold tracking-tight text-slate-950">{stat.value}</p>
+          <p className="mt-2 text-3xl font-semibold tracking-tight text-slate-950">
+            <CountUpValue value={stat.value} />
+          </p>
         </div>
         <div className={`flex size-12 items-center justify-center rounded-xl ${tones[stat.tone]}`}>
           <Icon className="size-5" aria-hidden />

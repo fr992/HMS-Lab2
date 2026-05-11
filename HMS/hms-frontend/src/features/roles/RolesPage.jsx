@@ -16,7 +16,8 @@ import {
   X,
 } from "lucide-react";
 import apiClient from "@/api/apiClient";
-import { getPagedItems } from "@/lib/pagination.jsx";
+import { CountUpValue } from "@/features/dashboard/DashboardPrimitives";
+import { MAX_LIST_PAGE_SIZE, PaginationBar, getPagedItems, paginateArray } from "@/lib/pagination.jsx";
 
 const SYSTEM_ROLES = new Set([
   "SuperAdmin",
@@ -71,6 +72,7 @@ export default function RolesPage() {
   const [activeRole, setActiveRole] = useState(null);
   const [deleteId, setDeleteId] = useState(null);
   const [form, setForm] = useState(emptyForm);
+  const [page, setPage] = useState(1);
 
   const showToast = useCallback((message, type = "success") => {
     setToast({ message, type });
@@ -137,6 +139,11 @@ export default function RolesPage() {
       },
     ],
     [roles, permissions]
+  );
+
+  const rolePage = useMemo(
+    () => paginateArray(roles, page, MAX_LIST_PAGE_SIZE),
+    [roles, page]
   );
 
   function openCreate() {
@@ -289,7 +296,7 @@ export default function RolesPage() {
           </div>
         ) : (
           <div className="grid gap-4 xl:grid-cols-2">
-            {roles.map((role) => (
+            {rolePage.items.map((role) => (
               <RoleCard
                 key={role.id}
                 role={role}
@@ -305,6 +312,7 @@ export default function RolesPage() {
             ))}
           </div>
         )}
+        <PaginationBar pagination={rolePage.pagination} loading={loading} onPageChange={setPage} />
       </section>
 
       {dialogMode && (
@@ -339,7 +347,7 @@ function StatCard({ stat }) {
         <div>
           <p className="text-sm font-medium text-slate-600">{stat.label}</p>
           <p className="mt-1.5 text-3xl font-semibold tracking-tight text-slate-950">
-            {stat.value}
+            <CountUpValue value={stat.value} />
           </p>
         </div>
         <div className={`flex size-12 items-center justify-center rounded-xl ${tones[stat.tone]}`}>
@@ -383,12 +391,14 @@ function RoleCard({
       <div className="mt-4 grid grid-cols-2 border-y border-slate-200 py-3">
         <div>
           <p className="text-sm text-slate-500">Users</p>
-          <p className="mt-1 text-lg font-semibold text-slate-950">{userCount}</p>
+          <p className="mt-1 text-lg font-semibold text-slate-950">
+            <CountUpValue value={userCount} />
+          </p>
         </div>
         <div>
           <p className="text-sm text-slate-500">Permissions</p>
           <p className="mt-1 text-lg font-semibold text-slate-950">
-            {role.permissionNames?.length ?? 0}
+            <CountUpValue value={role.permissionNames?.length ?? 0} />
             {isSuperAdmin && " (all)"}
           </p>
         </div>

@@ -22,9 +22,12 @@ import {
   ShieldCheck,
 } from "lucide-react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
+import { HOSPITAL_LOGO_PATH, HOSPITAL_NAME, HOSPITAL_TAGLINE } from "@/config/branding";
 
 export default function Sidebar() {
-  const [collapsed, setCollapsed] = useState(false);
+  const [collapsed, setCollapsed] = useState(() =>
+    typeof window === "undefined" ? false : window.innerWidth < 900
+  );
   const auth = useAuth();
   const { pathname } = useLocation();
   const navigate = useNavigate();
@@ -57,6 +60,7 @@ export default function Sidebar() {
   };
 
   const handleLogout = () => {
+    window.sessionStorage.setItem("hms.logout.redirect", "/");
     auth.logout();
     navigate("/", { replace: true });
   };
@@ -82,16 +86,16 @@ export default function Sidebar() {
               collapsed ? "justify-center" : "",
             ].join(" ")}
           >
-            <div className="flex size-10 items-center justify-center rounded-lg bg-blue-600 text-white shadow-lg shadow-blue-950/25">
-              <Stethoscope className="size-5" />
+            <div className="flex size-10 items-center justify-center overflow-hidden rounded-lg bg-white shadow-lg shadow-blue-950/25">
+              <img src={HOSPITAL_LOGO_PATH} alt="" className="size-9 object-contain" />
             </div>
             {!collapsed && (
               <div className="min-w-0">
                 <p className="truncate text-base font-semibold leading-tight">
-                  HMS
+                  {HOSPITAL_NAME}
                 </p>
                 <p className="text-xs font-medium text-slate-400">
-                  Hospital Management
+                  {HOSPITAL_TAGLINE}
                 </p>
               </div>
             )}
@@ -296,6 +300,33 @@ export default function Sidebar() {
                 icon={ClipboardList}
                 label="My Encounters"
                 className={linkClass("/patient/encounters")}
+                collapsed={collapsed}
+              />
+            )}
+            {isPatient && (
+              <NavLink
+                to="/patient/dashboard#appointments"
+                icon={CalendarDays}
+                label="My Appointments"
+                className={linkClass("/patient/dashboard#appointments")}
+                collapsed={collapsed}
+              />
+            )}
+            {isPatient && (
+              <NavLink
+                to="/patient/dashboard#invoices"
+                icon={ReceiptText}
+                label="My Invoices"
+                className={linkClass("/patient/dashboard#invoices")}
+                collapsed={collapsed}
+              />
+            )}
+            {isPatient && (
+              <NavLink
+                to="/patient/dashboard#lab-results"
+                icon={FlaskConical}
+                label="My Lab Results"
+                className={linkClass("/patient/dashboard#lab-results")}
                 collapsed={collapsed}
               />
             )}

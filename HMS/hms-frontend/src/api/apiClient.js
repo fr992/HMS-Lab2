@@ -32,7 +32,10 @@ apiClient.interceptors.response.use(
       !url.includes("/auth/refresh")
     ) {
       clearSession();
-      window.location.assign("/login");
+      const redirectTo =
+        window.sessionStorage.getItem("hms.logout.redirect") || "/login";
+      window.sessionStorage.removeItem("hms.logout.redirect");
+      window.location.assign(redirectTo);
     }
     return Promise.reject(error);
   }

@@ -13,6 +13,8 @@ import {
   XCircle,
 } from "lucide-react";
 import { useAuth } from "@/auth/AuthContext";
+import { CountUpValue } from "@/features/dashboard/DashboardPrimitives";
+import { MAX_LIST_PAGE_SIZE, PaginationBar, paginateArray } from "@/lib/pagination.jsx";
 import {
   APPOINTMENT_REQUEST_STATUS,
   fetchAppointmentRequests,
@@ -114,7 +116,9 @@ function SummaryTile({ label, value, icon }) {
         <p className="text-sm font-medium text-slate-600">{label}</p>
         {icon}
       </div>
-      <p className="mt-2 text-2xl font-semibold text-slate-900">{value}</p>
+      <p className="mt-2 text-2xl font-semibold text-slate-900">
+        <CountUpValue value={value} />
+      </p>
     </div>
   );
 }
@@ -155,6 +159,7 @@ export default function AppointmentRequestsPage() {
   const [error, setError] = useState(null);
   const [toast, setToast] = useState(null);
   const [mutatingId, setMutatingId] = useState(null);
+  const [page, setPage] = useState(1);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -220,6 +225,15 @@ export default function AppointmentRequestsPage() {
     }
     return next;
   }, [items]);
+
+  useEffect(() => {
+    setPage(1);
+  }, [search, statusFilter, preferredDate]);
+
+  const requestPage = useMemo(
+    () => paginateArray(filteredItems, page, MAX_LIST_PAGE_SIZE),
+    [filteredItems, page]
+  );
 
   const updateStatus = async (request, nextStatus) => {
     if (!canManageStatus || mutatingId != null) return;
@@ -410,7 +424,7 @@ export default function AppointmentRequestsPage() {
           </div>
         ) : (
           <div className="divide-y divide-slate-100">
-            {filteredItems.map((request) => {
+            {requestPage.items.map((request) => {
               const actions = getNextActions(request.status);
               const busy = mutatingId === request.id;
               return (
@@ -492,6 +506,7 @@ export default function AppointmentRequestsPage() {
             })}
           </div>
         )}
+        <PaginationBar pagination={requestPage.pagination} loading={loading} onPageChange={setPage} />
       </div>
     </div>
   );

@@ -3,10 +3,14 @@ import Sidebar from "@/layouts/Sidebar";
 
 export default function AdminLayout() {
   const { pathname } = useLocation();
-  const isDashboard = pathname === "/admin" || pathname === "/admin/dashboard";
+  const isDashboard =
+    pathname === "/admin" ||
+    pathname === "/admin/dashboard" ||
+    pathname === "/staff/dashboard" ||
+    pathname.endsWith("/dashboard");
 
   return (
-    <div className="flex h-screen w-full max-w-full gap-3 overflow-hidden bg-slate-100 p-3 text-slate-900">
+    <div className="flex h-screen w-full max-w-full gap-2 overflow-hidden bg-slate-100 p-2 text-slate-900 sm:gap-3 sm:p-3">
       <Sidebar />
       <main className="scrollbar-none min-h-0 min-w-0 flex-1 overflow-y-auto rounded-lg bg-slate-50">
         <div

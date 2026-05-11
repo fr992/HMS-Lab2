@@ -12,6 +12,8 @@ import {
   X,
 } from "lucide-react";
 import { useAuth } from "@/auth/AuthContext";
+import { CountUpValue } from "@/features/dashboard/DashboardPrimitives";
+import { MAX_LIST_PAGE_SIZE, PaginationBar, paginateArray } from "@/lib/pagination.jsx";
 import {
   completeNurseTask,
   createNurseTask,
@@ -104,6 +106,7 @@ export default function NurseTasksPage() {
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
   const [priorityFilter, setPriorityFilter] = useState("all");
+  const [page, setPage] = useState(1);
   const [dialogMode, setDialogMode] = useState(null);
   const [activeTask, setActiveTask] = useState(null);
   const [form, setForm] = useState(EMPTY_FORM);
@@ -172,6 +175,15 @@ export default function NurseTasksPage() {
       { label: "Overdue", value: overdue.length, icon: Clock3, tone: "rose" },
     ];
   }, [items]);
+
+  useEffect(() => {
+    setPage(1);
+  }, [search, statusFilter, priorityFilter]);
+
+  const taskPage = useMemo(
+    () => paginateArray(filteredItems, page, MAX_LIST_PAGE_SIZE),
+    [filteredItems, page]
+  );
 
   function openCreate() {
     setActiveTask(null);
@@ -386,7 +398,7 @@ export default function NurseTasksPage() {
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100 bg-white">
-              {filteredItems.map((task) => {
+              {taskPage.items.map((task) => {
                 const meta = statusMeta(task.status);
                 const StatusIcon = meta.icon;
                 const completed = normalize(task.status) === "completed";
@@ -462,6 +474,7 @@ export default function NurseTasksPage() {
             </tbody>
           </table>
         )}
+        <PaginationBar pagination={taskPage.pagination} loading={loading} onPageChange={setPage} />
       </div>
 
       {dialogMode && (
@@ -492,7 +505,9 @@ function StatCard({ stat }) {
       <div className="flex items-center justify-between gap-4">
         <div>
           <p className="text-sm font-medium text-slate-600">{stat.label}</p>
-          <p className="mt-2 text-3xl font-semibold tracking-tight text-slate-950">{stat.value}</p>
+          <p className="mt-2 text-3xl font-semibold tracking-tight text-slate-950">
+            <CountUpValue value={stat.value} />
+          </p>
         </div>
         <div className={`flex size-12 items-center justify-center rounded-xl ${tones[stat.tone]}`}>
           <Icon className="size-5" aria-hidden />

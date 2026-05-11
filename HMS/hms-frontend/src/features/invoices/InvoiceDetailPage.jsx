@@ -5,6 +5,7 @@ import {
   CalendarClock,
   FileText,
   Loader2,
+  Printer,
   ReceiptText,
   Stethoscope,
   UserRound,
@@ -13,6 +14,7 @@ import {
 import { fetchInvoiceById, getApiErrorMessage } from "@/features/invoices/api/invoicesApi";
 import InvoiceStatusBadge from "@/features/invoices/components/InvoiceStatusBadge";
 import { formatDate, formatMoney, titleCase } from "@/features/invoices/invoiceFormat";
+import { printInvoicePdf } from "@/lib/pdfPrint";
 
 function formatDateTime(value) {
   if (!value) return "-";
@@ -119,13 +121,28 @@ export default function InvoiceDetailPage() {
         </div>
 
         {invoice && (
-          <div className="rounded-lg border border-slate-200 bg-white px-4 py-3 text-right shadow-sm">
-            <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
-              Total amount
-            </p>
-            <p className="mt-1 text-2xl font-semibold text-slate-950">
-              {formatMoney(invoice.totalAmount, invoice.currency)}
-            </p>
+          <div className="flex flex-col gap-2 sm:items-end">
+            <button
+              type="button"
+              onClick={() => {
+                const ok = printInvoicePdf(invoice);
+                if (!ok) {
+                  setError("Your browser blocked the PDF window. Please allow pop-ups for this app and try again.");
+                }
+              }}
+              className="inline-flex h-10 items-center justify-center gap-2 rounded-lg bg-sky-600 px-4 text-sm font-medium text-white shadow-sm transition hover:bg-sky-700"
+            >
+              <Printer className="h-4 w-4" aria-hidden />
+              View PDF
+            </button>
+            <div className="rounded-lg border border-slate-200 bg-white px-4 py-3 text-right shadow-sm">
+              <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                Total amount
+              </p>
+              <p className="mt-1 text-2xl font-semibold text-slate-950">
+                {formatMoney(invoice.totalAmount, invoice.currency)}
+              </p>
+            </div>
           </div>
         )}
       </div>

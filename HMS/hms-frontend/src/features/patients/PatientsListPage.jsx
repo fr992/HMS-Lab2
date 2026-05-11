@@ -11,6 +11,7 @@ import EmptyState from "@/features/patients/components/EmptyState";
 import ErrorState from "@/features/patients/components/ErrorState";
 import ConfirmDeleteModal from "@/features/patients/components/ConfirmDeleteModal";
 import PatientContactModal from "@/features/patients/components/PatientContactModal";
+import { MAX_LIST_PAGE_SIZE, PaginationBar, paginateArray } from "@/lib/pagination.jsx";
 
 function DoctorPatientSection({
   title,
@@ -20,24 +21,30 @@ function DoctorPatientSection({
   canDelete,
   onDelete,
   onOpenContacts,
+  totalCount,
+  pagination,
+  onPageChange,
 }) {
   return (
     <section className="space-y-3">
       <div className="flex items-center justify-between gap-3">
         <h2 className="text-sm font-semibold text-slate-900">{title}</h2>
         <span className="rounded-full bg-slate-100 px-2.5 py-1 text-xs font-medium text-slate-600">
-          {patients.length}
+          {totalCount}
         </span>
       </div>
 
       {patients.length > 0 ? (
-        <PatientTable
-          patients={patients}
-          canUpdate={canUpdate}
-          canDelete={canDelete}
-          onDelete={canDelete ? onDelete : undefined}
-          onOpenContacts={canUpdate ? onOpenContacts : undefined}
-        />
+        <div className="overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm">
+          <PatientTable
+            patients={patients}
+            canUpdate={canUpdate}
+            canDelete={canDelete}
+            onDelete={canDelete ? onDelete : undefined}
+            onOpenContacts={canUpdate ? onOpenContacts : undefined}
+          />
+          <PaginationBar pagination={pagination} loading={false} onPageChange={onPageChange} />
+        </div>
       ) : (
         <div className="rounded-lg border border-slate-200 bg-white p-8 text-center shadow-sm">
           <p className="text-sm text-slate-600">{emptyMessage}</p>
@@ -72,6 +79,9 @@ export default function PatientsListPage() {
   const [filterOpen, setFilterOpen] = useState(false);
   const [filterGender, setFilterGender] = useState("all");
   const [filterHasPortal, setFilterHasPortal] = useState("all");
+  const [page, setPage] = useState(1);
+  const [primaryPage, setPrimaryPage] = useState(1);
+  const [interactedPage, setInteractedPage] = useState(1);
 
   useEffect(() => {
     clearFeedback();
@@ -117,6 +127,25 @@ export default function PatientsListPage() {
       filterGender !== "all" ||
       filterHasPortal !== "all",
     [search, filterGender, filterHasPortal]
+  );
+
+  useEffect(() => {
+    setPage(1);
+    setPrimaryPage(1);
+    setInteractedPage(1);
+  }, [search, filterGender, filterHasPortal, isDoctor]);
+
+  const patientPage = useMemo(
+    () => paginateArray(filteredPatients, page, MAX_LIST_PAGE_SIZE),
+    [filteredPatients, page]
+  );
+  const primaryPatientPage = useMemo(
+    () => paginateArray(filteredPrimaryPatients, primaryPage, MAX_LIST_PAGE_SIZE),
+    [filteredPrimaryPatients, primaryPage]
+  );
+  const interactedPatientPage = useMemo(
+    () => paginateArray(filteredInteractedPatients, interactedPage, MAX_LIST_PAGE_SIZE),
+    [filteredInteractedPatients, interactedPage]
   );
 
   const clearListFilters = useCallback(() => {
@@ -203,22 +232,28 @@ export default function PatientsListPage() {
           <div className="space-y-6">
             <DoctorPatientSection
               title="My Primary Patients"
-              patients={filteredPrimaryPatients}
+              patients={primaryPatientPage.items}
               emptyMessage="No primary patients assigned yet."
               canUpdate={canUpdate}
               canDelete={canDelete}
               onDelete={showDelete}
               onOpenContacts={(id) => setContactId(id)}
+              totalCount={filteredPrimaryPatients.length}
+              pagination={primaryPatientPage.pagination}
+              onPageChange={setPrimaryPage}
             />
 
             <DoctorPatientSection
               title="Interacted Patients"
-              patients={filteredInteractedPatients}
+              patients={interactedPatientPage.items}
               emptyMessage="No interacted patients found yet."
               canUpdate={canUpdate}
               canDelete={canDelete}
               onDelete={showDelete}
               onOpenContacts={(id) => setContactId(id)}
+              totalCount={filteredInteractedPatients.length}
+              pagination={interactedPatientPage.pagination}
+              onPageChange={setInteractedPage}
             />
           </div>
         )}
@@ -243,13 +278,16 @@ export default function PatientsListPage() {
         )}
 
         {listStatus === "ready" && !isDoctor && items.length > 0 && filteredPatients.length > 0 && (
-          <PatientTable
-            patients={filteredPatients}
-            canUpdate={canUpdate}
-            canDelete={canDelete}
-            onDelete={canDelete ? showDelete : undefined}
-            onOpenContacts={canUpdate ? (id) => setContactId(id) : undefined}
-          />
+          <div className="overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm">
+            <PatientTable
+              patients={patientPage.items}
+              canUpdate={canUpdate}
+              canDelete={canDelete}
+              onDelete={canDelete ? showDelete : undefined}
+              onOpenContacts={canUpdate ? (id) => setContactId(id) : undefined}
+            />
+            <PaginationBar pagination={patientPage.pagination} loading={false} onPageChange={setPage} />
+          </div>
         )}
         {listStatus === "ready" && !isDoctor && items.length > 0 && filteredPatients.length === 0 && (
           <div className="rounded-lg border border-slate-200 bg-white p-8 text-center shadow-sm">

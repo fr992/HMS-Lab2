@@ -15,6 +15,8 @@ import {
   X,
 } from "lucide-react";
 import { useAuth } from "@/auth/AuthContext";
+import { CountUpValue } from "@/features/dashboard/DashboardPrimitives";
+import { MAX_LIST_PAGE_SIZE, PaginationBar, paginateArray } from "@/lib/pagination.jsx";
 import {
   createDoctorStaff,
   createNurseStaff,
@@ -192,6 +194,7 @@ export default function StaffManagementPage() {
   const [activeTab, setActiveTab] = useState("all");
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
+  const [page, setPage] = useState(1);
   const [dialog, setDialog] = useState({ type: null, staff: null });
   const [form, setForm] = useState(EMPTY_FORM);
   const [fieldErrors, setFieldErrors] = useState({});
@@ -288,6 +291,15 @@ export default function StaffManagementPage() {
       { label: "Receptionists", value: receptionCount, icon: UserRound, tone: "teal" },
     ];
   }, [staff]);
+
+  useEffect(() => {
+    setPage(1);
+  }, [activeTab, search, statusFilter]);
+
+  const staffPage = useMemo(
+    () => paginateArray(filteredStaff, page, MAX_LIST_PAGE_SIZE),
+    [filteredStaff, page]
+  );
 
   function openCreate() {
     setDialog({ type: "create", staff: null });
@@ -629,7 +641,7 @@ export default function StaffManagementPage() {
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100 bg-white">
-              {filteredStaff.map((member) => (
+              {staffPage.items.map((member) => (
                 <StaffRow
                   key={member.id}
                   member={member}
@@ -644,6 +656,7 @@ export default function StaffManagementPage() {
             </tbody>
           </table>
         )}
+        <PaginationBar pagination={staffPage.pagination} loading={loading} onPageChange={setPage} />
       </div>
 
       {(dialog.type === "create" || dialog.type === "edit") && (
@@ -685,7 +698,9 @@ function StatCard({ stat }) {
       <div className="flex items-center justify-between gap-4">
         <div>
           <p className="text-sm font-medium text-slate-600">{stat.label}</p>
-          <p className="mt-2 text-3xl font-semibold tracking-tight text-slate-950">{stat.value}</p>
+          <p className="mt-2 text-3xl font-semibold tracking-tight text-slate-950">
+            <CountUpValue value={stat.value} />
+          </p>
         </div>
         <div className={`flex size-12 items-center justify-center rounded-xl ${tones[stat.tone]}`}>
           <Icon className="size-5" aria-hidden />

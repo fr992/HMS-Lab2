@@ -9,6 +9,7 @@ import {
   Loader2,
   Paperclip,
   Plus,
+  Printer,
   ShieldCheck,
   Stethoscope,
   TestTube2,
@@ -24,6 +25,7 @@ import {
   publishLabResult,
   updateLabResult,
 } from "@/features/labRequests/api/labRequestsApi";
+import { printLabResultPdf } from "@/lib/pdfPrint";
 
 const STATUS_META = {
   requested: "bg-amber-50 text-amber-900 ring-amber-200",
@@ -840,6 +842,22 @@ export default function LabRequestDetailPage() {
                               <Download className="h-4 w-4" aria-hidden />
                             )}
                             Download
+                          </button>
+                        )}
+                        {canReadResults && (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              const ok = printLabResultPdf(result, request);
+                              if (!ok) {
+                                showToast("Your browser blocked the PDF window. Please allow pop-ups for this app and try again.", "error");
+                              }
+                            }}
+                            className="inline-flex h-8 items-center justify-center gap-1.5 rounded-lg border border-slate-200 bg-white px-2.5 text-xs font-medium text-slate-700 shadow-sm transition hover:bg-slate-50"
+                            title="View lab result PDF"
+                          >
+                            <Printer className="h-4 w-4" aria-hidden />
+                            PDF
                           </button>
                         )}
                         {canPublishResult && !result.verifiedAt && (

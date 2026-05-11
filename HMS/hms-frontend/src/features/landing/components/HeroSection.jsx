@@ -14,6 +14,7 @@ import {
   FALLBACK_LANDING_STATS,
 } from "@/features/landing/landingData";
 import { fetchLandingStats } from "@/features/landing/api/landingStatsApi";
+import { HOSPITAL_FULL_NAME } from "@/config/branding";
 
 const numberFormatter = new Intl.NumberFormat("en-US");
 
@@ -120,7 +121,7 @@ export default function HeroSection() {
           </h1>
 
           <p className="mt-6 max-w-2xl text-base leading-8 text-cyan-800/75 sm:text-lg">
-            City Hospital brings together specialist care, connected diagnostics,
+            {HOSPITAL_FULL_NAME} brings together specialist care, connected diagnostics,
             and coordinated teams so every patient journey feels clear from the
             first visit.
           </p>
@@ -188,7 +189,7 @@ function HospitalSnapshot({ stats }) {
 
       <div className="mt-5 flex items-center gap-3 rounded-md border border-blue-100 bg-blue-50 px-4 py-3 text-sm font-medium text-cyan-900">
         <CheckCircle2 className="size-4 shrink-0 text-blue-600" />
-        Registry data refreshed from HMS records.
+        Registry data refreshed from Nexora records.
       </div>
     </div>
   );

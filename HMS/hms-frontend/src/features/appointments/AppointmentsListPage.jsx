@@ -14,6 +14,8 @@ import {
   XCircle,
 } from "lucide-react";
 import { useAuth } from "@/auth/AuthContext";
+import { CountUpValue } from "@/features/dashboard/DashboardPrimitives";
+import { MAX_LIST_PAGE_SIZE, PaginationBar, paginateArray } from "@/lib/pagination.jsx";
 import {
   fetchAppointments,
   getApiErrorMessage,
@@ -288,7 +290,7 @@ function SummaryTile({ label, value, icon, tone = "slate" }) {
             {label}
           </p>
           <p className="mt-2 text-2xl font-semibold leading-none text-slate-950">
-            {value}
+            <CountUpValue value={value} />
           </p>
         </div>
         <span
@@ -500,6 +502,7 @@ export default function AppointmentsListPage() {
   const [listSegment, setListSegment] = useState("all");
   const [filterDate, setFilterDate] = useState("");
   const [selectedDay, setSelectedDay] = useState(null);
+  const [page, setPage] = useState(1);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -598,6 +601,15 @@ export default function AppointmentsListPage() {
         new Date(a.scheduledStart).getTime() - new Date(b.scheduledStart).getTime()
     );
   }, [filteredItems, view]);
+
+  useEffect(() => {
+    setPage(1);
+  }, [search, listSegment, filterDate, view]);
+
+  const listPage = useMemo(
+    () => paginateArray(sortedListItems, page, MAX_LIST_PAGE_SIZE),
+    [sortedListItems, page]
+  );
 
   return (
     <div className="flex h-full min-h-0 flex-1 flex-col gap-5">
@@ -843,8 +855,9 @@ export default function AppointmentsListPage() {
             </div>
           </div>
         ) : (
+          <>
           <ul className="flex flex-col gap-3">
-            {sortedListItems.map((appointment) => {
+            {listPage.items.map((appointment) => {
               const typePill = appointmentTypePill(appointment.appointmentType);
               const approval = approvalPillForList(appointment.status);
               const visitPill = visitStatusPillForList(appointment);
@@ -919,6 +932,8 @@ export default function AppointmentsListPage() {
               );
             })}
           </ul>
+          <PaginationBar pagination={listPage.pagination} loading={loading} onPageChange={setPage} />
+          </>
         )}
       </div>
 

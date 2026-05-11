@@ -11,6 +11,7 @@ import {
   X,
 } from "lucide-react";
 import apiClient from "@/api/apiClient";
+import { CountUpValue } from "@/features/dashboard/DashboardPrimitives";
 import { getPagedItems, getPagination, PaginationBar } from "@/lib/pagination.jsx";
 
 const emptyForm = {
@@ -438,7 +439,7 @@ function StatCard({ stat }) {
         <div>
           <p className="text-sm font-medium text-slate-600">{stat.label}</p>
           <p className="mt-1.5 text-3xl font-semibold tracking-tight text-slate-950">
-            {stat.value}
+            <CountUpValue value={stat.value} />
           </p>
         </div>
         <div className={`flex size-12 items-center justify-center rounded-xl ${tones[stat.tone]}`}>

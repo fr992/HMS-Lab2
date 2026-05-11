@@ -1,6 +1,7 @@
 import { Link, Outlet } from "react-router-dom";
 import { BriefcaseMedical, Clock3, LogIn, MapPin, Phone } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { HOSPITAL_FULL_NAME, HOSPITAL_LOGO_PATH, HOSPITAL_NAME } from "@/config/branding";
 
 const NAV_LINKS = [
   { href: "#leadership", label: "Services" },
@@ -15,12 +16,12 @@ export default function MainLayout() {
       <header className="sticky top-0 z-50 border-b border-cyan-100 bg-white/90 backdrop-blur-xl">
         <div className="mx-auto flex max-w-7xl flex-wrap items-center gap-3 px-6 py-4 lg:px-8">
           <a href="#home" className="flex items-center gap-3">
-            <span className="inline-flex size-9 items-center justify-center rounded-md bg-blue-600 text-white shadow-sm shadow-blue-700/20">
-              <BriefcaseMedical className="size-4" />
+            <span className="inline-flex size-9 items-center justify-center overflow-hidden rounded-md bg-white shadow-sm shadow-blue-700/20 ring-1 ring-cyan-100">
+              <img src={HOSPITAL_LOGO_PATH} alt="" className="size-8 object-contain" />
             </span>
             <span className="flex flex-col leading-none">
-              <span className="text-sm font-semibold text-cyan-950">HMS</span>
-              <span className="mt-1 text-xs font-medium text-cyan-700">City Hospital</span>
+              <span className="text-sm font-semibold text-cyan-950">{HOSPITAL_NAME}</span>
+              <span className="mt-1 text-xs font-medium text-cyan-700">Hospital</span>
             </span>
           </a>
 
@@ -61,7 +62,7 @@ export default function MainLayout() {
               <BriefcaseMedical className="size-4" />
             </span>
             <div>
-              <p className="font-semibold text-cyan-950">HMS City Hospital</p>
+              <p className="font-semibold text-cyan-950">{HOSPITAL_FULL_NAME}</p>
               <p className="mt-0.5 text-xs text-cyan-700/70">Copyright 2026. All rights reserved.</p>
             </div>
           </div>
@@ -69,7 +70,7 @@ export default function MainLayout() {
           <div className="flex flex-wrap items-center gap-x-5 gap-y-2 text-xs font-medium text-cyan-700/80">
             <span className="inline-flex items-center gap-1.5">
               <MapPin className="size-3.5 text-blue-600" />
-              City Hospital Campus
+              {HOSPITAL_NAME} Campus
             </span>
             <span className="inline-flex items-center gap-1.5">
               <Clock3 className="size-3.5 text-blue-600" />

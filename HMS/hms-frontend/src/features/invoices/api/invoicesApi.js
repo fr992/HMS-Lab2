@@ -26,6 +26,11 @@ export async function fetchInvoiceById(id) {
   return response.data;
 }
 
+export async function createInvoice(payload) {
+  const response = await apiClient.post("/invoices", payload);
+  return response.data;
+}
+
 export function getApiErrorMessage(error) {
   const data = error?.response?.data;
   if (typeof data === "string") return data;

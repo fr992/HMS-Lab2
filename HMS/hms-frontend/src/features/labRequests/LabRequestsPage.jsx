@@ -6,6 +6,7 @@ import {
   Clock3,
   FileText,
   FlaskConical,
+  Printer,
   RefreshCw,
   Search,
   TestTube2,
@@ -16,7 +17,9 @@ import {
   getApiErrorMessage,
   LAB_REQUEST_STATUS,
 } from "@/features/labRequests/api/labRequestsApi";
+import { CountUpValue } from "@/features/dashboard/DashboardPrimitives";
 import { getPagedItems, getPagination, PaginationBar } from "@/lib/pagination.jsx";
+import { printLabRequestSummaryPdf } from "@/lib/pdfPrint";
 
 const STATUS_OPTIONS = [
   { value: "all", label: "All statuses" },
@@ -114,14 +117,20 @@ function PriorityBadge({ priority }) {
   );
 }
 
-function SummaryTile({ label, value, icon }) {
+function SummaryTile({ label, value, icon, loading = false }) {
   return (
     <div className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
       <div className="flex items-center justify-between gap-3">
         <p className="text-sm font-medium text-slate-600">{label}</p>
         {icon}
       </div>
-      <p className="mt-2 text-2xl font-semibold text-slate-900">{value}</p>
+      <p className="mt-2 text-2xl font-semibold text-slate-900">
+        {loading ? (
+          <span className="block h-8 w-20 animate-pulse rounded bg-slate-200" />
+        ) : (
+          <CountUpValue value={value} />
+        )}
+      </p>
     </div>
   );
 }
@@ -152,6 +161,7 @@ export default function LabRequestsPage() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState("");
+  const [selectedIds, setSelectedIds] = useState([]);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -181,7 +191,36 @@ export default function LabRequestsPage() {
     return () => window.clearTimeout(timer);
   }, [load]);
 
+  useEffect(() => {
+    setSelectedIds((current) =>
+      current.filter((id) => items.some((item) => String(item.id) === String(id)))
+    );
+  }, [items]);
+
   const filteredItems = items;
+  const selectedRequests = useMemo(
+    () => filteredItems.filter((item) => selectedIds.includes(String(item.id))),
+    [filteredItems, selectedIds]
+  );
+  const allVisibleSelected = filteredItems.length > 0 && selectedIds.length === filteredItems.length;
+
+  function toggleRequest(id) {
+    const key = String(id);
+    setSelectedIds((current) =>
+      current.includes(key) ? current.filter((item) => item !== key) : [...current, key]
+    );
+  }
+
+  function toggleVisible() {
+    setSelectedIds(allVisibleSelected ? [] : filteredItems.map((item) => String(item.id)));
+  }
+
+  function handlePrintSelectedRequests() {
+    const ok = printLabRequestSummaryPdf(selectedRequests);
+    if (!ok) {
+      setError("Your browser blocked the PDF window. Please allow pop-ups for this app and try again.");
+    }
+  }
 
   const counts = useMemo(() => {
     const next = {
@@ -235,21 +274,25 @@ export default function LabRequestsPage() {
         <SummaryTile
           label="Total"
           value={counts.total}
+          loading={loading}
           icon={<Beaker className="h-4 w-4 text-slate-400" aria-hidden />}
         />
         <SummaryTile
           label="Requested"
           value={counts.requested}
+          loading={loading}
           icon={<Clock3 className="h-4 w-4 text-slate-400" aria-hidden />}
         />
         <SummaryTile
           label="Active"
           value={counts.sample_collected + counts.in_progress}
+          loading={loading}
           icon={<FlaskConical className="h-4 w-4 text-slate-400" aria-hidden />}
         />
         <SummaryTile
           label="Closed"
           value={counts.completed + counts.cancelled}
+          loading={loading}
           icon={<CheckCircle2 className="h-4 w-4 text-slate-400" aria-hidden />}
         />
       </div>
@@ -319,9 +362,42 @@ export default function LabRequestsPage() {
       )}
 
       <div className="scrollbar-none min-h-0 flex-1 overflow-auto rounded-lg border border-slate-200 bg-white shadow-sm">
+        {selectedIds.length > 0 && !loading && (
+          <div className="sticky top-0 z-10 flex flex-col gap-2 border-b border-slate-200 bg-sky-50 px-4 py-3 text-sm text-sky-950 sm:flex-row sm:items-center sm:justify-between">
+            <span className="font-semibold">
+              {selectedIds.length} lab request{selectedIds.length === 1 ? "" : "s"} selected
+            </span>
+            <div className="flex flex-wrap gap-2">
+              <button
+                type="button"
+                onClick={handlePrintSelectedRequests}
+                className="inline-flex h-9 items-center justify-center gap-2 rounded-lg bg-sky-600 px-3 text-sm font-medium text-white shadow-sm transition hover:bg-sky-700"
+              >
+                <Printer className="h-4 w-4" aria-hidden />
+                PDF selected
+              </button>
+              <button
+                type="button"
+                onClick={() => setSelectedIds([])}
+                className="h-9 rounded-lg border border-sky-200 bg-white px-3 text-sm font-medium text-sky-900 shadow-sm transition hover:bg-sky-100"
+              >
+                Clear
+              </button>
+            </div>
+          </div>
+        )}
         {loading ? (
-          <div className="flex min-h-[16rem] items-center justify-center text-sm text-slate-500">
-            Loading lab requests...
+          <div className="space-y-3 p-4">
+            {Array.from({ length: 8 }).map((_, index) => (
+              <div key={index} className="grid animate-pulse gap-3 rounded-lg border border-slate-100 p-3 md:grid-cols-[2rem_1fr_1fr_7rem_7rem_8rem]">
+                <div className="h-4 rounded bg-slate-100" />
+                <div className="h-4 rounded bg-slate-200" />
+                <div className="h-4 rounded bg-slate-100" />
+                <div className="h-4 rounded bg-slate-100" />
+                <div className="h-4 rounded bg-slate-100" />
+                <div className="h-4 rounded bg-slate-200" />
+              </div>
+            ))}
           </div>
         ) : filteredItems.length === 0 ? (
           <div className="flex min-h-[16rem] items-center justify-center p-8 text-center">
@@ -339,6 +415,15 @@ export default function LabRequestsPage() {
           <table className="min-w-full divide-y divide-slate-200 text-sm">
             <thead className="bg-slate-50 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">
               <tr>
+                <th className="w-10 px-4 py-3">
+                  <input
+                    type="checkbox"
+                    checked={allVisibleSelected}
+                    onChange={toggleVisible}
+                    aria-label="Select all visible lab requests"
+                    className="h-4 w-4 rounded border-slate-300 text-sky-600 focus:ring-sky-500"
+                  />
+                </th>
                 <th className="px-4 py-3">Request Number</th>
                 <th className="px-4 py-3">Patient</th>
                 <th className="px-4 py-3">Doctor</th>
@@ -351,6 +436,15 @@ export default function LabRequestsPage() {
             <tbody className="divide-y divide-slate-100 bg-white">
               {filteredItems.map((request) => (
                 <tr key={request.id} className="align-top transition hover:bg-slate-50/70">
+                  <td className="px-4 py-3">
+                    <input
+                      type="checkbox"
+                      checked={selectedIds.includes(String(request.id))}
+                      onChange={() => toggleRequest(request.id)}
+                      aria-label={`Select lab request ${request.requestNumber || request.id}`}
+                      className="h-4 w-4 rounded border-slate-300 text-sky-600 focus:ring-sky-500"
+                    />
+                  </td>
                   <td className="px-4 py-3 font-medium text-slate-900">
                     {request.requestNumber}
                   </td>
