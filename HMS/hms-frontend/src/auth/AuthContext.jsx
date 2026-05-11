@@ -61,9 +61,8 @@ export function AuthProvider({ children }) {
 
   const hasRole = useCallback(
     (roleName) =>
-      isSuperAdmin ||
       roles.some((role) => role.toLowerCase() === roleName.toLowerCase()),
-    [isSuperAdmin, roles]
+    [roles]
   );
 
   const loginSuccess = useCallback(

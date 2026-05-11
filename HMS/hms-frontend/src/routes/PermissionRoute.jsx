@@ -8,12 +8,14 @@ import { getAccessToken } from "@/auth/session";
  * @param {string[]=} props.anyPermission — user needs at least one
  * @param {string[]=} props.allPermissions — user needs every listed permission
  * @param {string=} props.requireRole
+ * @param {string[]=} props.anyRole
  */
 export default function PermissionRoute({
   children,
   anyPermission,
   allPermissions,
   requireRole,
+  anyRole,
 }) {
   const auth = useAuth();
   const token = getAccessToken();
@@ -22,8 +24,16 @@ export default function PermissionRoute({
     return <Navigate to="/login" replace />;
   }
 
-  if (requireRole && !auth.hasRole(requireRole)) {
+  const superAdminCanEnter =
+    auth.isSuperAdmin && ["Admin", "SuperAdmin"].includes(requireRole);
+
+  if (requireRole && !auth.hasRole(requireRole) && !superAdminCanEnter) {
     return <Navigate to="/unauthorized" replace />;
+  }
+
+  if (anyRole && anyRole.length > 0) {
+    const ok = anyRole.some((role) => auth.hasRole(role));
+    if (!ok) return <Navigate to="/unauthorized" replace />;
   }
 
   if (anyPermission && anyPermission.length > 0) {

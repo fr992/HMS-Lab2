@@ -2,8 +2,10 @@ import { BrowserRouter, Route, Routes } from "react-router-dom";
 import LoginPage from "@/pages/auth/LoginPage";
 import AdminLayout from "@/layouts/AdminLayout";
 import MainLayout from "@/layouts/MainLayout";
-import DashboardPage from "@/features/dashboard/DashboardPage";
 import DoctorDashboardPage from "@/features/dashboard/DoctorDashboardPage";
+import AdminOverviewDashboard from "@/features/dashboard/AdminOverviewDashboard";
+import PatientDashboardPage from "@/features/dashboard/PatientDashboardPage";
+import NurseDashboardPage from "@/features/dashboard/NurseDashboardPage";
 import UsersPage from "@/features/users/UsersPage";
 import RolesPage from "@/features/roles/RolesPage";
 import PermissionRoute from "@/routes/PermissionRoute";
@@ -54,7 +56,7 @@ export default function App() {
               </PermissionRoute>
             }
           >
-            <Route path="dashboard" element={<DashboardPage />} />
+            <Route path="dashboard" element={<AdminOverviewDashboard />} />
             <Route
               path="users"
               element={
@@ -244,6 +246,27 @@ export default function App() {
           </Route>
 
           <Route
+            path="/staff/dashboard"
+            element={
+              <PermissionRoute
+                anyPermission={[
+                  "Patients.Read",
+                  "Appointments.Read",
+                  "Invoices.Read",
+                  "Payments.Read",
+                  "LabRequests.Read",
+                  "LabResults.Read",
+                  "Beds.Read",
+                ]}
+              >
+                <AdminLayout />
+              </PermissionRoute>
+            }
+          >
+            <Route index element={<AdminOverviewDashboard />} />
+          </Route>
+
+          <Route
             path="/doctor"
             element={
               <PermissionRoute requireRole="Doctor">
@@ -278,16 +301,35 @@ export default function App() {
           </Route>
 
           <Route
-              path="/patient/encounters"
+            path="/nurse"
+            element={
+              <PermissionRoute anyRole={["Nurse", "Infermier"]}>
+                <AdminLayout />
+              </PermissionRoute>
+            }
+          >
+            <Route
+              path="dashboard"
+              element={
+                <PermissionRoute anyPermission={["NurseTasks.Read"]}>
+                  <NurseDashboardPage />
+                </PermissionRoute>
+              }
+            />
+          </Route>
+
+          <Route
+              path="/patient"
               element={
                 <PermissionRoute requireRole="Patient">
                   <AdminLayout />
                 </PermissionRoute>
               }
             >
-              <Route index element={<PatientEncountersListPage />} />
+              <Route path="dashboard" element={<PatientDashboardPage />} />
+              <Route path="encounters" element={<PatientEncountersListPage />} />
               <Route
-                path=":encounterId/diagnoses"
+                path="encounters/:encounterId/diagnoses"
                 element={<PatientEncounterDiagnosesPage />}
               />
           </Route>

@@ -23,10 +23,25 @@ function defaultPathForSession(token) {
 
   if (role === "Admin" || role === "SuperAdmin") return "/admin/dashboard";
   if (role === "Doctor") return "/doctor/dashboard";
-  if (role === "Patient") return "/patient/encounters";
+  if (role === "Nurse" || role === "Infermier") return "/nurse/dashboard";
+  if (role === "Patient") return "/patient/dashboard";
 
-  if (perms.includes("Patients.Read")) return "/patients";
-  if (perms.includes("LabRequests.Read")) return "/lab-requests";
+  if (perms.includes("NurseTasks.Read")) return "/nurse/dashboard";
+  if (
+    perms.some((permission) =>
+      [
+        "Patients.Read",
+        "Appointments.Read",
+        "Invoices.Read",
+        "Payments.Read",
+        "LabRequests.Read",
+        "LabResults.Read",
+        "Beds.Read",
+      ].includes(permission)
+    )
+  ) {
+    return "/staff/dashboard";
+  }
 
   return "/unauthorized";
 }

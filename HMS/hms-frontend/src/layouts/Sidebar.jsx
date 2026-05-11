@@ -38,10 +38,12 @@ export default function Sidebar() {
   const canReadBeds = auth.hasPermission("Beds.Read");
   const canReadInvoices = auth.hasPermission("Invoices.Read");
   const canReadPayments = auth.hasPermission("Payments.Read");
-  const isAdmin = auth.hasRole("Admin");
   const isSuperAdmin = auth.hasRole("SuperAdmin");
+  const isAdmin = auth.hasRole("Admin") || isSuperAdmin;
   const isDoctor = auth.userRole === "Doctor";
+  const isNurse = auth.hasRole("Nurse") || auth.hasRole("Infermier");
   const isPatient = auth.userRole === "Patient";
+  const isOperationalStaff = !isAdmin && !isDoctor && !isNurse && !isPatient;
 
   const linkClass = (to) => {
     const on = pathname === to || (to !== "/admin" && pathname.startsWith(to));
@@ -236,18 +238,46 @@ export default function Sidebar() {
 
         {!isAdmin &&
           (isPatient ||
+            isOperationalStaff ||
             canReadPatients ||
             canReadAppointments ||
             canReadEncounters ||
             canReadNurseTasks ||
             canReadBeds) && (
-          <Section title="Clinical" collapsed={collapsed}>
+          <Section title={isOperationalStaff ? "Overview" : "Clinical"} collapsed={collapsed}>
             {isDoctor && (
               <NavLink
                 to="/doctor/dashboard"
                 icon={LayoutDashboard}
                 label="Dashboard"
                 className={linkClass("/doctor/dashboard")}
+                collapsed={collapsed}
+              />
+            )}
+            {isNurse && (
+              <NavLink
+                to="/nurse/dashboard"
+                icon={LayoutDashboard}
+                label="Dashboard"
+                className={linkClass("/nurse/dashboard")}
+                collapsed={collapsed}
+              />
+            )}
+            {isPatient && (
+              <NavLink
+                to="/patient/dashboard"
+                icon={LayoutDashboard}
+                label="Dashboard"
+                className={linkClass("/patient/dashboard")}
+                collapsed={collapsed}
+              />
+            )}
+            {isOperationalStaff && (
+              <NavLink
+                to="/staff/dashboard"
+                icon={LayoutDashboard}
+                label="Dashboard"
+                className={linkClass("/staff/dashboard")}
                 collapsed={collapsed}
               />
             )}
