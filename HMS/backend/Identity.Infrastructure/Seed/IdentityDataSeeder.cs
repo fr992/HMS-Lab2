@@ -171,6 +171,24 @@ public sealed class IdentityDataSeeder
         ])
     ];
 
+    private static readonly (string Key, string Value, string Description)[] DefaultSettings =
+    [
+        ("hospital.name", "Nexora Hospital", "Primary hospital display name."),
+        ("hospital.email", "contact@nexora.local", "Public contact email for hospital communications."),
+        ("hospital.phone", "+1 (555) 123-4567", "Primary hospital contact phone number."),
+        ("hospital.address", "123 Medical Avenue, Healthcare City", "Primary hospital address."),
+        ("notifications.emailEnabled", "true", "Enables outbound email notifications."),
+        ("notifications.smsEnabled", "false", "Enables outbound SMS notifications."),
+        ("notifications.systemAlertsEnabled", "true", "Enables administrative system alert notifications."),
+        ("pharmacy.lowStockAlertsEnabled", "true", "Enables pharmacy low-stock alerts."),
+        ("appointments.defaultDurationMinutes", "30", "Default appointment duration in minutes."),
+        ("appointments.allowOnlineRequests", "true", "Allows patients to submit online appointment requests."),
+        ("security.sessionTimeoutMinutes", "120", "User session timeout in minutes."),
+        ("billing.currency", "USD", "Default billing currency."),
+        ("system.maintenanceMode", "false", "Temporarily places the portal in maintenance mode."),
+        ("system.auditRetentionDays", "365", "Number of days to retain audit logs.")
+    ];
+
     public IdentityDataSeeder(
         HmsDbContext db,
         IPasswordHasher<User> passwordHasher,
@@ -198,7 +216,35 @@ public sealed class IdentityDataSeeder
             _logger.LogWarning("Seed:AdminPassword is empty; bootstrap admin was not created.");
 
         await EnsureSuperAdminAssignmentAsync(cancellationToken);
+        await EnsureDefaultSettingsAsync(cancellationToken);
         await EnsureSampleAuditLogsIfEmptyAsync(cancellationToken);
+    }
+
+    private async Task EnsureDefaultSettingsAsync(CancellationToken cancellationToken)
+    {
+        var existingKeys = await _db.Settings
+            .AsNoTracking()
+            .Select(setting => setting.Key)
+            .ToListAsync(cancellationToken);
+
+        var existing = existingKeys.ToHashSet(StringComparer.Ordinal);
+        var now = DateTime.UtcNow;
+
+        foreach (var (key, value, description) in DefaultSettings)
+        {
+            if (existing.Contains(key))
+                continue;
+
+            _db.Settings.Add(new Setting
+            {
+                Key = key,
+                Value = value,
+                Description = description,
+                UpdatedAt = now
+            });
+        }
+
+        await _db.SaveChangesAsync(cancellationToken);
     }
 
     private async Task EnsureSampleAuditLogsIfEmptyAsync(CancellationToken cancellationToken)

@@ -65,6 +65,8 @@ public static class DependencyInjection
         services.AddScoped<IBedService, BedService>();
         services.AddScoped<IInvoiceService, InvoiceService>();
         services.AddScoped<IPaymentService, PaymentService>();
+        services.AddScoped<IMedicationsService, MedicationsService>();
+        services.AddScoped<ISettingsService, SettingsService>();
         return services;
     }
 }

@@ -35,6 +35,7 @@ import StaffManagementPage from "@/features/staff/StaffManagementPage";
 import InvoicesListPage from "@/features/invoices/InvoicesListPage";
 import InvoiceDetailPage from "@/features/invoices/InvoiceDetailPage";
 import PaymentsPage from "@/features/payments/PaymentsPage";
+import SettingsPage from "@/features/settings/SettingsPage";
 
 
 export default function App() {
@@ -70,6 +71,14 @@ export default function App() {
               element={
                 <PermissionRoute requireRole="SuperAdmin">
                   <RolesPage />
+                </PermissionRoute>
+              }
+            />
+            <Route
+              path="settings"
+              element={
+                <PermissionRoute anyPermission={["Settings.Manage"]}>
+                  <SettingsPage />
                 </PermissionRoute>
               }
             />

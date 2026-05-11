@@ -19,6 +19,7 @@ import {
   Users,
   BriefcaseMedical,
   FlaskConical,
+  Settings,
   ShieldCheck,
 } from "lucide-react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
@@ -41,6 +42,7 @@ export default function Sidebar() {
   const canReadBeds = auth.hasPermission("Beds.Read");
   const canReadInvoices = auth.hasPermission("Invoices.Read");
   const canReadPayments = auth.hasPermission("Payments.Read");
+  const canManageSettings = auth.hasPermission("Settings.Manage");
   const isSuperAdmin = auth.hasRole("SuperAdmin");
   const isAdmin = auth.hasRole("Admin") || isSuperAdmin;
   const isDoctor = auth.userRole === "Doctor";
@@ -428,29 +430,44 @@ export default function Sidebar() {
           </Section>
         )}
 
-        {isSuperAdmin && (
+        {(isSuperAdmin || canManageSettings) && (
           <Section title="Administration" collapsed={collapsed}>
-            <NavLink
-              to="/admin/users"
-              icon={UserCog}
-              label="Users"
-              className={linkClass("/admin/users")}
-              collapsed={collapsed}
-            />
-            <NavLink
-              to="/admin/staff"
-              icon={UserRoundCog}
-              label="Staff"
-              className={linkClass("/admin/staff")}
-              collapsed={collapsed}
-            />
-            <NavLink
-              to="/admin/roles"
-              icon={ShieldCheck}
-              label="Roles"
-              className={linkClass("/admin/roles")}
-              collapsed={collapsed}
-            />
+            {isSuperAdmin && (
+              <NavLink
+                to="/admin/users"
+                icon={UserCog}
+                label="Users"
+                className={linkClass("/admin/users")}
+                collapsed={collapsed}
+              />
+            )}
+            {isSuperAdmin && (
+              <NavLink
+                to="/admin/staff"
+                icon={UserRoundCog}
+                label="Staff"
+                className={linkClass("/admin/staff")}
+                collapsed={collapsed}
+              />
+            )}
+            {isSuperAdmin && (
+              <NavLink
+                to="/admin/roles"
+                icon={ShieldCheck}
+                label="Roles"
+                className={linkClass("/admin/roles")}
+                collapsed={collapsed}
+              />
+            )}
+            {canManageSettings && (
+              <NavLink
+                to="/admin/settings"
+                icon={Settings}
+                label="Settings"
+                className={linkClass("/admin/settings")}
+                collapsed={collapsed}
+              />
+            )}
           </Section>
         )}
 
