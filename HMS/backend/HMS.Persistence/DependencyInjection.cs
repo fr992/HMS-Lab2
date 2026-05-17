@@ -26,6 +26,7 @@ public static class DependencyInjection
 
             return client.GetDatabase(mongoDbSettings.DatabaseName);
         });
+        services.AddSingleton<INotificationMongoIndexInitializer, NotificationMongoIndexInitializer>();
 
         return services;
     }

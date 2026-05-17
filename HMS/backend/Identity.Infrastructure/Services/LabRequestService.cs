@@ -5,6 +5,7 @@ using Identity.Infrastructure.Common;
 using HMS.Persistence;
 using Identity.Domain.Entities;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
 using System.Linq.Expressions;
 
 namespace Identity.Infrastructure.Services;
@@ -12,10 +13,17 @@ namespace Identity.Infrastructure.Services;
 public sealed class LabRequestService : ILabRequestService
 {
     private readonly HmsDbContext _db;
+    private readonly INotificationService _notificationService;
+    private readonly ILogger<LabRequestService> _logger;
 
-    public LabRequestService(HmsDbContext db)
+    public LabRequestService(
+        HmsDbContext db,
+        INotificationService notificationService,
+        ILogger<LabRequestService> logger)
     {
         _db = db;
+        _notificationService = notificationService;
+        _logger = logger;
     }
 
     public async Task<LabRequestDto> CreateAsync(
@@ -124,8 +132,12 @@ public sealed class LabRequestService : ILabRequestService
         _db.LabRequests.Add(labRequest);
         await _db.SaveChangesAsync(cancellationToken);
 
-        return await GetByIdAsync(labRequest.Id, cancellationToken)
+        var created = await GetByIdAsync(labRequest.Id, cancellationToken)
             ?? throw new Exception("Lab request was created but could not be loaded.");
+
+        await NotifyLaboratoryStaffAsync(created, cancellationToken);
+
+        return created;
     }
 
     public async Task<LabRequestDto?> GetByIdAsync(
@@ -356,5 +368,59 @@ public sealed class LabRequestService : ILabRequestService
     private static bool HasRole(IEnumerable<string> roles, string roleName)
     {
         return roles.Any(role => string.Equals(role, roleName, StringComparison.OrdinalIgnoreCase));
+    }
+
+    private async Task NotifyLaboratoryStaffAsync(
+        LabRequestDto labRequest,
+        CancellationToken cancellationToken)
+    {
+        var recipientUserIds = await _db.Users
+            .AsNoTracking()
+            .Where(user => user.IsActive &&
+                user.UserRoles.Any(userRole => userRole.Role.Name == "Laboratorant"))
+            .Select(user => user.Id)
+            .Distinct()
+            .ToListAsync(cancellationToken);
+
+        if (recipientUserIds.Count == 0)
+            return;
+
+        var tests = labRequest.Items.Count == 0
+            ? "requested tests"
+            : string.Join(", ", labRequest.Items.Select(item => item.TestName).Take(3));
+
+        foreach (var userId in recipientUserIds)
+        {
+            await TryCreateNotificationAsync(
+                new CreateNotificationRequestDto
+                {
+                    UserId = userId,
+                    Type = "lab_request",
+                    Title = "New lab request",
+                    Message = $"New lab request {labRequest.RequestNumber} for {labRequest.PatientName}: {tests}.",
+                    RelatedEntityType = "LabRequest",
+                    RelatedEntityId = labRequest.Id.ToString()
+                },
+                cancellationToken);
+        }
+    }
+
+    private async Task TryCreateNotificationAsync(
+        CreateNotificationRequestDto request,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            await _notificationService.CreateAsync(request, cancellationToken);
+        }
+        catch (Exception exception) when (exception is not OperationCanceledException)
+        {
+            _logger.LogWarning(
+                exception,
+                "Failed to create notification for user {UserId} related to {RelatedEntityType} {RelatedEntityId}.",
+                request.UserId,
+                request.RelatedEntityType,
+                request.RelatedEntityId);
+        }
     }
 }

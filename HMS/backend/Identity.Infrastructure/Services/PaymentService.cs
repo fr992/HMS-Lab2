@@ -5,6 +5,7 @@ using HMS.Domain.Entities;
 using HMS.Persistence;
 using Identity.Infrastructure.Common;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
 
 namespace Identity.Infrastructure.Services;
 
@@ -13,10 +14,17 @@ public sealed class PaymentService : IPaymentService
     private const string CashPaymentMethod = "cash";
 
     private readonly HmsDbContext _db;
+    private readonly INotificationService _notificationService;
+    private readonly ILogger<PaymentService> _logger;
 
-    public PaymentService(HmsDbContext db)
+    public PaymentService(
+        HmsDbContext db,
+        INotificationService notificationService,
+        ILogger<PaymentService> logger)
     {
         _db = db;
+        _notificationService = notificationService;
+        _logger = logger;
     }
 
     public async Task<PaymentDto> CreateAsync(
@@ -117,6 +125,7 @@ public sealed class PaymentService : IPaymentService
         if (payment is null)
             throw new NotFoundException("Payment not found.");
 
+        var previousStatus = payment.Status;
         var status = NormalizeStatus(request.Status);
         EnsureStatusTransition(payment.Status, status);
 
@@ -128,6 +137,8 @@ public sealed class PaymentService : IPaymentService
             payment.PaidAt = payment.UpdatedAt;
 
         await _db.SaveChangesAsync(cancellationToken);
+
+        await NotifyPatientPaymentConfirmedAsync(payment.Id, previousStatus, payment.Status, cancellationToken);
 
         return await GetByIdAsync(payment.Id, cancellationToken);
     }
@@ -143,6 +154,8 @@ public sealed class PaymentService : IPaymentService
         if (payment is null)
             throw new NotFoundException("Payment not found.");
 
+        var previousStatus = payment.Status;
+
         if (!string.Equals(payment.PaymentMethod, CashPaymentMethod, StringComparison.OrdinalIgnoreCase))
             throw new BadRequestException("Only cash payments can be confirmed.");
 
@@ -156,6 +169,8 @@ public sealed class PaymentService : IPaymentService
         payment.UpdatedById = actorUserId;
 
         await _db.SaveChangesAsync(cancellationToken);
+
+        await NotifyPatientPaymentConfirmedAsync(payment.Id, previousStatus, payment.Status, cancellationToken);
 
         return await GetByIdAsync(payment.Id, cancellationToken);
     }
@@ -224,5 +239,61 @@ public sealed class PaymentService : IPaymentService
     private static string? NormalizeOptional(string? value)
     {
         return string.IsNullOrWhiteSpace(value) ? null : value.Trim();
+    }
+
+    private async Task NotifyPatientPaymentConfirmedAsync(
+        int paymentId,
+        string previousStatus,
+        string currentStatus,
+        CancellationToken cancellationToken)
+    {
+        if (previousStatus == PaymentStatus.Paid || currentStatus != PaymentStatus.Paid)
+            return;
+
+        var notificationData = await _db.Payments
+            .AsNoTracking()
+            .Where(payment => payment.Id == paymentId)
+            .Select(payment => new
+            {
+                payment.Id,
+                payment.Amount,
+                payment.Invoice.InvoiceNumber,
+                PatientUserId = payment.Invoice.PatientProfile.Person.UserId
+            })
+            .FirstOrDefaultAsync(cancellationToken);
+
+        if (notificationData?.PatientUserId is null)
+            return;
+
+        await TryCreateNotificationAsync(
+            new CreateNotificationRequestDto
+            {
+                UserId = notificationData.PatientUserId.Value,
+                Type = "payment",
+                Title = "Payment confirmed",
+                Message = $"Payment of {notificationData.Amount:0.00} for invoice {notificationData.InvoiceNumber} was confirmed.",
+                RelatedEntityType = "Payment",
+                RelatedEntityId = notificationData.Id.ToString()
+            },
+            cancellationToken);
+    }
+
+    private async Task TryCreateNotificationAsync(
+        CreateNotificationRequestDto request,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            await _notificationService.CreateAsync(request, cancellationToken);
+        }
+        catch (Exception exception) when (exception is not OperationCanceledException)
+        {
+            _logger.LogWarning(
+                exception,
+                "Failed to create notification for user {UserId} related to {RelatedEntityType} {RelatedEntityId}.",
+                request.UserId,
+                request.RelatedEntityType,
+                request.RelatedEntityId);
+        }
     }
 }

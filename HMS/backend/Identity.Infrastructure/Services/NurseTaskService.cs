@@ -4,16 +4,24 @@ using HMS.Contracts.Identity;
 using HMS.Domain.Entities;
 using HMS.Persistence;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
 
 namespace Identity.Infrastructure.Services;
 
 public sealed class NurseTaskService : INurseTaskService
 {
     private readonly HmsDbContext _db;
+    private readonly INotificationService _notificationService;
+    private readonly ILogger<NurseTaskService> _logger;
 
-    public NurseTaskService(HmsDbContext db)
+    public NurseTaskService(
+        HmsDbContext db,
+        INotificationService notificationService,
+        ILogger<NurseTaskService> logger)
     {
         _db = db;
+        _notificationService = notificationService;
+        _logger = logger;
     }
 
     public async Task<NurseTaskDto> CreateAsync(
@@ -58,6 +66,8 @@ public sealed class NurseTaskService : INurseTaskService
 
         _db.NurseTasks.Add(task);
         await _db.SaveChangesAsync(cancellationToken);
+
+        await NotifyAssignedNurseAsync(task.Id, cancellationToken);
 
         return ToDto(task);
     }
@@ -285,5 +295,54 @@ public sealed class NurseTaskService : INurseTaskService
     private static string? NormalizeOptional(string? value)
     {
         return string.IsNullOrWhiteSpace(value) ? null : value.Trim();
+    }
+
+    private async Task NotifyAssignedNurseAsync(int nurseTaskId, CancellationToken cancellationToken)
+    {
+        var notificationData = await _db.NurseTasks
+            .AsNoTracking()
+            .Where(task => task.Id == nurseTaskId && task.AssignedToNurseId.HasValue)
+            .Select(task => new
+            {
+                task.Id,
+                task.Type,
+                NurseUserId = task.AssignedToNurse!.StaffProfile.Person.UserId,
+                PatientName = task.Encounter.PatientProfile.Person.FirstName + " " + task.Encounter.PatientProfile.Person.LastName
+            })
+            .FirstOrDefaultAsync(cancellationToken);
+
+        if (notificationData?.NurseUserId is null)
+            return;
+
+        await TryCreateNotificationAsync(
+            new CreateNotificationRequestDto
+            {
+                UserId = notificationData.NurseUserId.Value,
+                Type = "nurse_task",
+                Title = "New nurse task assigned",
+                Message = $"New nurse task assigned: {notificationData.Type} for {notificationData.PatientName}.",
+                RelatedEntityType = "NurseTask",
+                RelatedEntityId = notificationData.Id.ToString()
+            },
+            cancellationToken);
+    }
+
+    private async Task TryCreateNotificationAsync(
+        CreateNotificationRequestDto request,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            await _notificationService.CreateAsync(request, cancellationToken);
+        }
+        catch (Exception exception) when (exception is not OperationCanceledException)
+        {
+            _logger.LogWarning(
+                exception,
+                "Failed to create notification for user {UserId} related to {RelatedEntityType} {RelatedEntityId}.",
+                request.UserId,
+                request.RelatedEntityType,
+                request.RelatedEntityId);
+        }
     }
 }

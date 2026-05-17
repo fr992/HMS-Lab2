@@ -4,6 +4,7 @@ using HMS.Contracts.Identity;
 using Identity.Domain.Entities;
 using HMS.Persistence;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
 
 namespace Identity.Infrastructure.Services.Patients;
 
@@ -12,10 +13,17 @@ public sealed class AppointmentService : IAppointmentService
     private const int MinCancellationReasonLength = 3;
 
     private readonly HmsDbContext _db;
+    private readonly INotificationService _notificationService;
+    private readonly ILogger<AppointmentService> _logger;
 
-    public AppointmentService(HmsDbContext db)
+    public AppointmentService(
+        HmsDbContext db,
+        INotificationService notificationService,
+        ILogger<AppointmentService> logger)
     {
         _db = db;
+        _notificationService = notificationService;
+        _logger = logger;
     }
 
     public async Task<AppointmentDto> CreateAsync(
@@ -73,8 +81,12 @@ public sealed class AppointmentService : IAppointmentService
             await _db.SaveChangesAsync(cancellationToken);
             await transaction.CommitAsync(cancellationToken);
 
-            return await GetByIdAsync(appointment.Id, cancellationToken)
+            var created = await GetByIdAsync(appointment.Id, cancellationToken)
                 ?? throw new Exception("Appointment was created but could not be loaded.");
+
+            await NotifyDoctorAppointmentAssignedAsync(created, cancellationToken);
+
+            return created;
         }
         catch
         {
@@ -164,6 +176,7 @@ public sealed class AppointmentService : IAppointmentService
         if (appointment == null)
             throw new NotFoundException("Appointment not found.");
 
+        var previousStatus = appointment.Status;
         var targetStatus = NormalizeAppointmentStatus(request.Status);
 
         EnsureAppointmentStatusTransition(appointment.Status, targetStatus);
@@ -175,8 +188,12 @@ public sealed class AppointmentService : IAppointmentService
 
         await _db.SaveChangesAsync(cancellationToken);
 
-        return await GetByIdAsync(id, cancellationToken)
+        var updated = await GetByIdAsync(id, cancellationToken)
             ?? throw new Exception("Appointment was updated but could not be loaded.");
+
+        await NotifyPatientAppointmentStatusChangedAsync(previousStatus, updated, cancellationToken);
+
+        return updated;
     }
 
     public async Task<List<AppointmentDto>> GetAppointmentsAsync(
@@ -355,6 +372,86 @@ public sealed class AppointmentService : IAppointmentService
         catch (InvalidOperationException exception)
         {
             throw new ConflictException(exception.Message);
+        }
+    }
+
+    private async Task NotifyDoctorAppointmentAssignedAsync(
+        AppointmentDto appointment,
+        CancellationToken cancellationToken)
+    {
+        var doctorUserId = await _db.DoctorProfiles
+            .AsNoTracking()
+            .Where(d => d.Id == appointment.DoctorProfileId)
+            .Select(d => d.StaffProfile.Person.UserId)
+            .FirstOrDefaultAsync(cancellationToken);
+
+        if (!doctorUserId.HasValue)
+            return;
+
+        await TryCreateNotificationAsync(
+            new CreateNotificationRequestDto
+            {
+                UserId = doctorUserId.Value,
+                Type = "appointment",
+                Title = "New appointment assigned",
+                Message = $"New appointment on {appointment.ScheduledStart:u} with {appointment.PatientName}.",
+                RelatedEntityType = "Appointment",
+                RelatedEntityId = appointment.Id.ToString()
+            },
+            cancellationToken);
+    }
+
+    private async Task NotifyPatientAppointmentStatusChangedAsync(
+        string previousStatus,
+        AppointmentDto appointment,
+        CancellationToken cancellationToken)
+    {
+        if (string.Equals(previousStatus, appointment.Status, StringComparison.Ordinal))
+            return;
+
+        if (appointment.Status is not AppointmentStatus.Confirmed and not AppointmentStatus.Cancelled)
+            return;
+
+        var patientUserId = await _db.PatientProfiles
+            .AsNoTracking()
+            .Where(p => p.Id == appointment.PatientProfileId)
+            .Select(p => p.Person.UserId)
+            .FirstOrDefaultAsync(cancellationToken);
+
+        if (!patientUserId.HasValue)
+            return;
+
+        var isConfirmed = appointment.Status == AppointmentStatus.Confirmed;
+
+        await TryCreateNotificationAsync(
+            new CreateNotificationRequestDto
+            {
+                UserId = patientUserId.Value,
+                Type = "appointment",
+                Title = isConfirmed ? "Appointment confirmed" : "Appointment cancelled",
+                Message = $"Your appointment with {appointment.DoctorName} on {appointment.ScheduledStart:u} was {(isConfirmed ? "confirmed" : "cancelled")}.",
+                RelatedEntityType = "Appointment",
+                RelatedEntityId = appointment.Id.ToString()
+            },
+            cancellationToken);
+    }
+
+    private async Task TryCreateNotificationAsync(
+        CreateNotificationRequestDto request,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            await _notificationService.CreateAsync(request, cancellationToken);
+        }
+        catch (Exception exception) when (exception is not OperationCanceledException)
+        {
+            _logger.LogWarning(
+                exception,
+                "Failed to create notification for user {UserId} related to {RelatedEntityType} {RelatedEntityId}.",
+                request.UserId,
+                request.RelatedEntityType,
+                request.RelatedEntityId);
         }
     }
 }

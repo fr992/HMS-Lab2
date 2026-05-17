@@ -67,6 +67,7 @@ public static class DependencyInjection
         services.AddScoped<IPaymentService, PaymentService>();
         services.AddScoped<IMedicationsService, MedicationsService>();
         services.AddScoped<ISettingsService, SettingsService>();
+        services.AddScoped<INotificationService, MongoNotificationService>();
         return services;
     }
 }
