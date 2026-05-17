@@ -2,6 +2,7 @@ using HMS.Application.Abstractions.Identity;
 using HMS.Application.Exceptions;
 using HMS.Contracts.Identity;
 using HMS.Persistence.Mongo;
+using Microsoft.Extensions.Logging;
 using MongoDB.Bson;
 using MongoDB.Driver;
 
@@ -13,13 +14,19 @@ public sealed class MongoNotificationService : INotificationService
 
     private readonly IMongoCollection<NotificationDocument> _notifications;
     private readonly INotificationMongoIndexInitializer _indexInitializer;
+    private readonly INotificationRealtimeSender _realtimeSender;
+    private readonly ILogger<MongoNotificationService> _logger;
 
     public MongoNotificationService(
         IMongoDatabase database,
-        INotificationMongoIndexInitializer indexInitializer)
+        INotificationMongoIndexInitializer indexInitializer,
+        INotificationRealtimeSender realtimeSender,
+        ILogger<MongoNotificationService> logger)
     {
         _notifications = database.GetCollection<NotificationDocument>("notifications");
         _indexInitializer = indexInitializer;
+        _realtimeSender = realtimeSender;
+        _logger = logger;
     }
 
     public async Task<NotificationDto> CreateAsync(
@@ -51,7 +58,10 @@ public sealed class MongoNotificationService : INotificationService
         await _notifications.InsertOneAsync(document, cancellationToken: cancellationToken);
         await _indexInitializer.EnsureCreatedAsync(cancellationToken);
 
-        return ToDto(document);
+        var notification = ToDto(document);
+        await TrySendRealtimeAsync(document.UserId, notification, cancellationToken);
+
+        return notification;
     }
 
     public async Task<IReadOnlyList<NotificationDto>> GetForUserAsync(
@@ -159,5 +169,24 @@ public sealed class MongoNotificationService : INotificationService
     private static string? NormalizeOptional(string? value)
     {
         return string.IsNullOrWhiteSpace(value) ? null : value.Trim();
+    }
+
+    private async Task TrySendRealtimeAsync(
+        int userId,
+        NotificationDto notification,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            await _realtimeSender.SendToUserAsync(userId, notification, cancellationToken);
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            _logger.LogWarning(
+                ex,
+                "Failed to send real-time notification {NotificationId} to user {UserId}.",
+                notification.Id,
+                userId);
+        }
     }
 }

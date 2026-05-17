@@ -36,6 +36,7 @@ import InvoicesListPage from "@/features/invoices/InvoicesListPage";
 import InvoiceDetailPage from "@/features/invoices/InvoiceDetailPage";
 import PaymentsPage from "@/features/payments/PaymentsPage";
 import SettingsPage from "@/features/settings/SettingsPage";
+import NotificationsPage from "@/features/notifications/NotificationsPage";
 
 
 export default function App() {
@@ -48,6 +49,17 @@ export default function App() {
           </Route>
           <Route path="/login" element={<LoginPage />} />
           <Route path="/unauthorized" element={<UnauthorizedPage />} />
+
+          <Route
+            path="/notifications"
+            element={
+              <PermissionRoute>
+                <AdminLayout />
+              </PermissionRoute>
+            }
+          >
+            <Route index element={<NotificationsPage />} />
+          </Route>
 
           <Route
             path="/admin"

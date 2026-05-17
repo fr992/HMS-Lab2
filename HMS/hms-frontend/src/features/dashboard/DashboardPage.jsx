@@ -19,6 +19,7 @@ import {
 } from "lucide-react";
 import { useAuth } from "@/auth/AuthContext";
 import QuickAddMenu from "@/features/dashboard/QuickAddMenu";
+import NotificationBell from "@/features/notifications/NotificationBell";
 
 const METRIC_ORDER_KEY = "hms.dashboard.metricOrder";
 const WIDGET_ORDER_KEY = "hms.dashboard.widgetOrder";
@@ -312,14 +313,7 @@ function DashboardHeader({ userName, userRole, search, onSearchChange }) {
             ]}
           />
 
-          <button
-            type="button"
-            className="relative inline-flex size-11 items-center justify-center rounded-full text-slate-500 transition hover:bg-slate-100 hover:text-slate-900"
-            aria-label="Notifications"
-          >
-            <Bell className="size-5" />
-            <span className="absolute right-2 top-2 size-2.5 rounded-full bg-rose-500 ring-2 ring-white" />
-          </button>
+          <NotificationBell />
 
           <div className="flex items-center gap-3">
             <div className="flex size-11 items-center justify-center rounded-full bg-blue-50 text-sm font-semibold text-blue-700">

@@ -1,5 +1,7 @@
 using HMS.Api.Authorization;
+using HMS.Api.Hubs;
 using HMS.Api.Middleware;
+using HMS.Api.Notifications;
 using HMS.Api.Security;
 using HMS.Application;
 using HMS.Application.Abstractions.Identity;
@@ -31,6 +33,7 @@ builder.Services.AddCors(options =>
 });
 
 builder.Services.AddControllers();
+builder.Services.AddSignalR();
 
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen(c =>
@@ -76,6 +79,7 @@ builder.Services.AddScoped<IBedService, BedService>();
 builder.Services.AddScoped<IInvoiceService, InvoiceService>();
 builder.Services.AddScoped<IPaymentService, PaymentService>();
 builder.Services.AddScoped<ISettingsService, SettingsService>();
+builder.Services.AddScoped<INotificationRealtimeSender, SignalRNotificationRealtimeSender>();
 
 
 
@@ -110,5 +114,6 @@ app.UseCors("frontend");
 app.UseAuthentication();
 app.UseAuthorization();
 app.MapControllers();
+app.MapHub<NotificationsHub>("/hubs/notifications");
 
 app.Run();

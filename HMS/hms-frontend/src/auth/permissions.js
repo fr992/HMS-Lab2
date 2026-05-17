@@ -2,6 +2,8 @@ import { jwtDecode } from "jwt-decode";
 
 const ROLE_CLAIM =
   "http://schemas.microsoft.com/ws/2008/06/identity/claims/role";
+const NAME_IDENTIFIER_CLAIM =
+  "http://schemas.xmlsoap.org/ws/2005/05/identity/claims/nameidentifier";
 
 const PERM_SEP = "|";
 
@@ -67,4 +69,34 @@ export function getUserNameFromToken(token) {
     return null;
   }
   return null;
+}
+
+/**
+ * @param {string | null | undefined} token
+ * @returns {string | null}
+ */
+export function getUserIdFromToken(token) {
+  if (!token) return null;
+  try {
+    const d = jwtDecode(token);
+    const value = d.sub ?? d[NAME_IDENTIFIER_CLAIM];
+    return value == null ? null : String(value);
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * @param {string | null | undefined} token
+ * @returns {boolean}
+ */
+export function isTokenExpired(token) {
+  if (!token) return true;
+  try {
+    const d = jwtDecode(token);
+    if (typeof d.exp !== "number") return true;
+    return d.exp * 1000 <= Date.now();
+  } catch {
+    return true;
+  }
 }

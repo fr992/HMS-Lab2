@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { AlertCircle, Bell, LayoutDashboard, RefreshCw, Search } from "lucide-react";
+import { AlertCircle, LayoutDashboard, RefreshCw, Search } from "lucide-react";
 import QuickAddMenu from "@/features/dashboard/QuickAddMenu";
 import { initials } from "@/features/dashboard/dashboardUtils";
+import NotificationBell from "@/features/notifications/NotificationBell";
 
 export function DashboardFrame({
   title = "Dashboard",
@@ -48,14 +49,7 @@ export function DashboardFrame({
 
             <QuickAddMenu actions={quickAddActions} />
 
-            <button
-              type="button"
-              className="relative inline-flex size-11 items-center justify-center rounded-full text-slate-500 transition hover:bg-slate-100 hover:text-slate-900"
-              aria-label="Notifications"
-              title="Notifications"
-            >
-              <Bell className="size-5" />
-            </button>
+            <NotificationBell />
 
             <div className="flex items-center gap-3">
               <div className="flex size-11 items-center justify-center rounded-full bg-blue-50 text-sm font-semibold text-blue-700">

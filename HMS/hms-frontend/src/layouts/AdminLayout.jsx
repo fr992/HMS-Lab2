@@ -1,7 +1,10 @@
 import { Outlet, useLocation } from "react-router-dom";
 import Sidebar from "@/layouts/Sidebar";
+import { useNotificationRealtime } from "@/features/notifications/useNotificationRealtime";
 
 export default function AdminLayout() {
+  useNotificationRealtime();
+
   const { pathname } = useLocation();
   const isDashboard =
     pathname === "/admin" ||
