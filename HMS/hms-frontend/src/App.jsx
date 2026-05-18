@@ -37,6 +37,7 @@ import InvoiceDetailPage from "@/features/invoices/InvoiceDetailPage";
 import PaymentsPage from "@/features/payments/PaymentsPage";
 import SettingsPage from "@/features/settings/SettingsPage";
 import NotificationsPage from "@/features/notifications/NotificationsPage";
+import AdminAuditLogsPage from "@/features/auditLogs/AdminAuditLogsPage";
 
 
 export default function App() {
@@ -91,6 +92,14 @@ export default function App() {
               element={
                 <PermissionRoute anyPermission={["Settings.Manage"]}>
                   <SettingsPage />
+                </PermissionRoute>
+              }
+            />
+            <Route
+              path="audit-logs"
+              element={
+                <PermissionRoute anyPermission={["AuditLogs.Read"]}>
+                  <AdminAuditLogsPage />
                 </PermissionRoute>
               }
             />

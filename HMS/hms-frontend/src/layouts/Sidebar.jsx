@@ -21,6 +21,7 @@ import {
   FlaskConical,
   Settings,
   ShieldCheck,
+  ShieldAlert,
 } from "lucide-react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { HOSPITAL_LOGO_PATH, HOSPITAL_NAME, HOSPITAL_TAGLINE } from "@/config/branding";
@@ -43,6 +44,7 @@ export default function Sidebar() {
   const canReadInvoices = auth.hasPermission("Invoices.Read");
   const canReadPayments = auth.hasPermission("Payments.Read");
   const canManageSettings = auth.hasPermission("Settings.Manage");
+  const canReadAuditLogs = auth.hasPermission("AuditLogs.Read");
   const isSuperAdmin = auth.hasRole("SuperAdmin");
   const isAdmin = auth.hasRole("Admin") || isSuperAdmin;
   const isDoctor = auth.userRole === "Doctor";
@@ -430,7 +432,7 @@ export default function Sidebar() {
           </Section>
         )}
 
-        {(isSuperAdmin || canManageSettings) && (
+        {(isSuperAdmin || canManageSettings || canReadAuditLogs) && (
           <Section title="Administration" collapsed={collapsed}>
             {isSuperAdmin && (
               <NavLink
@@ -465,6 +467,15 @@ export default function Sidebar() {
                 icon={Settings}
                 label="Settings"
                 className={linkClass("/admin/settings")}
+                collapsed={collapsed}
+              />
+            )}
+            {canReadAuditLogs && (
+              <NavLink
+                to="/admin/audit-logs"
+                icon={ShieldAlert}
+                label="Audit Logs"
+                className={linkClass("/admin/audit-logs")}
                 collapsed={collapsed}
               />
             )}

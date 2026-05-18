@@ -7,6 +7,7 @@ using HMS.Application;
 using HMS.Application.Abstractions.Identity;
 using HMS.Contracts.Identity;
 using HMS.Persistence;
+using HMS.Persistence.Mongo;
 using Identity.Domain.Entities;
 using Identity.Infrastructure;
 using Identity.Infrastructure.Seed;
@@ -16,8 +17,17 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.OpenApi.Models;
+using Serilog;
+using Serilog.Events;
+using Serilog.Sinks.MSSqlServer;
 
 var builder = WebApplication.CreateBuilder(args);
+
+builder.Logging.ClearProviders();
+builder.Host.UseSerilog((context, services, loggerConfiguration) =>
+{
+    ConfigureSerilog(context.Configuration, services, loggerConfiguration);
+});
 
 builder.Services.AddCors(options =>
 {
@@ -105,10 +115,12 @@ if (app.Environment.IsDevelopment())
 if (!EF.IsDesignTime)
 {
     await using var scope = app.Services.CreateAsyncScope();
+    await scope.ServiceProvider.GetRequiredService<IMongoDbInitializer>().InitializeAsync(CancellationToken.None);
     await scope.ServiceProvider.GetRequiredService<IdentityDataSeeder>().SeedAsync();
 }
 
 app.UseHttpsRedirection();
+app.UseSerilogRequestLogging();
 app.UseMiddleware<ExceptionHandlingMiddleware>();
 app.UseCors("frontend");
 app.UseAuthentication();
@@ -116,4 +128,58 @@ app.UseAuthorization();
 app.MapControllers();
 app.MapHub<NotificationsHub>("/hubs/notifications");
 
-app.Run();
+await app.RunAsync();
+
+static void ConfigureSerilog(
+    IConfiguration configuration,
+    IServiceProvider services,
+    LoggerConfiguration loggerConfiguration)
+{
+    var serilogSection = configuration.GetSection("Serilog");
+    var seqUrl = GetRequiredConfigurationValue(serilogSection, "Seq:ServerUrl");
+
+    var sqlSection = serilogSection.GetSection("SqlServer");
+    var sqlConnectionStringName = sqlSection["ConnectionStringName"] ?? "HMS";
+    var sqlConnectionString = configuration.GetConnectionString(sqlConnectionStringName);
+    if (string.IsNullOrWhiteSpace(sqlConnectionString))
+    {
+        throw new InvalidOperationException(
+            $"ConnectionStrings:{sqlConnectionStringName} is required for the Serilog SQL Server sink.");
+    }
+
+    var batchPostingLimit = Math.Max(1, sqlSection.GetValue("BatchPostingLimit", 50));
+    var batchPeriodSeconds = Math.Max(1, sqlSection.GetValue("BatchPeriodSeconds", 5));
+
+    var sqlSinkOptions = new MSSqlServerSinkOptions
+    {
+        TableName = sqlSection["TableName"] ?? "SystemAuditLogs",
+        AutoCreateSqlTable = sqlSection.GetValue("AutoCreateSqlTable", true),
+        BatchPostingLimit = batchPostingLimit,
+        BatchPeriod = TimeSpan.FromSeconds(batchPeriodSeconds)
+    };
+
+    loggerConfiguration
+        .ReadFrom.Services(services)
+        .MinimumLevel.Verbose()
+        .MinimumLevel.Override("Microsoft", LogEventLevel.Warning)
+        .MinimumLevel.Override("System", LogEventLevel.Warning)
+        .Enrich.FromLogContext()
+        .Enrich.WithMachineName()
+        .Enrich.WithThreadId()
+        .WriteTo.Seq(seqUrl, restrictedToMinimumLevel: LogEventLevel.Verbose)
+        .WriteTo.MSSqlServer(
+            connectionString: sqlConnectionString,
+            sinkOptions: sqlSinkOptions,
+            restrictedToMinimumLevel: LogEventLevel.Warning);
+}
+
+static string GetRequiredConfigurationValue(IConfiguration configuration, string key)
+{
+    var value = configuration[key];
+    if (string.IsNullOrWhiteSpace(value))
+    {
+        throw new InvalidOperationException($"Serilog:{key} is required.");
+    }
+
+    return value;
+}

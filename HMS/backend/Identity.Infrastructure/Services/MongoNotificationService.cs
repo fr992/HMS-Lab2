@@ -18,12 +18,12 @@ public sealed class MongoNotificationService : INotificationService
     private readonly ILogger<MongoNotificationService> _logger;
 
     public MongoNotificationService(
-        IMongoDatabase database,
+        IMongoCollection<NotificationDocument> notifications,
         INotificationMongoIndexInitializer indexInitializer,
         INotificationRealtimeSender realtimeSender,
         ILogger<MongoNotificationService> logger)
     {
-        _notifications = database.GetCollection<NotificationDocument>("notifications");
+        _notifications = notifications;
         _indexInitializer = indexInitializer;
         _realtimeSender = realtimeSender;
         _logger = logger;
@@ -56,8 +56,8 @@ public sealed class MongoNotificationService : INotificationService
             CreatedAt = now
         };
 
-        await _notifications.InsertOneAsync(document, cancellationToken: cancellationToken);
         await _indexInitializer.EnsureCreatedAsync(cancellationToken);
+        await _notifications.InsertOneAsync(document, cancellationToken: cancellationToken);
 
         var notification = ToDto(document);
         await TrySendRealtimeAsync(document.UserId, notification, cancellationToken);

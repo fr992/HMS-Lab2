@@ -4,36 +4,50 @@ namespace HMS.Persistence.Mongo;
 
 public sealed class NotificationMongoIndexInitializer : INotificationMongoIndexInitializer
 {
-    private readonly IMongoDatabase _database;
-    private int _created;
+    private readonly IMongoCollection<NotificationDocument> _collection;
+    private readonly SemaphoreSlim _initializationLock = new(1, 1);
+    private bool _created;
 
-    public NotificationMongoIndexInitializer(IMongoDatabase database)
+    public NotificationMongoIndexInitializer(IMongoCollection<NotificationDocument> collection)
     {
-        _database = database;
+        _collection = collection;
     }
 
     public async Task EnsureCreatedAsync(CancellationToken cancellationToken)
     {
-        if (Interlocked.CompareExchange(ref _created, 1, 0) != 0)
+        if (_created)
             return;
 
-        var collection = _database.GetCollection<NotificationDocument>("notifications");
+        await _initializationLock.WaitAsync(cancellationToken);
+        try
+        {
+            if (_created)
+                return;
 
-        var userCreatedAtIndex = new CreateIndexModel<NotificationDocument>(
-            Builders<NotificationDocument>.IndexKeys
-                .Ascending(x => x.UserId)
-                .Ascending(x => x.ClearedAt)
-                .Descending(x => x.CreatedAt));
+            var userCreatedAtIndex = new CreateIndexModel<NotificationDocument>(
+                Builders<NotificationDocument>.IndexKeys
+                    .Ascending(x => x.UserId)
+                    .Ascending(x => x.ClearedAt)
+                    .Descending(x => x.CreatedAt),
+                new CreateIndexOptions { Name = "ix_notifications_user_cleared_created" });
 
-        var userReadCreatedAtIndex = new CreateIndexModel<NotificationDocument>(
-            Builders<NotificationDocument>.IndexKeys
-                .Ascending(x => x.UserId)
-                .Ascending(x => x.ClearedAt)
-                .Ascending(x => x.IsRead)
-                .Descending(x => x.CreatedAt));
+            var userReadCreatedAtIndex = new CreateIndexModel<NotificationDocument>(
+                Builders<NotificationDocument>.IndexKeys
+                    .Ascending(x => x.UserId)
+                    .Ascending(x => x.ClearedAt)
+                    .Ascending(x => x.IsRead)
+                    .Descending(x => x.CreatedAt),
+                new CreateIndexOptions { Name = "ix_notifications_user_cleared_read_created" });
 
-        await collection.Indexes.CreateManyAsync(
-            [userCreatedAtIndex, userReadCreatedAtIndex],
-            cancellationToken: cancellationToken);
+            await _collection.Indexes.CreateManyAsync(
+                [userCreatedAtIndex, userReadCreatedAtIndex],
+                cancellationToken: cancellationToken);
+
+            _created = true;
+        }
+        finally
+        {
+            _initializationLock.Release();
+        }
     }
 }
