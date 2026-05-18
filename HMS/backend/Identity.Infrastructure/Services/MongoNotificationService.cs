@@ -50,6 +50,7 @@ public sealed class MongoNotificationService : INotificationService
             Message = message,
             IsRead = false,
             ReadAt = null,
+            ClearedAt = null,
             RelatedEntityType = NormalizeOptional(request.RelatedEntityType),
             RelatedEntityId = NormalizeOptional(request.RelatedEntityId),
             CreatedAt = now
@@ -71,7 +72,7 @@ public sealed class MongoNotificationService : INotificationService
     {
         EnsureValidUserId(userId);
 
-        var filter = Builders<NotificationDocument>.Filter.Eq(x => x.UserId, userId);
+        var filter = ActiveUserFilter(userId);
         if (isRead.HasValue)
         {
             filter &= Builders<NotificationDocument>.Filter.Eq(x => x.IsRead, isRead.Value);
@@ -91,7 +92,7 @@ public sealed class MongoNotificationService : INotificationService
         EnsureValidUserId(userId);
 
         var filter = Builders<NotificationDocument>.Filter.And(
-            Builders<NotificationDocument>.Filter.Eq(x => x.UserId, userId),
+            ActiveUserFilter(userId),
             Builders<NotificationDocument>.Filter.Eq(x => x.IsRead, false));
 
         var count = await _notifications.CountDocumentsAsync(filter, cancellationToken: cancellationToken);
@@ -107,6 +108,7 @@ public sealed class MongoNotificationService : INotificationService
             throw new NotFoundException("Notification not found.");
 
         var filter = Builders<NotificationDocument>.Filter.And(
+            ActiveUserFilter(userId),
             Builders<NotificationDocument>.Filter.Eq(x => x.Id, objectId.ToString()),
             Builders<NotificationDocument>.Filter.Eq(x => x.UserId, userId));
 
@@ -125,7 +127,7 @@ public sealed class MongoNotificationService : INotificationService
         EnsureValidUserId(userId);
 
         var filter = Builders<NotificationDocument>.Filter.And(
-            Builders<NotificationDocument>.Filter.Eq(x => x.UserId, userId),
+            ActiveUserFilter(userId),
             Builders<NotificationDocument>.Filter.Eq(x => x.IsRead, false));
 
         var update = Builders<NotificationDocument>.Update
@@ -133,6 +135,45 @@ public sealed class MongoNotificationService : INotificationService
             .Set(x => x.ReadAt, DateTime.UtcNow);
 
         await _notifications.UpdateManyAsync(filter, update, cancellationToken: cancellationToken);
+    }
+
+    public async Task ClearAsync(string id, int userId, CancellationToken cancellationToken)
+    {
+        EnsureValidUserId(userId);
+
+        if (!ObjectId.TryParse(id, out var objectId))
+            throw new NotFoundException("Notification not found.");
+
+        var now = DateTime.UtcNow;
+        var filter = Builders<NotificationDocument>.Filter.And(
+            ActiveUserFilter(userId),
+            Builders<NotificationDocument>.Filter.Eq(x => x.Id, objectId.ToString()));
+
+        var update = Builders<NotificationDocument>.Update
+            .Set(x => x.ClearedAt, now)
+            .Set(x => x.IsRead, true)
+            .Set(x => x.ReadAt, now);
+
+        var result = await _notifications.UpdateOneAsync(filter, update, cancellationToken: cancellationToken);
+
+        if (result.MatchedCount == 0)
+            throw new NotFoundException("Notification not found.");
+    }
+
+    public async Task ClearAllAsync(int userId, CancellationToken cancellationToken)
+    {
+        EnsureValidUserId(userId);
+
+        var now = DateTime.UtcNow;
+        var update = Builders<NotificationDocument>.Update
+            .Set(x => x.ClearedAt, now)
+            .Set(x => x.IsRead, true)
+            .Set(x => x.ReadAt, now);
+
+        await _notifications.UpdateManyAsync(
+            ActiveUserFilter(userId),
+            update,
+            cancellationToken: cancellationToken);
     }
 
     private static NotificationDto ToDto(NotificationDocument document)
@@ -146,10 +187,18 @@ public sealed class MongoNotificationService : INotificationService
             Message = document.Message,
             IsRead = document.IsRead,
             ReadAt = document.ReadAt,
+            ClearedAt = document.ClearedAt,
             RelatedEntityType = document.RelatedEntityType,
             RelatedEntityId = document.RelatedEntityId,
             CreatedAt = document.CreatedAt
         };
+    }
+
+    private static FilterDefinition<NotificationDocument> ActiveUserFilter(int userId)
+    {
+        return Builders<NotificationDocument>.Filter.And(
+            Builders<NotificationDocument>.Filter.Eq(x => x.UserId, userId),
+            Builders<NotificationDocument>.Filter.Eq(x => x.ClearedAt, null));
     }
 
     private static void EnsureValidUserId(int userId)

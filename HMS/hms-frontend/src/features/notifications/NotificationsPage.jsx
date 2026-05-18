@@ -1,9 +1,11 @@
 import { useMemo, useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { Link } from "react-router-dom";
-import { ArrowLeft, Bell, CheckCheck, Search } from "lucide-react";
+import { ArrowLeft, Bell, CheckCheck, Search, Trash2, X } from "lucide-react";
 import { useAuth } from "@/auth/AuthContext";
 import {
+  clearAllNotifications,
+  clearNotification,
   markAllRead,
   markRead,
 } from "@/features/notifications/api/notificationsApi";
@@ -30,7 +32,10 @@ export default function NotificationsPage() {
   const queryClient = useQueryClient();
   const notificationsQuery = useNotifications();
   const unreadQuery = useUnreadNotificationCount();
-  const notifications = notificationsQuery.data ?? [];
+  const notifications = useMemo(
+    () => notificationsQuery.data ?? [],
+    [notificationsQuery.data]
+  );
   const unreadCount = Number(unreadQuery.data ?? 0);
   const userKey = auth.userId ?? auth.userName ?? "anonymous";
   const listQueryKey = notificationQueryKeys.list(userKey);
@@ -118,6 +123,74 @@ export default function NotificationsPage() {
     },
   });
 
+  const clearMutation = useMutation({
+    mutationFn: clearNotification,
+    onMutate: async (id) => {
+      await Promise.all([
+        queryClient.cancelQueries({ queryKey: listQueryKey }),
+        queryClient.cancelQueries({ queryKey: unreadQueryKey }),
+      ]);
+
+      const previousNotifications = queryClient.getQueryData(listQueryKey);
+      const previousCount = queryClient.getQueryData(unreadQueryKey);
+      const target = previousNotifications?.find((item) => item.id === id);
+
+      queryClient.setQueryData(listQueryKey, (current = []) =>
+        current.filter((item) => item.id !== id)
+      );
+
+      if (target && !target.isRead) {
+        queryClient.setQueryData(unreadQueryKey, (current = 0) =>
+          Math.max(Number(current) - 1, 0)
+        );
+      }
+
+      return { previousNotifications, previousCount };
+    },
+    onError: (_error, _id, context) => {
+      if (context?.previousNotifications) {
+        queryClient.setQueryData(listQueryKey, context.previousNotifications);
+      }
+      if (typeof context?.previousCount === "number") {
+        queryClient.setQueryData(unreadQueryKey, context.previousCount);
+      }
+    },
+    onSettled: () => {
+      queryClient.invalidateQueries({ queryKey: listQueryKey });
+      queryClient.invalidateQueries({ queryKey: unreadQueryKey });
+    },
+  });
+
+  const clearAllMutation = useMutation({
+    mutationFn: clearAllNotifications,
+    onMutate: async () => {
+      await Promise.all([
+        queryClient.cancelQueries({ queryKey: listQueryKey }),
+        queryClient.cancelQueries({ queryKey: unreadQueryKey }),
+      ]);
+
+      const previousNotifications = queryClient.getQueryData(listQueryKey);
+      const previousCount = queryClient.getQueryData(unreadQueryKey);
+
+      queryClient.setQueryData(listQueryKey, []);
+      queryClient.setQueryData(unreadQueryKey, 0);
+
+      return { previousNotifications, previousCount };
+    },
+    onError: (_error, _values, context) => {
+      if (context?.previousNotifications) {
+        queryClient.setQueryData(listQueryKey, context.previousNotifications);
+      }
+      if (typeof context?.previousCount === "number") {
+        queryClient.setQueryData(unreadQueryKey, context.previousCount);
+      }
+    },
+    onSettled: () => {
+      queryClient.invalidateQueries({ queryKey: listQueryKey });
+      queryClient.invalidateQueries({ queryKey: unreadQueryKey });
+    },
+  });
+
   const filteredNotifications = useMemo(() => {
     const term = search.trim().toLowerCase();
 
@@ -176,15 +249,26 @@ export default function NotificationsPage() {
             Notifications
           </h1>
         </div>
-        <button
-          type="button"
-          onClick={() => markAllMutation.mutate()}
-          disabled={unreadCount === 0 || markAllMutation.isPending}
-          className="inline-flex items-center justify-center gap-2 rounded-md bg-blue-600 px-3.5 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-blue-700 disabled:pointer-events-none disabled:bg-slate-200 disabled:text-slate-500"
-        >
-          <CheckCheck className="size-4" />
-          Mark all as read
-        </button>
+        <div className="flex flex-wrap gap-2">
+          <button
+            type="button"
+            onClick={() => markAllMutation.mutate()}
+            disabled={unreadCount === 0 || markAllMutation.isPending}
+            className="inline-flex items-center justify-center gap-2 rounded-md bg-blue-600 px-3.5 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-blue-700 disabled:pointer-events-none disabled:bg-slate-200 disabled:text-slate-500"
+          >
+            <CheckCheck className="size-4" />
+            Mark all as read
+          </button>
+          <button
+            type="button"
+            onClick={() => clearAllMutation.mutate()}
+            disabled={notifications.length === 0 || clearAllMutation.isPending}
+            className="inline-flex items-center justify-center gap-2 rounded-md border border-slate-200 bg-white px-3.5 py-2 text-sm font-semibold text-slate-700 shadow-sm transition hover:bg-slate-50 hover:text-slate-950 disabled:pointer-events-none disabled:bg-slate-100 disabled:text-slate-400"
+          >
+            <Trash2 className="size-4" />
+            Clear all
+          </button>
+        </div>
       </section>
 
       <section className="rounded-lg border border-slate-200 bg-white shadow-sm shadow-slate-950/5">
@@ -232,6 +316,8 @@ export default function NotificationsPage() {
                     markReadMutation.mutate(notification.id);
                   }
                 }}
+                onClear={() => clearMutation.mutate(notification.id)}
+                clearing={clearMutation.isPending}
               />
             ))}
           </div>
@@ -276,46 +362,60 @@ function getDashboardPath(auth) {
   return "/staff/dashboard";
 }
 
-function NotificationPageItem({ notification, onClick }) {
+function NotificationPageItem({ notification, onClick, onClear, clearing }) {
   const dotClass = notificationTypeDotClass[notification.type] ?? "bg-slate-400";
 
   return (
-    <button
-      type="button"
-      onClick={onClick}
+    <div
       className={[
-        "grid w-full grid-cols-[0.9rem_1fr_auto] gap-3 px-4 py-4 text-left transition hover:bg-slate-50",
+        "grid grid-cols-[1fr_auto] items-start transition hover:bg-slate-50",
         notification.isRead ? "bg-white" : "bg-blue-50/45",
       ].join(" ")}
     >
-      <span className={`mt-1.5 size-2.5 rounded-full ${notification.isRead ? "bg-slate-300" : dotClass}`} />
-      <span className="min-w-0">
+      <button
+        type="button"
+        onClick={onClick}
+        className="grid w-full min-w-0 grid-cols-[0.9rem_1fr_auto] gap-3 px-4 py-4 text-left"
+      >
+        <span className={`mt-1.5 size-2.5 rounded-full ${notification.isRead ? "bg-slate-300" : dotClass}`} />
+        <span className="min-w-0">
+          <span
+            className={[
+              "block text-sm text-slate-950",
+              notification.isRead ? "font-medium" : "font-semibold",
+            ].join(" ")}
+          >
+            {notification.title || "Notification"}
+          </span>
+          <span className="mt-1 block text-sm leading-5 text-slate-600">
+            {notification.message || "-"}
+          </span>
+          <span className="mt-2 block text-xs font-medium text-slate-400">
+            {formatNotificationRelativeTime(notification.createdAt)}
+          </span>
+        </span>
         <span
           className={[
-            "block text-sm text-slate-950",
-            notification.isRead ? "font-medium" : "font-semibold",
+            "hidden h-6 items-center justify-center self-start whitespace-nowrap rounded-full px-2.5 text-xs font-semibold ring-1 ring-inset sm:inline-flex",
+            notification.isRead
+              ? "bg-slate-50 text-slate-500 ring-slate-200"
+              : "bg-blue-50 text-blue-700 ring-blue-200",
           ].join(" ")}
         >
-          {notification.title || "Notification"}
+          {notification.isRead ? "Read" : "Unread"}
         </span>
-        <span className="mt-1 block text-sm leading-5 text-slate-600">
-          {notification.message || "-"}
-        </span>
-        <span className="mt-2 block text-xs font-medium text-slate-400">
-          {formatNotificationRelativeTime(notification.createdAt)}
-        </span>
-      </span>
-      <span
-        className={[
-          "hidden h-6 items-center justify-center self-start whitespace-nowrap rounded-full px-2.5 text-xs font-semibold ring-1 ring-inset sm:inline-flex",
-          notification.isRead
-            ? "bg-slate-50 text-slate-500 ring-slate-200"
-            : "bg-blue-50 text-blue-700 ring-blue-200",
-        ].join(" ")}
+      </button>
+      <button
+        type="button"
+        onClick={onClear}
+        disabled={clearing}
+        className="mr-4 mt-4 inline-flex size-8 items-center justify-center rounded-md text-slate-400 transition hover:bg-white hover:text-slate-800 disabled:pointer-events-none disabled:opacity-50"
+        aria-label="Clear notification"
+        title="Clear notification"
       >
-        {notification.isRead ? "Read" : "Unread"}
-      </span>
-    </button>
+        <X className="size-4" />
+      </button>
+    </div>
   );
 }
 

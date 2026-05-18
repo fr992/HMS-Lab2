@@ -1,9 +1,11 @@
 import { useEffect, useRef, useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { Bell } from "lucide-react";
+import { Bell, Trash2, X } from "lucide-react";
 import { Link } from "react-router-dom";
 import { useAuth } from "@/auth/AuthContext";
 import {
+  clearAllNotifications,
+  clearNotification,
   markAllRead,
   markRead,
 } from "@/features/notifications/api/notificationsApi";
@@ -131,6 +133,74 @@ export default function NotificationBell() {
     },
   });
 
+  const clearMutation = useMutation({
+    mutationFn: clearNotification,
+    onMutate: async (id) => {
+      await Promise.all([
+        queryClient.cancelQueries({ queryKey: listQueryKey }),
+        queryClient.cancelQueries({ queryKey: unreadQueryKey }),
+      ]);
+
+      const previousNotifications = queryClient.getQueryData(listQueryKey);
+      const previousCount = queryClient.getQueryData(unreadQueryKey);
+      const target = previousNotifications?.find((item) => item.id === id);
+
+      queryClient.setQueryData(listQueryKey, (current = []) =>
+        current.filter((item) => item.id !== id)
+      );
+
+      if (target && !target.isRead) {
+        queryClient.setQueryData(unreadQueryKey, (current = 0) =>
+          Math.max(Number(current) - 1, 0)
+        );
+      }
+
+      return { previousNotifications, previousCount };
+    },
+    onError: (_error, _id, context) => {
+      if (context?.previousNotifications) {
+        queryClient.setQueryData(listQueryKey, context.previousNotifications);
+      }
+      if (typeof context?.previousCount === "number") {
+        queryClient.setQueryData(unreadQueryKey, context.previousCount);
+      }
+    },
+    onSettled: () => {
+      queryClient.invalidateQueries({ queryKey: listQueryKey });
+      queryClient.invalidateQueries({ queryKey: unreadQueryKey });
+    },
+  });
+
+  const clearAllMutation = useMutation({
+    mutationFn: clearAllNotifications,
+    onMutate: async () => {
+      await Promise.all([
+        queryClient.cancelQueries({ queryKey: listQueryKey }),
+        queryClient.cancelQueries({ queryKey: unreadQueryKey }),
+      ]);
+
+      const previousNotifications = queryClient.getQueryData(listQueryKey);
+      const previousCount = queryClient.getQueryData(unreadQueryKey);
+
+      queryClient.setQueryData(listQueryKey, []);
+      queryClient.setQueryData(unreadQueryKey, 0);
+
+      return { previousNotifications, previousCount };
+    },
+    onError: (_error, _values, context) => {
+      if (context?.previousNotifications) {
+        queryClient.setQueryData(listQueryKey, context.previousNotifications);
+      }
+      if (typeof context?.previousCount === "number") {
+        queryClient.setQueryData(unreadQueryKey, context.previousCount);
+      }
+    },
+    onSettled: () => {
+      queryClient.invalidateQueries({ queryKey: listQueryKey });
+      queryClient.invalidateQueries({ queryKey: unreadQueryKey });
+    },
+  });
+
   const displayCount = unreadCount > 99 ? "99+" : String(unreadCount);
 
   return (
@@ -158,14 +228,25 @@ export default function NotificationBell() {
         >
           <div className="shrink-0 flex items-center justify-between gap-3 border-b border-slate-100 px-4 py-3">
             <h2 className="text-sm font-semibold text-slate-950">Notifications</h2>
-            <button
-              type="button"
-              onClick={() => markAllMutation.mutate()}
-              disabled={unreadCount === 0 || markAllMutation.isPending}
-              className="rounded-md px-2 py-1 text-xs font-semibold text-blue-600 transition hover:bg-blue-50 disabled:pointer-events-none disabled:text-slate-300"
-            >
-              Mark all read
-            </button>
+            <div className="flex items-center gap-1.5">
+              <button
+                type="button"
+                onClick={() => markAllMutation.mutate()}
+                disabled={unreadCount === 0 || markAllMutation.isPending}
+                className="rounded-md px-2 py-1 text-xs font-semibold text-blue-600 transition hover:bg-blue-50 disabled:pointer-events-none disabled:text-slate-300"
+              >
+                Mark all read
+              </button>
+              <button
+                type="button"
+                onClick={() => clearAllMutation.mutate()}
+                disabled={notifications.length === 0 || clearAllMutation.isPending}
+                className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs font-semibold text-slate-600 transition hover:bg-slate-100 hover:text-slate-950 disabled:pointer-events-none disabled:text-slate-300"
+              >
+                <Trash2 className="size-3.5" />
+                Clear
+              </button>
+            </div>
           </div>
 
           <div className="min-h-0 flex-1 overflow-y-auto">
@@ -184,6 +265,8 @@ export default function NotificationBell() {
                         markReadMutation.mutate(notification.id);
                       }
                     }}
+                    onClear={() => clearMutation.mutate(notification.id)}
+                    clearing={clearMutation.isPending}
                   />
                 ))}
               </div>
@@ -205,36 +288,50 @@ export default function NotificationBell() {
   );
 }
 
-function NotificationItem({ notification, onClick }) {
+function NotificationItem({ notification, onClick, onClear, clearing }) {
   const dotClass = notificationTypeDotClass[notification.type] ?? "bg-slate-400";
 
   return (
-    <button
-      type="button"
-      onClick={onClick}
+    <div
       className={[
-        "grid w-full grid-cols-[0.75rem_1fr] gap-3 px-4 py-3 text-left transition hover:bg-slate-50",
+        "grid grid-cols-[1fr_auto] items-start transition hover:bg-slate-50",
         notification.isRead ? "bg-white" : "bg-blue-50/45",
       ].join(" ")}
     >
-      <span className={`mt-1.5 size-2.5 rounded-full ${notification.isRead ? "bg-slate-300" : dotClass}`} />
-      <span className="min-w-0">
-        <span
-          className={[
-            "block truncate text-sm text-slate-950",
-            notification.isRead ? "font-medium" : "font-semibold",
-          ].join(" ")}
-        >
-          {notification.title || "Notification"}
+      <button
+        type="button"
+        onClick={onClick}
+        className="grid w-full min-w-0 grid-cols-[0.75rem_1fr] gap-3 px-4 py-3 text-left"
+      >
+        <span className={`mt-1.5 size-2.5 rounded-full ${notification.isRead ? "bg-slate-300" : dotClass}`} />
+        <span className="min-w-0">
+          <span
+            className={[
+              "block truncate text-sm text-slate-950",
+              notification.isRead ? "font-medium" : "font-semibold",
+            ].join(" ")}
+          >
+            {notification.title || "Notification"}
+          </span>
+          <span className="mt-1 line-clamp-2 block text-sm leading-5 text-slate-600">
+            {notification.message || "-"}
+          </span>
+          <span className="mt-1.5 block text-xs font-medium text-slate-400">
+            {formatNotificationRelativeTime(notification.createdAt)}
+          </span>
         </span>
-        <span className="mt-1 line-clamp-2 block text-sm leading-5 text-slate-600">
-          {notification.message || "-"}
-        </span>
-        <span className="mt-1.5 block text-xs font-medium text-slate-400">
-          {formatNotificationRelativeTime(notification.createdAt)}
-        </span>
-      </span>
-    </button>
+      </button>
+      <button
+        type="button"
+        onClick={onClear}
+        disabled={clearing}
+        className="mr-2 mt-2.5 inline-flex size-8 items-center justify-center rounded-md text-slate-400 transition hover:bg-white hover:text-slate-800 disabled:pointer-events-none disabled:opacity-50"
+        aria-label="Clear notification"
+        title="Clear notification"
+      >
+        <X className="size-4" />
+      </button>
+    </div>
   );
 }
 

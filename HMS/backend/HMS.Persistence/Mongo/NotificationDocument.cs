@@ -21,6 +21,9 @@ public sealed class NotificationDocument
 
     public DateTime? ReadAt { get; set; }
 
+    [BsonIgnoreIfNull]
+    public DateTime? ClearedAt { get; set; }
+
     public string? RelatedEntityType { get; set; }
 
     public string? RelatedEntityId { get; set; }

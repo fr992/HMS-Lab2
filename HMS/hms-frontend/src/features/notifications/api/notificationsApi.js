@@ -17,3 +17,11 @@ export async function markRead(id) {
 export async function markAllRead() {
   await apiClient.post("/notifications/me/read-all");
 }
+
+export async function clearNotification(id) {
+  await apiClient.post(`/notifications/${id}/clear`);
+}
+
+export async function clearAllNotifications() {
+  await apiClient.post("/notifications/me/clear");
+}

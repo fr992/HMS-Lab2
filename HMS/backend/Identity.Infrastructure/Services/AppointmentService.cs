@@ -5,6 +5,7 @@ using Identity.Domain.Entities;
 using HMS.Persistence;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
+using System.Globalization;
 
 namespace Identity.Infrastructure.Services.Patients;
 
@@ -84,7 +85,7 @@ public sealed class AppointmentService : IAppointmentService
             var created = await GetByIdAsync(appointment.Id, cancellationToken)
                 ?? throw new Exception("Appointment was created but could not be loaded.");
 
-            await NotifyDoctorAppointmentAssignedAsync(created, cancellationToken);
+            await NotifyAppointmentCreatedAsync(created, cancellationToken);
 
             return created;
         }
@@ -375,30 +376,64 @@ public sealed class AppointmentService : IAppointmentService
         }
     }
 
-    private async Task NotifyDoctorAppointmentAssignedAsync(
+    private async Task NotifyAppointmentCreatedAsync(
         AppointmentDto appointment,
         CancellationToken cancellationToken)
     {
+        var scheduledAt = FormatNotificationDateTime(appointment.ScheduledStart);
+        var patientUserId = await _db.PatientProfiles
+            .AsNoTracking()
+            .Where(p => p.Id == appointment.PatientProfileId)
+            .Select(p => p.Person.UserId)
+            .FirstOrDefaultAsync(cancellationToken);
+
         var doctorUserId = await _db.DoctorProfiles
             .AsNoTracking()
             .Where(d => d.Id == appointment.DoctorProfileId)
             .Select(d => d.StaffProfile.Person.UserId)
             .FirstOrDefaultAsync(cancellationToken);
 
-        if (!doctorUserId.HasValue)
-            return;
+        if (patientUserId.HasValue)
+        {
+            await TryCreateNotificationAsync(
+                new CreateNotificationRequestDto
+                {
+                    UserId = patientUserId.Value,
+                    Type = "appointment",
+                    Title = "Appointment scheduled",
+                    Message = $"Your appointment with {appointment.DoctorName} is scheduled for {scheduledAt}.",
+                    RelatedEntityType = "Appointment",
+                    RelatedEntityId = appointment.Id.ToString()
+                },
+                cancellationToken);
+        }
 
-        await TryCreateNotificationAsync(
-            new CreateNotificationRequestDto
-            {
-                UserId = doctorUserId.Value,
-                Type = "appointment",
-                Title = "New appointment assigned",
-                Message = $"New appointment on {appointment.ScheduledStart:u} with {appointment.PatientName}.",
-                RelatedEntityType = "Appointment",
-                RelatedEntityId = appointment.Id.ToString()
-            },
-            cancellationToken);
+        if (doctorUserId.HasValue)
+        {
+            await TryCreateNotificationAsync(
+                new CreateNotificationRequestDto
+                {
+                    UserId = doctorUserId.Value,
+                    Type = "appointment",
+                    Title = "New appointment assigned",
+                    Message = $"New appointment with {appointment.PatientName} scheduled for {scheduledAt}.",
+                    RelatedEntityType = "Appointment",
+                    RelatedEntityId = appointment.Id.ToString()
+                },
+                cancellationToken);
+        }
+    }
+
+    private static string FormatNotificationDateTime(DateTime value)
+    {
+        var localTime = value.Kind switch
+        {
+            DateTimeKind.Local => value,
+            DateTimeKind.Utc => value.ToLocalTime(),
+            _ => DateTime.SpecifyKind(value, DateTimeKind.Utc).ToLocalTime()
+        };
+
+        return localTime.ToString("MMM d, yyyy HH:mm", CultureInfo.InvariantCulture);
     }
 
     private async Task NotifyPatientAppointmentStatusChangedAsync(
@@ -422,6 +457,7 @@ public sealed class AppointmentService : IAppointmentService
             return;
 
         var isConfirmed = appointment.Status == AppointmentStatus.Confirmed;
+        var scheduledAt = FormatNotificationDateTime(appointment.ScheduledStart);
 
         await TryCreateNotificationAsync(
             new CreateNotificationRequestDto
@@ -429,7 +465,7 @@ public sealed class AppointmentService : IAppointmentService
                 UserId = patientUserId.Value,
                 Type = "appointment",
                 Title = isConfirmed ? "Appointment confirmed" : "Appointment cancelled",
-                Message = $"Your appointment with {appointment.DoctorName} on {appointment.ScheduledStart:u} was {(isConfirmed ? "confirmed" : "cancelled")}.",
+                Message = $"Your appointment with {appointment.DoctorName} on {scheduledAt} was {(isConfirmed ? "confirmed" : "cancelled")}.",
                 RelatedEntityType = "Appointment",
                 RelatedEntityId = appointment.Id.ToString()
             },

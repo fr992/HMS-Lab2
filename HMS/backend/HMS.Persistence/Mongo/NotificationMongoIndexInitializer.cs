@@ -22,11 +22,13 @@ public sealed class NotificationMongoIndexInitializer : INotificationMongoIndexI
         var userCreatedAtIndex = new CreateIndexModel<NotificationDocument>(
             Builders<NotificationDocument>.IndexKeys
                 .Ascending(x => x.UserId)
+                .Ascending(x => x.ClearedAt)
                 .Descending(x => x.CreatedAt));
 
         var userReadCreatedAtIndex = new CreateIndexModel<NotificationDocument>(
             Builders<NotificationDocument>.IndexKeys
                 .Ascending(x => x.UserId)
+                .Ascending(x => x.ClearedAt)
                 .Ascending(x => x.IsRead)
                 .Descending(x => x.CreatedAt));
 

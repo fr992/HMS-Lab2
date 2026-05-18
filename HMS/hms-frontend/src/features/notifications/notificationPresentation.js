@@ -8,7 +8,7 @@ export const notificationTypeDotClass = {
 export function formatNotificationRelativeTime(value) {
   if (!value) return "";
 
-  const date = new Date(value);
+  const date = parseNotificationDate(value);
   if (Number.isNaN(date.getTime())) return "";
 
   const now = new Date();
@@ -31,4 +31,14 @@ export function formatNotificationRelativeTime(value) {
     month: "short",
     day: "numeric",
   }).format(date);
+}
+
+function parseNotificationDate(value) {
+  if (typeof value !== "string") return new Date(value);
+
+  const trimmed = value.trim();
+  const hasTimeZone = /(?:z|[+-]\d{2}:?\d{2})$/i.test(trimmed);
+  const looksLikeDateTime = /^\d{4}-\d{2}-\d{2}T/.test(trimmed);
+
+  return new Date(looksLikeDateTime && !hasTimeZone ? `${trimmed}Z` : trimmed);
 }

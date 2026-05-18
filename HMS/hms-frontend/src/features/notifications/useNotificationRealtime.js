@@ -61,6 +61,11 @@ export function useNotificationRealtime() {
       if (!alreadyExists) {
         toast(notification.title || "Notification", {
           description: notification.message,
+          className: "notification-toast",
+          classNames: {
+            title: "text-slate-950",
+            description: "text-slate-700",
+          },
         });
       }
     });

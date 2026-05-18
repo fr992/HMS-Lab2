@@ -57,6 +57,22 @@ public sealed class MyNotificationsController : ControllerBase
         return NoContent();
     }
 
+    [HttpPost("{id}/clear")]
+    public async Task<IActionResult> Clear(string id, CancellationToken cancellationToken)
+    {
+        await _notificationService.ClearAsync(id, CurrentUserId(), cancellationToken);
+
+        return NoContent();
+    }
+
+    [HttpPost("me/clear")]
+    public async Task<IActionResult> ClearAll(CancellationToken cancellationToken)
+    {
+        await _notificationService.ClearAllAsync(CurrentUserId(), cancellationToken);
+
+        return NoContent();
+    }
+
     private int CurrentUserId()
     {
         var value = User.FindFirstValue(ClaimTypes.NameIdentifier)

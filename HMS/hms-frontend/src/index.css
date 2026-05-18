@@ -163,6 +163,23 @@ section[id] {
   .scrollbar-none::-webkit-scrollbar {
     display: none;
   }
+
+  .notification-toast,
+  .cn-toast {
+    background: #ffffff !important;
+    border-color: #e2e8f0 !important;
+    color: #0f172a !important;
+  }
+
+  .notification-toast [data-title],
+  .cn-toast [data-title] {
+    color: #020617 !important;
+  }
+
+  .notification-toast [data-description],
+  .cn-toast [data-description] {
+    color: #334155 !important;
+  }
 }
 
 @keyframes landing-fade-up {
