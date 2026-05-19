@@ -1,3 +1,4 @@
+using MongoDB.Bson;
 using MongoDB.Driver;
 
 namespace HMS.Persistence.Mongo;
@@ -24,24 +25,26 @@ public sealed class NotificationMongoIndexInitializer : INotificationMongoIndexI
             if (_created)
                 return;
 
-            var userCreatedAtIndex = new CreateIndexModel<NotificationDocument>(
-                Builders<NotificationDocument>.IndexKeys
-                    .Ascending(x => x.UserId)
-                    .Ascending(x => x.ClearedAt)
-                    .Descending(x => x.CreatedAt),
-                new CreateIndexOptions { Name = "ix_notifications_user_cleared_created" });
+            await EnsureIndexAsync(
+                new BsonDocument
+                {
+                    { nameof(NotificationDocument.UserId), 1 },
+                    { nameof(NotificationDocument.ClearedAt), 1 },
+                    { nameof(NotificationDocument.CreatedAt), -1 }
+                },
+                "ix_notifications_user_cleared_created",
+                cancellationToken);
 
-            var userReadCreatedAtIndex = new CreateIndexModel<NotificationDocument>(
-                Builders<NotificationDocument>.IndexKeys
-                    .Ascending(x => x.UserId)
-                    .Ascending(x => x.ClearedAt)
-                    .Ascending(x => x.IsRead)
-                    .Descending(x => x.CreatedAt),
-                new CreateIndexOptions { Name = "ix_notifications_user_cleared_read_created" });
-
-            await _collection.Indexes.CreateManyAsync(
-                [userCreatedAtIndex, userReadCreatedAtIndex],
-                cancellationToken: cancellationToken);
+            await EnsureIndexAsync(
+                new BsonDocument
+                {
+                    { nameof(NotificationDocument.UserId), 1 },
+                    { nameof(NotificationDocument.ClearedAt), 1 },
+                    { nameof(NotificationDocument.IsRead), 1 },
+                    { nameof(NotificationDocument.CreatedAt), -1 }
+                },
+                "ix_notifications_user_cleared_read_created",
+                cancellationToken);
 
             _created = true;
         }
@@ -49,5 +52,70 @@ public sealed class NotificationMongoIndexInitializer : INotificationMongoIndexI
         {
             _initializationLock.Release();
         }
+    }
+
+    private async Task EnsureIndexAsync(
+        BsonDocument key,
+        string name,
+        CancellationToken cancellationToken)
+    {
+        var existingIndexes = await GetExistingIndexesAsync(cancellationToken);
+        if (existingIndexes.Any(index => HasSameKey(index, key)))
+            return;
+
+        var model = new CreateIndexModel<NotificationDocument>(
+            key,
+            new CreateIndexOptions { Name = name });
+
+        try
+        {
+            await _collection.Indexes.CreateOneAsync(model, cancellationToken: cancellationToken);
+        }
+        catch (MongoCommandException exception) when (IsEquivalentIndexNameConflict(exception))
+        {
+            existingIndexes = await GetExistingIndexesAsync(cancellationToken);
+            if (existingIndexes.Any(index => HasSameKey(index, key)))
+                return;
+
+            throw;
+        }
+    }
+
+    private async Task<IReadOnlyList<BsonDocument>> GetExistingIndexesAsync(
+        CancellationToken cancellationToken)
+    {
+        using var cursor = await _collection.Indexes.ListAsync(cancellationToken);
+
+        return await cursor.ToListAsync(cancellationToken);
+    }
+
+    private static bool HasSameKey(BsonDocument index, BsonDocument expectedKey)
+    {
+        return index.TryGetValue("key", out var value)
+            && value.IsBsonDocument
+            && AreKeysEqual(value.AsBsonDocument, expectedKey);
+    }
+
+    private static bool AreKeysEqual(BsonDocument left, BsonDocument right)
+    {
+        if (left.ElementCount != right.ElementCount)
+            return false;
+
+        for (var i = 0; i < left.ElementCount; i++)
+        {
+            var leftElement = left.GetElement(i);
+            var rightElement = right.GetElement(i);
+
+            if (leftElement.Name != rightElement.Name || !leftElement.Value.Equals(rightElement.Value))
+                return false;
+        }
+
+        return true;
+    }
+
+    private static bool IsEquivalentIndexNameConflict(MongoCommandException exception)
+    {
+        return exception.CodeName is "IndexOptionsConflict" or "IndexKeySpecsConflict"
+            || exception.Message.Contains("Index already exists with a different name", StringComparison.OrdinalIgnoreCase);
     }
 }
