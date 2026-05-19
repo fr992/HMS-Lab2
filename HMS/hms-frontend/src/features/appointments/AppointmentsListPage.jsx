@@ -500,7 +500,7 @@ function SearchField({ value, onChange }) {
 
 function AppointmentStatsRow({ view, calendarView, counts }) {
   return (
-    <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
+    <div className="grid grid-cols-4 gap-3">
       <SummaryTile
         label={
           view === "schedule"
@@ -577,7 +577,7 @@ function AppointmentListToolbar({
           <SearchField value={search} onChange={onSearchChange} />
         </div>
         <label className="block w-full min-w-[12rem] sm:w-auto sm:flex-none">
-          <span className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+          <span className="sr-only">
             Day
           </span>
           <input

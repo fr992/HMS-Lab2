@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import {
   CalendarDays,
@@ -16,10 +16,13 @@ import {
 } from "lucide-react";
 import { useAuth } from "@/auth/AuthContext";
 import {
+  createEncounterFromAppointment,
   fetchAppointmentById,
+  fetchEncounterByAppointment,
   getApiErrorMessage,
-  openOrCreateEncounterFromAppointment,
+  patchAppointmentStatus,
 } from "@/features/appointments/api/appointmentsApi";
+import AppointmentCancelModal from "@/features/appointments/components/AppointmentCancelModal";
 import AppointmentStatusBadge from "@/features/appointments/components/AppointmentStatusBadge";
 import { APPOINTMENT_STATUS } from "@/features/appointments/appointmentConstants";
 import { fetchPatientById } from "@/features/patients/patientsApi";
@@ -138,13 +141,23 @@ function TimelineItem({ label, value, state }) {
   );
 }
 
+function PrintField({ label, value }) {
+  return (
+    <div className="appointment-print-field">
+      <dt>{label}</dt>
+      <dd>{value}</dd>
+    </div>
+  );
+}
+
 export default function AppointmentDetailPage() {
   const { id } = useParams();
   const navigate = useNavigate();
   const auth = useAuth();
   const canEdit = auth.hasPermission("Appointments.Create");
-  const canVisit =
-    auth.hasPermission("Encounters.Create") && auth.hasPermission("Encounters.Read");
+  const canManageStatus = auth.hasPermission("Appointments.ManageStatus");
+  const canReadEncounters = auth.hasPermission("Encounters.Read");
+  const canCreateEncounters = auth.hasPermission("Encounters.Create");
   const encounterBasePath =
     auth.userRole === "Doctor" ? "/doctor/encounters" : "/admin/encounters";
 
@@ -156,8 +169,13 @@ export default function AppointmentDetailPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [patientError, setPatientError] = useState(null);
+  const [linkedEncounter, setLinkedEncounter] = useState(null);
+  const [encounterLoading, setEncounterLoading] = useState(false);
   const [actionsOpen, setActionsOpen] = useState(false);
   const [startingEncounter, setStartingEncounter] = useState(false);
+  const [mutatingAction, setMutatingAction] = useState(false);
+  const [cancelOpen, setCancelOpen] = useState(false);
+  const [cancelError, setCancelError] = useState("");
   const [actionError, setActionError] = useState(null);
   const menuRef = useRef(null);
 
@@ -165,24 +183,22 @@ export default function AppointmentDetailPage() {
     void loadDoctors();
   }, [loadDoctors]);
 
-  useEffect(() => {
-    let cancelled = false;
-    (async () => {
-      setLoading(true);
-      setError(null);
-      try {
-        const data = await fetchAppointmentById(Number(id));
-        if (!cancelled) setRow(data);
-      } catch (e) {
-        if (!cancelled) setError(getApiErrorMessage(e));
-      } finally {
-        if (!cancelled) setLoading(false);
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
+  const loadAppointment = useCallback(async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const data = await fetchAppointmentById(Number(id));
+      setRow(data);
+    } catch (e) {
+      setError(getApiErrorMessage(e));
+    } finally {
+      setLoading(false);
+    }
   }, [id]);
+
+  useEffect(() => {
+    void loadAppointment();
+  }, [loadAppointment]);
 
   useEffect(() => {
     let cancelled = false;
@@ -205,6 +221,31 @@ export default function AppointmentDetailPage() {
   }, [row?.patientProfileId]);
 
   useEffect(() => {
+    let cancelled = false;
+    if (!row || !canReadEncounters) {
+      setLinkedEncounter(null);
+      setEncounterLoading(false);
+      return;
+    }
+
+    (async () => {
+      setEncounterLoading(true);
+      try {
+        const encounter = await fetchEncounterByAppointment(row);
+        if (!cancelled) setLinkedEncounter(encounter);
+      } catch {
+        if (!cancelled) setLinkedEncounter(null);
+      } finally {
+        if (!cancelled) setEncounterLoading(false);
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [row, canReadEncounters]);
+
+  useEffect(() => {
     if (!actionsOpen) return undefined;
     const close = (event) => {
       if (!menuRef.current?.contains(event.target)) setActionsOpen(false);
@@ -223,24 +264,66 @@ export default function AppointmentDetailPage() {
     (row.status === APPOINTMENT_STATUS.SCHEDULED ||
       row.status === APPOINTMENT_STATUS.CONFIRMED);
   const canStartEncounter =
-    canVisit &&
+    canReadEncounters &&
+    canCreateEncounters &&
     row &&
-    row.status !== APPOINTMENT_STATUS.SCHEDULED &&
     row.status !== APPOINTMENT_STATUS.CANCELLED &&
     row.status !== APPOINTMENT_STATUS.NO_SHOW;
+  const canUseEncounterButton = linkedEncounter?.id
+    ? canReadEncounters
+    : canStartEncounter;
+  const encounterButtonLabel = linkedEncounter?.id
+    ? "Open Encounter"
+    : "Start Encounter";
 
   const handleStartEncounter = async () => {
-    if (!row || startingEncounter || !canStartEncounter) return;
+    if (!row || startingEncounter || !canUseEncounterButton) return;
     setStartingEncounter(true);
     setActionError(null);
     setActionsOpen(false);
     try {
-      const encounter = await openOrCreateEncounterFromAppointment(row);
+      const encounter = linkedEncounter?.id
+        ? linkedEncounter
+        : await createEncounterFromAppointment(row);
       navigate(`${encounterBasePath}/${encounter.id}`);
     } catch (e) {
       setActionError(getApiErrorMessage(e));
     } finally {
       setStartingEncounter(false);
+    }
+  };
+
+  const updateStatus = async (status) => {
+    if (!row || mutatingAction) return;
+    setMutatingAction(true);
+    setActionError(null);
+    setActionsOpen(false);
+    try {
+      const updated = await patchAppointmentStatus(row.id, { status });
+      setRow(updated);
+    } catch (e) {
+      setActionError(getApiErrorMessage(e));
+    } finally {
+      setMutatingAction(false);
+    }
+  };
+
+  const submitCancel = async (reason) => {
+    if (!row || mutatingAction) return;
+    setMutatingAction(true);
+    setCancelError("");
+    setActionError(null);
+    try {
+      const updated = await patchAppointmentStatus(row.id, {
+        status: APPOINTMENT_STATUS.CANCELLED,
+        cancellationReason: reason,
+      });
+      setRow(updated);
+      setCancelOpen(false);
+    } catch (e) {
+      setCancelError(getApiErrorMessage(e));
+    } finally {
+      setMutatingAction(false);
     }
   };
 
@@ -262,7 +345,17 @@ export default function AppointmentDetailPage() {
   const confirmed =
     row.status === APPOINTMENT_STATUS.CONFIRMED ||
     row.status === APPOINTMENT_STATUS.COMPLETED;
-  const encounterStarted = row.status === APPOINTMENT_STATUS.COMPLETED;
+  const encounterStarted = Boolean(linkedEncounter?.id) || row.status === APPOINTMENT_STATUS.COMPLETED;
+  const canCancel =
+    canManageStatus &&
+    row.status !== APPOINTMENT_STATUS.CANCELLED &&
+    row.status !== APPOINTMENT_STATUS.COMPLETED;
+  const canConfirm =
+    canManageStatus && row.status === APPOINTMENT_STATUS.SCHEDULED;
+  const canMarkNoShow =
+    canManageStatus &&
+    (row.status === APPOINTMENT_STATUS.SCHEDULED ||
+      row.status === APPOINTMENT_STATUS.CONFIRMED);
 
   return (
     <div className="space-y-5">
@@ -295,15 +388,21 @@ export default function AppointmentDetailPage() {
               </Link>
             </Button>
           )}
-          {canVisit && (
+          {(canUseEncounterButton || encounterLoading) && (
             <Button
               type="button"
               className="h-9 bg-teal-600 px-3 text-white hover:bg-teal-700"
-              disabled={!canStartEncounter || startingEncounter}
+              disabled={!canUseEncounterButton || startingEncounter || encounterLoading}
               onClick={handleStartEncounter}
             >
               <PlayCircle className="h-4 w-4" aria-hidden />
-              {startingEncounter ? "Starting..." : "Start Encounter"}
+              {startingEncounter
+                ? linkedEncounter?.id
+                  ? "Opening..."
+                  : "Starting..."
+                : encounterLoading
+                  ? "Checking..."
+                  : encounterButtonLabel}
             </Button>
           )}
           <div className="relative" ref={menuRef}>
@@ -324,33 +423,54 @@ export default function AppointmentDetailPage() {
                 className="absolute right-0 z-30 mt-2 w-48 overflow-hidden rounded-xl border border-slate-200 bg-white py-1.5 shadow-xl"
                 role="menu"
               >
-                <Link
-                  to="/appointments"
-                  className="block px-3 py-2 text-sm text-slate-700 transition hover:bg-slate-50"
-                  role="menuitem"
-                >
-                  Back to appointments
-                </Link>
-                {canEdit && editable && (
-                  <Link
-                    to={`/appointments/${row.id}/edit`}
-                    className="block px-3 py-2 text-sm text-slate-700 transition hover:bg-slate-50"
+                {canConfirm && (
+                  <button
+                    type="button"
+                    className="w-full px-3 py-2 text-left text-sm text-emerald-700 transition hover:bg-emerald-50 disabled:cursor-not-allowed disabled:opacity-50"
+                    disabled={mutatingAction}
+                    onClick={() => updateStatus(APPOINTMENT_STATUS.CONFIRMED)}
                     role="menuitem"
                   >
-                    Edit appointment
-                  </Link>
+                    Confirm appointment
+                  </button>
                 )}
-                {canVisit && (
+                {canCancel && (
+                  <button
+                    type="button"
+                    className="w-full px-3 py-2 text-left text-sm text-rose-700 transition hover:bg-rose-50 disabled:cursor-not-allowed disabled:opacity-50"
+                    disabled={mutatingAction}
+                    onClick={() => {
+                      setActionsOpen(false);
+                      setCancelError("");
+                      setCancelOpen(true);
+                    }}
+                    role="menuitem"
+                  >
+                    Cancel appointment
+                  </button>
+                )}
+                {canMarkNoShow && (
                   <button
                     type="button"
                     className="w-full px-3 py-2 text-left text-sm text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
-                    disabled={!canStartEncounter || startingEncounter}
-                    onClick={handleStartEncounter}
+                    disabled={mutatingAction}
+                    onClick={() => updateStatus(APPOINTMENT_STATUS.NO_SHOW)}
                     role="menuitem"
                   >
-                    Open encounter
+                    Mark as no-show
                   </button>
                 )}
+                <button
+                  type="button"
+                  className="w-full px-3 py-2 text-left text-sm text-slate-700 transition hover:bg-slate-50"
+                  onClick={() => {
+                    setActionsOpen(false);
+                    window.setTimeout(() => window.print(), 0);
+                  }}
+                  role="menuitem"
+                >
+                  Print details
+                </button>
               </div>
             )}
           </div>
@@ -468,6 +588,74 @@ export default function AppointmentDetailPage() {
           </Card>
         </aside>
       </div>
+
+      <AppointmentCancelModal
+        open={cancelOpen}
+        onClose={() => !mutatingAction && setCancelOpen(false)}
+        onSubmit={submitCancel}
+        submitting={mutatingAction}
+        error={cancelError}
+      />
+
+      <section className="appointment-print-document" aria-hidden="true">
+        <header className="appointment-print-header">
+          <div>
+            <p>Nexora Hospital Management</p>
+            <h1>Appointment #{row.id}</h1>
+            <span>{voidStr(row.status)}</span>
+          </div>
+          <div>
+            <p>Printed</p>
+            <strong>{new Date().toLocaleDateString()}</strong>
+          </div>
+        </header>
+
+        <div className="appointment-print-section">
+          <h2>Appointment Details</h2>
+          <dl>
+            <PrintField label="Patient" value={voidStr(row.patientName)} />
+            <PrintField label="Patient ID" value={patientNumber} />
+            <PrintField label="Doctor" value={voidStr(row.doctorName)} />
+            <PrintField label="Department" value={voidStr(row.departmentName)} />
+            <PrintField label="Appointment Type" value={voidStr(row.appointmentType)} />
+            <PrintField label="Date" value={formatDate(row.scheduledStart)} />
+            <PrintField label="Time" value={formatTimeRange(row.scheduledStart, row.scheduledEnd)} />
+            <PrintField label="Reason" value={voidStr(row.reason)} />
+          </dl>
+        </div>
+
+        <div className="appointment-print-grid">
+          <div className="appointment-print-section">
+            <h2>Patient Summary</h2>
+            <dl>
+              <PrintField label="Age" value={getAge(patient?.dateOfBirth)} />
+              <PrintField label="Blood Type" value={voidStr(patient?.bloodType)} />
+            </dl>
+          </div>
+          <div className="appointment-print-section">
+            <h2>Doctor Summary</h2>
+            <dl>
+              <PrintField label="Doctor" value={voidStr(row.doctorName)} />
+              <PrintField label="Specialization" value={voidStr(doctor?.specializationName)} />
+            </dl>
+          </div>
+        </div>
+
+        <div className="appointment-print-section">
+          <h2>Timeline</h2>
+          <dl>
+            <PrintField label="Created" value="Appointment record created" />
+            <PrintField
+              label="Confirmed"
+              value={confirmed ? "Appointment confirmed" : "Awaiting confirmation"}
+            />
+            <PrintField
+              label="Encounter Started"
+              value={encounterStarted ? "Encounter is available" : "Not started"}
+            />
+          </dl>
+        </div>
+      </section>
     </div>
   );
 }

@@ -61,7 +61,7 @@ export async function updateAppointment(id, body) {
   return data;
 }
 
-async function createEncounterFromAppointment(appointment) {
+export async function createEncounterFromAppointment(appointment) {
   const payload = {
     patientProfileId: Number(appointment.patientProfileId),
     doctorProfileId: Number(appointment.doctorProfileId),
@@ -75,7 +75,9 @@ async function createEncounterFromAppointment(appointment) {
   return data;
 }
 
-async function getEncounterByAppointment(appointment) {
+export async function fetchEncounterByAppointment(appointment) {
+  if (appointment?.encounterId) return { id: appointment.encounterId };
+
   const { data } = await api.get("/encounters", {
     params: {
       patientProfileId: Number(appointment.patientProfileId),
@@ -92,7 +94,7 @@ async function getEncounterByAppointment(appointment) {
 }
 
 export async function openOrCreateEncounterFromAppointment(appointment) {
-  const existing = await getEncounterByAppointment(appointment);
+  const existing = await fetchEncounterByAppointment(appointment);
   if (existing?.id) return existing;
 
   try {
@@ -101,7 +103,7 @@ export async function openOrCreateEncounterFromAppointment(appointment) {
     const message = getApiErrorMessage(error).toLowerCase();
     if (!message.includes("already has an encounter")) throw error;
 
-    const linked = await getEncounterByAppointment(appointment);
+    const linked = await fetchEncounterByAppointment(appointment);
     if (linked?.id) return linked;
 
     throw error;
