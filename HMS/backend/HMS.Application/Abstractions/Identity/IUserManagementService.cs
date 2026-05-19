@@ -9,7 +9,7 @@ public interface IUserManagementService
         int? createdByUserId,
         CancellationToken cancellationToken = default);
 
-    Task<(PaginatedResponse<UserListItemResponseDto>? items, string? error)> ListUsersAsync(
+    Task<(UserListResponseDto? items, string? error)> ListUsersAsync(
         string? search,
         string? role,
         string? status,

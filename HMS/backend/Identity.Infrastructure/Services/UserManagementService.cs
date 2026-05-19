@@ -97,7 +97,7 @@ public sealed class UserManagementService : IUserManagementService
         }, null);
     }
 
-    public async Task<(PaginatedResponse<UserListItemResponseDto>? items, string? error)> ListUsersAsync(
+    public async Task<(UserListResponseDto? items, string? error)> ListUsersAsync(
         string? search,
         string? role,
         string? status,
@@ -139,7 +139,17 @@ public sealed class UserManagementService : IUserManagementService
             query = query.Where(u => u.IsActive == isActive);
         }
 
-        var list = await query
+        var stats = new UserListStatsDto
+        {
+            TotalUsers = await query.CountAsync(cancellationToken),
+            ActiveUsers = await query.CountAsync(u => u.IsActive, cancellationToken),
+            InactiveUsers = await query.CountAsync(u => !u.IsActive, cancellationToken),
+            SuperAdmins = await query.CountAsync(
+                u => u.UserRoles.Any(ur => ur.Role.Name == "SuperAdmin"),
+                cancellationToken)
+        };
+
+        var page = await query
             .OrderBy(u => u.UserName)
             .Select(u => new UserListItemResponseDto
             {
@@ -154,7 +164,7 @@ public sealed class UserManagementService : IUserManagementService
             })
             .ToPaginatedResponseAsync(pagination, cancellationToken);
 
-        return (list, null);
+        return (UserListResponseDto.Create(page, stats), null);
     }
 
     public async Task<(UserDetailResponseDto? user, string? error)> GetUserByIdAsync(

@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 import {
   CalendarClock,
   CalendarDays,
@@ -414,23 +414,24 @@ function ScheduleNav({
   }
 
   return (
-    <div className="flex min-w-0 flex-wrap items-center gap-3">
-      <div className="flex min-w-0 shrink-0 items-center gap-1.5">
+    <div className="flex min-w-0 flex-wrap items-center justify-between gap-2">
+      <div className="inline-flex w-fit min-w-0 shrink-0 overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm">
         <button
           type="button"
           onClick={goPrev}
-          className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-600 shadow-sm transition hover:bg-slate-50"
+          className="inline-flex h-10 w-10 shrink-0 items-center justify-center border-r border-slate-200 text-slate-600 transition hover:bg-slate-50"
           aria-label="Previous"
         >
           <ChevronLeft className="h-4 w-4" aria-hidden />
         </button>
-        <div className="flex h-10 min-w-[12rem] shrink-0 items-center justify-center rounded-lg border border-slate-200 bg-slate-50 px-4 text-center text-sm font-semibold leading-snug text-slate-900 sm:min-w-[16rem]">
-          {formatScheduleNavLabel(calendarView, focusDate)}
+        <div className="flex h-10 w-fit min-w-[11.5rem] shrink-0 items-center justify-center gap-2 bg-slate-50 px-3 text-center text-sm font-semibold leading-snug text-slate-900 sm:min-w-[14rem]">
+          <CalendarDays className="h-4 w-4 text-sky-600" aria-hidden />
+          <span className="truncate">{formatScheduleNavLabel(calendarView, focusDate)}</span>
         </div>
         <button
           type="button"
           onClick={goNext}
-          className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-600 shadow-sm transition hover:bg-slate-50"
+          className="inline-flex h-10 w-10 shrink-0 items-center justify-center border-l border-slate-200 text-slate-600 transition hover:bg-slate-50"
           aria-label="Next"
         >
           <ChevronRight className="h-4 w-4" aria-hidden />
@@ -439,14 +440,14 @@ function ScheduleNav({
       <button
         type="button"
         onClick={goToday}
-        className="h-10 shrink-0 rounded-lg border border-slate-200 bg-white px-3 text-sm font-semibold text-slate-800 shadow-sm transition hover:bg-slate-50"
+        className="h-10 shrink-0 rounded-lg bg-sky-600 px-4 text-sm font-semibold text-white shadow-sm transition hover:bg-sky-700"
       >
         Today
       </button>
       <button
         type="button"
         onClick={onClear}
-        className="h-10 shrink-0 rounded-lg border border-slate-200 bg-white px-3 text-sm font-semibold text-slate-800 shadow-sm transition hover:bg-slate-50"
+        className="h-10 shrink-0 rounded-lg border border-slate-200 bg-white px-3 text-sm font-semibold text-slate-700 shadow-sm transition hover:bg-slate-50 hover:text-slate-950"
       >
         Clear
       </button>
@@ -480,9 +481,167 @@ function CalendarViewSegment({ value, onChange }) {
   );
 }
 
+function SearchField({ value, onChange }) {
+  return (
+    <label className="block w-full">
+      <span className="relative block">
+        <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+        <input
+          type="search"
+          value={value}
+          onChange={(event) => onChange(event.target.value)}
+          placeholder="Search patient, doctor, department..."
+          className="h-10 w-full rounded-lg border border-slate-200 bg-white pl-9 pr-3 text-sm text-slate-900 shadow-sm outline-none transition placeholder:text-slate-400 focus:border-sky-500 focus:ring-2 focus:ring-sky-500/20"
+        />
+      </span>
+    </label>
+  );
+}
+
+function AppointmentStatsRow({ view, calendarView, counts }) {
+  return (
+    <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
+      <SummaryTile
+        label={
+          view === "schedule"
+            ? calendarView === "day"
+              ? "Day total"
+              : calendarView === "week"
+                ? "Week total"
+                : "Month total"
+            : "Showing"
+        }
+        value={counts.total}
+        tone="slate"
+        icon={<CalendarClock className="h-4 w-4" aria-hidden />}
+      />
+      <SummaryTile
+        label="Scheduled"
+        value={counts.scheduled}
+        tone="sky"
+        icon={<CalendarDays className="h-4 w-4" aria-hidden />}
+      />
+      <SummaryTile
+        label="Confirmed"
+        value={counts.confirmed}
+        tone="emerald"
+        icon={<CheckCircle2 className="h-4 w-4" aria-hidden />}
+      />
+      <SummaryTile
+        label="Closed"
+        value={counts.completed + counts.cancelled + counts.no_show}
+        tone="rose"
+        icon={<XCircle className="h-4 w-4" aria-hidden />}
+      />
+    </div>
+  );
+}
+
+function AppointmentScheduleToolbar({
+  search,
+  onSearchChange,
+  calendarView,
+  scheduleFocus,
+  onFocusChange,
+  onClear,
+}) {
+  return (
+    <section className="rounded-lg border border-slate-200 bg-white px-3 py-2 shadow-sm">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <div className="min-w-[18rem] flex-1">
+          <SearchField value={search} onChange={onSearchChange} />
+        </div>
+        <ScheduleNav
+          calendarView={calendarView}
+          focusDate={scheduleFocus}
+          onFocusChange={onFocusChange}
+          onClear={onClear}
+        />
+      </div>
+    </section>
+  );
+}
+
+function AppointmentListToolbar({
+  search,
+  onSearchChange,
+  filterDate,
+  onFilterDateChange,
+  onClear,
+  onShowAll,
+}) {
+  return (
+    <section className="rounded-lg border border-slate-200 bg-white px-3 py-2 shadow-sm">
+      <div className="flex flex-wrap items-end gap-2">
+        <div className="min-w-[18rem] flex-1">
+          <SearchField value={search} onChange={onSearchChange} />
+        </div>
+        <label className="block w-full min-w-[12rem] sm:w-auto sm:flex-none">
+          <span className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+            Day
+          </span>
+          <input
+            type="date"
+            value={filterDate}
+            onChange={(event) => onFilterDateChange(event.target.value)}
+            className="mt-1.5 h-10 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm text-slate-900 shadow-sm outline-none transition focus:border-sky-500 focus:ring-2 focus:ring-sky-500/20"
+          />
+        </label>
+        <div className="grid w-full max-w-[15rem] shrink-0 grid-cols-2 gap-2 sm:w-[15rem]">
+          <button
+            type="button"
+            onClick={onClear}
+            className="h-10 w-full rounded-lg border border-slate-200 bg-white px-2 text-sm font-semibold text-slate-800 shadow-sm transition hover:bg-slate-50"
+          >
+            Clear
+          </button>
+          <button
+            type="button"
+            onClick={onShowAll}
+            className="h-10 w-full rounded-lg border border-slate-200 bg-white px-2 text-sm font-semibold text-slate-800 shadow-sm transition hover:bg-slate-50"
+          >
+            Show all
+          </button>
+        </div>
+      </div>
+    </section>
+  );
+}
+
+function AppointmentFilterBar({
+  view,
+  listSegment,
+  onListSegmentChange,
+  calendarView,
+  onCalendarViewChange,
+}) {
+  return (
+    <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-slate-200 bg-white px-3 py-2 shadow-sm">
+      <div className="flex min-w-0 flex-wrap items-center gap-2">
+        <span className="text-xs font-semibold uppercase tracking-wide text-slate-400">
+          Status
+        </span>
+        <StatusSegment value={listSegment} onChange={onListSegmentChange} />
+      </div>
+      {view === "schedule" && (
+        <div className="flex items-center gap-2">
+          <span className="text-xs font-semibold uppercase tracking-wide text-slate-400">
+            View
+          </span>
+          <CalendarViewSegment
+            value={calendarView}
+            onChange={onCalendarViewChange}
+          />
+        </div>
+      )}
+    </div>
+  );
+}
+
 export default function AppointmentsListPage() {
   const auth = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
   const canManageStatus = auth.hasPermission("Appointments.ManageStatus");
   const canEdit = auth.hasPermission("Appointments.Create");
   const canVisit =
@@ -631,6 +790,7 @@ export default function AppointmentsListPage() {
           {canEdit && (
             <Link
               to="/appointments/new"
+              state={{ returnTo: `${location.pathname}${location.search}` }}
               className="inline-flex h-10 items-center justify-center gap-2 rounded-lg bg-sky-600 px-4 text-sm font-semibold text-white shadow-sm transition hover:bg-sky-700"
             >
               <Plus className="h-4 w-4" aria-hidden />
@@ -655,144 +815,46 @@ export default function AppointmentsListPage() {
         </div>
       </div>
 
-      <div className="flex flex-col gap-4 lg:flex-row lg:items-stretch lg:gap-6">
-        <div className="grid w-full max-w-md shrink-0 grid-cols-2 gap-3 lg:h-full lg:w-80 lg:max-w-none lg:grid-rows-2 lg:auto-rows-fr">
-          <SummaryTile
-            label={
-              view === "schedule"
-                ? calendarView === "day"
-                  ? "Day total"
-                  : calendarView === "week"
-                    ? "Week total"
-                    : "Month total"
-                : "Showing"
-            }
-            value={counts.total}
-            tone="slate"
-            icon={<CalendarClock className="h-4 w-4" aria-hidden />}
-          />
-          <SummaryTile
-            label="Scheduled"
-            value={counts.scheduled}
-            tone="sky"
-            icon={<CalendarDays className="h-4 w-4" aria-hidden />}
-          />
-          <SummaryTile
-            label="Confirmed"
-            value={counts.confirmed}
-            tone="emerald"
-            icon={<CheckCircle2 className="h-4 w-4" aria-hidden />}
-          />
-          <SummaryTile
-            label="Closed"
-            value={counts.completed + counts.cancelled + counts.no_show}
-            tone="rose"
-            icon={<XCircle className="h-4 w-4" aria-hidden />}
-          />
-        </div>
+      <AppointmentStatsRow view={view} calendarView={calendarView} counts={counts} />
 
-        <section
-          className={[
-            "flex min-h-0 min-w-0 flex-1 flex-col justify-center rounded-lg border border-slate-200 bg-white px-4 py-3 shadow-sm",
-            "w-full",
-          ].join(" ")}
-        >
-          {view === "list" ? (
-            <div className="flex flex-col gap-3">
-              <label className="block w-full">
-                <span className="text-xs font-semibold uppercase tracking-wide text-slate-500">
-                  Search
-                </span>
-                <span className="relative mt-1.5 block">
-                  <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
-                  <input
-                    type="search"
-                    value={search}
-                    onChange={(event) => setSearch(event.target.value)}
-                    placeholder="Patient, doctor, department"
-                    className="h-10 w-full rounded-lg border border-slate-200 bg-white pl-9 pr-3 text-sm text-slate-900 shadow-sm outline-none transition placeholder:text-slate-400 focus:border-sky-500 focus:ring-2 focus:ring-sky-500/20"
-                  />
-                </span>
-              </label>
-              <div className="flex flex-wrap items-end gap-3">
-                <label className="block min-w-[10.5rem] flex-1">
-                  <span className="text-xs font-semibold uppercase tracking-wide text-slate-500">
-                    Day
-                  </span>
-                  <input
-                    type="date"
-                    value={filterDate}
-                    onChange={(event) => setFilterDate(event.target.value)}
-                    className="mt-1.5 h-10 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm text-slate-900 shadow-sm outline-none transition focus:border-sky-500 focus:ring-2 focus:ring-sky-500/20"
-                  />
-                </label>
-                <div className="grid w-full max-w-[15rem] shrink-0 grid-cols-2 gap-2 sm:w-[15rem]">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setSearch("");
-                      setListSegment("all");
-                      setFilterDate("");
-                    }}
-                    className="h-10 w-full rounded-lg border border-slate-200 bg-white px-2 text-sm font-semibold text-slate-800 shadow-sm transition hover:bg-slate-50"
-                  >
-                    Clear
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setFilterDate("");
-                      setListSegment("all");
-                    }}
-                    className="h-10 w-full rounded-lg border border-slate-200 bg-white px-2 text-sm font-semibold text-slate-800 shadow-sm transition hover:bg-slate-50"
-                  >
-                    Show all
-                  </button>
-                </div>
-              </div>
-            </div>
-          ) : (
-            <div className="flex flex-col gap-3">
-              <label className="block w-full">
-                <span className="text-xs font-semibold uppercase tracking-wide text-slate-500">
-                  Search
-                </span>
-                <span className="relative mt-1.5 block">
-                  <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
-                  <input
-                    type="search"
-                    value={search}
-                    onChange={(event) => setSearch(event.target.value)}
-                    placeholder="Patient, doctor, department"
-                    className="h-10 w-full rounded-lg border border-slate-200 bg-white pl-9 pr-3 text-sm text-slate-900 shadow-sm outline-none transition placeholder:text-slate-400 focus:border-sky-500 focus:ring-2 focus:ring-sky-500/20"
-                  />
-                </span>
-              </label>
-              <div className="flex flex-wrap items-end gap-3">
-                <div className="min-w-0 flex-1">
-                  <ScheduleNav
-                    calendarView={calendarView}
-                    focusDate={scheduleFocus}
-                    onFocusChange={setScheduleFocus}
-                    onClear={() => {
-                      setSearch("");
-                      setListSegment("all");
-                      setFilterDate("");
-                    }}
-                  />
-                </div>
-              </div>
-            </div>
-          )}
-        </section>
-      </div>
+      {view === "list" ? (
+        <AppointmentListToolbar
+          search={search}
+          onSearchChange={setSearch}
+          filterDate={filterDate}
+          onFilterDateChange={setFilterDate}
+          onClear={() => {
+            setSearch("");
+            setListSegment("all");
+            setFilterDate("");
+          }}
+          onShowAll={() => {
+            setFilterDate("");
+            setListSegment("all");
+          }}
+        />
+      ) : (
+        <AppointmentScheduleToolbar
+          search={search}
+          onSearchChange={setSearch}
+          calendarView={calendarView}
+          scheduleFocus={scheduleFocus}
+          onFocusChange={setScheduleFocus}
+          onClear={() => {
+            setSearch("");
+            setListSegment("all");
+            setFilterDate("");
+          }}
+        />
+      )}
 
-      <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-slate-200 bg-white/80 p-2 shadow-sm">
-        <StatusSegment value={listSegment} onChange={setListSegment} />
-        {view === "schedule" && (
-          <CalendarViewSegment value={calendarView} onChange={handleCalendarViewChange} />
-        )}
-      </div>
+      <AppointmentFilterBar
+        view={view}
+        listSegment={listSegment}
+        onListSegmentChange={setListSegment}
+        calendarView={calendarView}
+        onCalendarViewChange={handleCalendarViewChange}
+      />
 
       {toast && (
         <div
@@ -834,10 +896,24 @@ export default function AppointmentsListPage() {
             calendarView={calendarView}
             focusDate={scheduleFocus}
             canCreate={canEdit}
-            onCreate={() => navigate("/appointments/new")}
+            canEdit={canEdit}
+            onCreate={(initialSlot) =>
+              navigate("/appointments/new", {
+                state: {
+                  returnTo: `${location.pathname}${location.search}`,
+                  initialSlot,
+                },
+              })
+            }
             onDayClick={(date) => setSelectedDay(date)}
             onAppointmentClick={(appointment) =>
               setSelectedDay(new Date(appointment.scheduledStart))
+            }
+            onAppointmentView={(appointment) =>
+              navigate(`/appointments/${appointment.id}`)
+            }
+            onAppointmentEdit={(appointment) =>
+              navigate(`/appointments/${appointment.id}/edit`)
             }
             onMutated={load}
             onToast={showToast}
