@@ -1,5 +1,12 @@
-import { useEffect, useMemo, useRef, useState } from "react";
 import { AlertCircle, LayoutDashboard, RefreshCw, Search } from "lucide-react";
+import AnimatedStatNumber from "@/components/dashboard/AnimatedStatNumber";
+import {
+  ChartSkeleton,
+  DashboardCardSkeleton,
+  DashboardPageSkeleton,
+  StatCardSkeleton,
+  TableSkeleton,
+} from "@/components/dashboard/DashboardSkeletons";
 import QuickAddMenu from "@/features/dashboard/QuickAddMenu";
 import { initials } from "@/features/dashboard/dashboardUtils";
 import NotificationBell from "@/features/notifications/NotificationBell";
@@ -71,7 +78,23 @@ export function DashboardFrame({
   );
 }
 
-export function MetricCard({ label, value, helper, icon, tone = "bg-blue-50 text-blue-700" }) {
+function isAnimatedNumber(value) {
+  if (typeof value === "number") return Number.isFinite(value);
+  if (value == null || value === "") return true;
+  return Number.isFinite(Number(String(value).replace(/,/g, "").trim()));
+}
+
+export function MetricCard({
+  label,
+  value,
+  helper,
+  icon,
+  tone = "bg-blue-50 text-blue-700",
+  prefix = "",
+  suffix = "",
+  decimals = 0,
+  compact = false,
+}) {
   return (
     <article className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
       <div className="flex items-start justify-between gap-3">
@@ -80,7 +103,17 @@ export function MetricCard({ label, value, helper, icon, tone = "bg-blue-50 text
             {label}
           </p>
           <p className="mt-3 text-3xl font-semibold leading-none text-slate-950">
-            {value ?? 0}
+            {isAnimatedNumber(value) ? (
+              <AnimatedStatNumber
+                value={value}
+                prefix={prefix}
+                suffix={suffix}
+                decimals={decimals}
+                compact={compact}
+              />
+            ) : (
+              value
+            )}
           </p>
           {helper && <p className="mt-2 text-sm text-slate-500">{helper}</p>}
         </div>
@@ -104,17 +137,8 @@ export function CardShell({ title, action, children }) {
   );
 }
 
-export function LoadingDashboard() {
-  return (
-    <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-      {Array.from({ length: 6 }).map((_, index) => (
-        <div
-          key={index}
-          className="h-32 animate-pulse rounded-lg border border-slate-200 bg-white"
-        />
-      ))}
-    </div>
-  );
+export function LoadingDashboard(props) {
+  return <DashboardPageSkeleton {...props} />;
 }
 
 export function ErrorBanner({ message, onRetry }) {
@@ -149,63 +173,22 @@ export function EmptyState({ children = "No records found." }) {
   );
 }
 
-export function CountUpValue({
-  value,
-  durationMs = 650,
-  precision = 0,
-  locale,
-  options,
-  className,
-}) {
-  const targetNumber = useMemo(() => {
-    if (typeof value === "number") return value;
-    if (value == null) return 0;
-    const coerced = Number(value);
-    return Number.isFinite(coerced) ? coerced : 0;
-  }, [value]);
-
-  const [displayValue, setDisplayValue] = useState(targetNumber);
-  const rafRef = useRef(0);
-  const startTimeRef = useRef(0);
-  const fromRef = useRef(targetNumber);
-
-  useEffect(() => {
-    cancelAnimationFrame(rafRef.current);
-    fromRef.current = displayValue;
-    startTimeRef.current = performance.now();
-
-    const tick = (now) => {
-      const elapsed = now - startTimeRef.current;
-      const t = Math.min(1, durationMs > 0 ? elapsed / durationMs : 1);
-      const eased = 1 - Math.pow(1 - t, 3);
-      const next = fromRef.current + (targetNumber - fromRef.current) * eased;
-      setDisplayValue(next);
-      if (t < 1) rafRef.current = requestAnimationFrame(tick);
-    };
-
-    rafRef.current = requestAnimationFrame(tick);
-    return () => cancelAnimationFrame(rafRef.current);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [targetNumber, durationMs]);
-
-  const formatted = useMemo(() => {
-    const resolvedPrecision =
-      typeof options?.maximumFractionDigits === "number" ? options.maximumFractionDigits : precision;
-
-    const formatter = new Intl.NumberFormat(locale, {
-      maximumFractionDigits: resolvedPrecision,
-      minimumFractionDigits:
-        typeof options?.minimumFractionDigits === "number"
-          ? options.minimumFractionDigits
-          : Math.min(0, resolvedPrecision),
-      ...options,
-    });
-
-    const rounded =
-      resolvedPrecision <= 0 ? Math.round(displayValue) : Number(displayValue.toFixed(resolvedPrecision));
-
-    return formatter.format(rounded);
-  }, [displayValue, locale, options, precision]);
-
-  return <span className={className}>{formatted}</span>;
+export function CountUpValue({ value, durationMs = 950, precision = 0, className }) {
+  return (
+    <AnimatedStatNumber
+      value={value}
+      duration={durationMs}
+      decimals={precision}
+      className={className}
+    />
+  );
 }
+
+export {
+  AnimatedStatNumber,
+  ChartSkeleton,
+  DashboardCardSkeleton,
+  DashboardPageSkeleton,
+  StatCardSkeleton,
+  TableSkeleton,
+};

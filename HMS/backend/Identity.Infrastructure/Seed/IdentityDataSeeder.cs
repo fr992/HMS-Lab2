@@ -145,7 +145,7 @@ public sealed class IdentityDataSeeder
             "NurseTasks.Assign",
             "NurseTasks.Read",
             "LabResults.Create",
-            "Beds.Read"
+            "Beds.Read", "Beds.Assign"
         ]),
         ("Nurse",
         [

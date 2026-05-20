@@ -65,6 +65,19 @@ const EMPTY_BED_ASSIGN_FORM = {
   bedId: "",
   notes: "",
 };
+const EMPTY_PRESCRIPTION_FORM = {
+  notes: "",
+  medicationId: "",
+  dosage: "",
+  frequency: "",
+  duration: "",
+  instructions: "",
+};
+const EMPTY_LAB_REQUEST_FORM = {
+  priority: "routine",
+  clinicalNotes: "",
+  selectedTestIds: [],
+};
 
 function toDateTimeLocalValue(value) {
   if (!value) return "";
@@ -185,14 +198,7 @@ export default function EncounterPanelPage() {
   } = useEncounterPanelStore();
 
   
-  const [prescriptionForm, setPrescriptionForm] = useState({
-    notes: "",
-    medicationId: "",
-    dosage: "",
-    frequency: "",
-    duration: "",
-    instructions: "",
-  });
+  const [prescriptionForm, setPrescriptionForm] = useState(EMPTY_PRESCRIPTION_FORM);
   const [editingEncounter, setEditingEncounter] = useState(false);
   const [encounterForm, setEncounterForm] = useState({
     encounterType: "outpatient",
@@ -207,11 +213,7 @@ export default function EncounterPanelPage() {
   const [medicationSearch, setMedicationSearch] = useState("");
   const [medicationsLoading, setMedicationsLoading] = useState(false);
   const [medicationsError, setMedicationsError] = useState("");
-  const [labRequestForm, setLabRequestForm] = useState({
-    priority: "routine",
-    clinicalNotes: "",
-    selectedTestIds: [],
-  });
+  const [labRequestForm, setLabRequestForm] = useState(EMPTY_LAB_REQUEST_FORM);
   const [labRequestPage, setLabRequestPage] = useState(1);
   const [labTests, setLabTests] = useState([]);
   const [labTestSearch, setLabTestSearch] = useState("");
@@ -466,6 +468,7 @@ export default function EncounterPanelPage() {
     });
     setMedicationSearch("");
     setPrescriptionPage(1);
+    setActionDialog(null);
   }
 
   async function handleCreateLabRequest(e) {
@@ -493,6 +496,7 @@ export default function EncounterPanelPage() {
     });
     setLabTestSearch("");
     setLabRequestPage(1);
+    setActionDialog(null);
   }
 
   async function handleCompleteEncounter() {
@@ -537,6 +541,10 @@ export default function EncounterPanelPage() {
     setNurseTaskForm(EMPTY_NURSE_TASK_FORM);
     setBedAssignForm(EMPTY_BED_ASSIGN_FORM);
     setBedDialogError("");
+    setPrescriptionForm(EMPTY_PRESCRIPTION_FORM);
+    setMedicationSearch("");
+    setLabRequestForm(EMPTY_LAB_REQUEST_FORM);
+    setLabTestSearch("");
   }
 
   async function handleAssignNurseTask(event) {
@@ -828,25 +836,27 @@ export default function EncounterPanelPage() {
         </Card>
       )}
 
-      <Card>
-        <CardHeader>
-          <CardTitle>Prescriptions</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4">
+      <Card className="border-slate-200 bg-white shadow-sm">
+        <CardHeader className="flex flex-row items-center justify-between gap-3">
+          <div>
+            <CardTitle>Prescriptions</CardTitle>
+            <p className="mt-1 text-sm text-muted-foreground">
+              Medications prescribed during this encounter.
+            </p>
+          </div>
           {isOpen && (
-            <PrescriptionForm
-              form={prescriptionForm}
-              saving={saving}
-              medications={filteredMedications}
-              medicationSearch={medicationSearch}
-              medicationsLoading={medicationsLoading}
-              medicationsError={medicationsError}
-              onChange={setPrescriptionForm}
-              onMedicationSearchChange={setMedicationSearch}
-              onSubmit={handleCreatePrescription}
-            />
+            <Button
+              type="button"
+              size="sm"
+              className="bg-sky-600 text-white hover:bg-sky-700"
+              onClick={() => setActionDialog("prescription")}
+            >
+              <Plus className="mr-2 h-4 w-4" aria-hidden />
+              Add Prescription
+            </Button>
           )}
-
+        </CardHeader>
+        <CardContent>
           <PrescriptionHistory
             prescriptions={prescriptions}
             visiblePrescriptions={prescriptionPaging.items}
@@ -857,25 +867,27 @@ export default function EncounterPanelPage() {
         </CardContent>
       </Card>
 
-      <Card>
-        <CardHeader>
-          <CardTitle>Lab Requests</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4">
+      <Card className="border-slate-200 bg-white shadow-sm">
+        <CardHeader className="flex flex-row items-center justify-between gap-3">
+          <div>
+            <CardTitle>Lab Requests</CardTitle>
+            <p className="mt-1 text-sm text-muted-foreground">
+              Laboratory tests requested for this encounter.
+            </p>
+          </div>
           {isOpen && auth.hasPermission("LabRequests.Create") && (
-            <LabRequestForm
-              form={labRequestForm}
-              saving={saving}
-              labTests={filteredLabTests}
-              labTestSearch={labTestSearch}
-              labTestsLoading={labTestsLoading}
-              labTestsError={labTestsError}
-              onChange={setLabRequestForm}
-              onLabTestSearchChange={setLabTestSearch}
-              onSubmit={handleCreateLabRequest}
-            />
+            <Button
+              type="button"
+              size="sm"
+              className="bg-sky-600 text-white hover:bg-sky-700"
+              onClick={() => setActionDialog("labRequest")}
+            >
+              <Plus className="mr-2 h-4 w-4" aria-hidden />
+              Create Lab Request
+            </Button>
           )}
-
+        </CardHeader>
+        <CardContent>
           <LabRequestHistory
             labRequests={labRequests}
             visibleLabRequests={labRequestPaging.items}
@@ -910,6 +922,37 @@ export default function EncounterPanelPage() {
           onClose={closeActionDialog}
           onSubmit={handleAssignBed}
           onChange={(patch) => setBedAssignForm((current) => ({ ...current, ...patch }))}
+        />
+      )}
+
+      {actionDialog === "prescription" && (
+        <PrescriptionDialog
+          form={prescriptionForm}
+          saving={saving}
+          medications={filteredMedications}
+          medicationSearch={medicationSearch}
+          medicationsLoading={medicationsLoading}
+          medicationsError={medicationsError}
+          onClose={closeActionDialog}
+          onChange={setPrescriptionForm}
+          onMedicationSearchChange={setMedicationSearch}
+          onSubmit={handleCreatePrescription}
+        />
+      )}
+
+      {actionDialog === "labRequest" && (
+        <LabRequestDialog
+          form={labRequestForm}
+          saving={saving}
+          labTests={labTests}
+          visibleLabTests={filteredLabTests}
+          labTestSearch={labTestSearch}
+          labTestsLoading={labTestsLoading}
+          labTestsError={labTestsError}
+          onClose={closeActionDialog}
+          onChange={setLabRequestForm}
+          onLabTestSearchChange={setLabTestSearch}
+          onSubmit={handleCreateLabRequest}
         />
       )}
 
@@ -1493,71 +1536,119 @@ function EncounterEditForm({ form, saving, onChange, onSubmit, onCancel }) {
   );
 }
 
-function PrescriptionForm({
+function PrescriptionDialog({
   form,
   saving,
   medications,
   medicationSearch,
   medicationsLoading,
   medicationsError,
+  onClose,
   onChange,
   onMedicationSearchChange,
   onSubmit,
 }) {
   return (
-    <form onSubmit={onSubmit} className="space-y-3 rounded-lg border p-4">
-      <div className="grid gap-3 md:grid-cols-4">
-      <SearchableMedicationSelect
-        medications={medications}
-        value={form.medicationId}
-        searchValue={medicationSearch}
-        loading={medicationsLoading}
-        error={medicationsError}
-        onSearchChange={(value) => {
-          onMedicationSearchChange(value);
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/55 p-4" role="dialog" aria-modal="true">
+      <section className="flex max-h-[92vh] w-full max-w-3xl flex-col overflow-hidden rounded-xl border border-slate-200 bg-white shadow-2xl">
+        <DialogHeader
+          icon={ClipboardCheck}
+          title="Add Prescription"
+          subtitle="Record medication and dosage instructions for this encounter."
+          onClose={onClose}
+        />
 
-          if (form.medicationId) {
-            onChange({ ...form, medicationId: "" });
-          }
-        }}
-        onSelect={(medication) => {
-          onChange({ ...form, medicationId: String(medication.id) });
-          onMedicationSearchChange(medication.name);
-        }}
-      />
-        <Input
-          placeholder="Dosage *"
-          value={form.dosage}
-          onChange={(e) => onChange({ ...form, dosage: e.target.value })}
-          required
-        />
-        <Input
-          placeholder="Frequency *"
-          value={form.frequency}
-          onChange={(e) => onChange({ ...form, frequency: e.target.value })}
-          required
-        />
-        <Input
-          placeholder="Duration *"
-          value={form.duration}
-          onChange={(e) => onChange({ ...form, duration: e.target.value })}
-          required
-        />
-      </div>
-      <Textarea
-        placeholder="Prescription notes"
-        value={form.notes}
-        onChange={(e) => onChange({ ...form, notes: e.target.value })}
-      />
-      <Textarea
-        placeholder="Medication instructions"
-        value={form.instructions}
-        onChange={(e) => onChange({ ...form, instructions: e.target.value })}
-      />
-      <Button type="submit" disabled={saving}>
-        {saving ? "Saving..." : "Add Prescription"}
-      </Button>
-    </form>
+        <form onSubmit={onSubmit} className="flex min-h-0 flex-1 flex-col">
+          <div className="scrollbar-none min-h-0 flex-1 space-y-4 overflow-y-auto bg-slate-50 px-6 py-5">
+            <div className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
+              <SearchableMedicationSelect
+                medications={medications}
+                value={form.medicationId}
+                searchValue={medicationSearch}
+                loading={medicationsLoading}
+                error={medicationsError}
+                onSearchChange={(value) => {
+                  onMedicationSearchChange(value);
+
+                  if (form.medicationId) {
+                    onChange({ ...form, medicationId: "" });
+                  }
+                }}
+                onSelect={(medication) => {
+                  onChange({ ...form, medicationId: String(medication.id) });
+                  onMedicationSearchChange(medication.name);
+                }}
+              />
+            </div>
+
+            <div className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
+              <div className="grid gap-3 md:grid-cols-3">
+                <FormField label="Dosage" required>
+                  <Input
+                    placeholder="e.g. 500 mg"
+                    value={form.dosage}
+                    onChange={(e) => onChange({ ...form, dosage: e.target.value })}
+                    required
+                  />
+                </FormField>
+                <FormField label="Frequency" required>
+                  <Input
+                    placeholder="e.g. Twice daily"
+                    value={form.frequency}
+                    onChange={(e) => onChange({ ...form, frequency: e.target.value })}
+                    required
+                  />
+                </FormField>
+                <FormField label="Duration" required>
+                  <Input
+                    placeholder="e.g. 7 days"
+                    value={form.duration}
+                    onChange={(e) => onChange({ ...form, duration: e.target.value })}
+                    required
+                  />
+                </FormField>
+              </div>
+            </div>
+
+            <div className="grid gap-4 md:grid-cols-2">
+              <FormField label="Prescription notes">
+                <Textarea
+                  placeholder="Clinical context for this prescription"
+                  value={form.notes}
+                  onChange={(e) => onChange({ ...form, notes: e.target.value })}
+                />
+              </FormField>
+
+              <FormField label="Medication instructions">
+                <Textarea
+                  placeholder="Administration instructions for the patient"
+                  value={form.instructions}
+                  onChange={(e) => onChange({ ...form, instructions: e.target.value })}
+                />
+              </FormField>
+            </div>
+          </div>
+
+          <div className="flex justify-end gap-2 border-t border-slate-200 bg-white px-6 py-4">
+            <button
+              type="button"
+              onClick={onClose}
+              disabled={saving}
+              className="h-10 rounded-lg border border-slate-200 bg-white px-4 text-sm font-medium text-slate-700 transition hover:bg-slate-50 disabled:opacity-50"
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              disabled={saving}
+              className="h-10 rounded-lg bg-sky-600 px-4 text-sm font-medium text-white transition hover:bg-sky-700 disabled:opacity-50"
+            >
+              {saving ? "Saving..." : "Add Prescription"}
+            </button>
+          </div>
+        </form>
+      </section>
+    </div>
   );
 }
 
@@ -1584,80 +1675,87 @@ function SearchableMedicationSelect({
   }
 
   return (
-    <div ref={containerRef} onBlur={handleBlur} className="relative space-y-2">
-      <Input
-        placeholder="Search medication *"
-        value={searchValue}
-        onFocus={() => setOpen(true)}
-        onChange={(e) => {
-          onSearchChange(e.target.value);
-          setOpen(true);
-        }}
-        required
-      />
+    <FormField label="Medication search" required>
+      <div ref={containerRef} onBlur={handleBlur} className="relative space-y-2">
+        <Input
+          placeholder="Search by medication name"
+          value={searchValue}
+          onFocus={() => setOpen(true)}
+          onChange={(e) => {
+            onSearchChange(e.target.value);
+            setOpen(true);
+          }}
+          required
+        />
 
-      {open && (
-        <div className="scrollbar-none absolute z-50 max-h-56 w-full overflow-auto rounded-md border border-slate-200 bg-white shadow-lg">
-          {loading && (
-            <div className="px-3 py-2 text-sm text-slate-500">
-              Loading medications...
-            </div>
-          )}
+        {open && (
+          <div className="scrollbar-none absolute z-50 max-h-56 w-full overflow-auto rounded-md border border-slate-200 bg-white shadow-lg">
+            {loading && (
+              <div className="px-3 py-2 text-sm text-slate-500">
+                Loading medications...
+              </div>
+            )}
 
-          {!loading &&
-            medications.map((medication) => (
-              <button
-                key={medication.id}
-                type="button"
-                onMouseDown={(e) => e.preventDefault()}
-                onClick={() => {
-                  onSelect(medication);
-                  setOpen(false);
-                }}
-                className="block w-full px-3 py-2 text-left text-sm hover:bg-slate-100"
-              >
-                <div className="font-medium text-slate-900">
-                  {medication.name}
-                </div>
-
-                {medication.description && (
-                  <div className="text-xs text-slate-500">
-                    {medication.description}
+            {!loading &&
+              medications.map((medication) => (
+                <button
+                  key={medication.id}
+                  type="button"
+                  onMouseDown={(e) => e.preventDefault()}
+                  onClick={() => {
+                    onSelect(medication);
+                    setOpen(false);
+                  }}
+                  className="block w-full px-3 py-2 text-left text-sm hover:bg-slate-100"
+                >
+                  <div className="font-medium text-slate-900">
+                    {medication.name}
                   </div>
-                )}
-              </button>
-            ))}
 
-          {!loading && medications.length === 0 && (
-            <div className="px-3 py-2 text-sm text-slate-500">
-              No medications match.
-            </div>
-          )}
-        </div>
-      )}
+                  {medication.description && (
+                    <div className="text-xs text-slate-500">
+                      {medication.description}
+                    </div>
+                  )}
+                </button>
+              ))}
 
-      {error && <p className="text-xs text-rose-600">{error}</p>}
+            {!loading && medications.length === 0 && (
+              <div className="px-3 py-2 text-sm text-slate-500">
+                No medications match.
+              </div>
+            )}
+          </div>
+        )}
 
-      {selectedMedication && (
-        <p className="text-xs text-slate-500">
-          Selected: {selectedMedication.name}
-        </p>
-      )}
-    </div>
+        {error && <p className="text-xs text-rose-600">{error}</p>}
+
+        {selectedMedication && (
+          <p className="text-xs text-slate-500">
+            Selected: {selectedMedication.name}
+          </p>
+        )}
+      </div>
+    </FormField>
   );
 }
 
-function LabRequestForm({
+function LabRequestDialog({
   form,
   saving,
   labTests,
+  visibleLabTests,
   labTestSearch,
   labTestsLoading,
   labTestsError,
+  onClose,
   onChange,
   onLabTestSearchChange,
   onSubmit,
 }) {
+  const selectedTests = labTests.filter((test) =>
+    form.selectedTestIds.includes(String(test.id))
+  );
   const selectedTotal = labTests
     .filter((test) => form.selectedTestIds.includes(String(test.id)))
     .reduce((sum, test) => sum + (Number(test.price) || 0), 0);
@@ -1675,92 +1773,179 @@ function LabRequestForm({
   }
 
   return (
-    <form onSubmit={onSubmit} className="space-y-3 rounded-lg border p-4">
-      <div className="grid gap-3 md:grid-cols-[12rem_1fr]">
-        <label className="block">
-          <span className="mb-1 block text-xs font-medium text-muted-foreground">
-            Priority
-          </span>
-          <select
-            value={form.priority}
-            onChange={(e) => onChange({ ...form, priority: e.target.value })}
-            className="h-9 w-full rounded-md border border-input bg-background px-3 text-sm"
-          >
-            <option value="routine">Routine</option>
-            <option value="urgent">Urgent</option>
-            <option value="stat">Stat</option>
-          </select>
-        </label>
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/55 p-4" role="dialog" aria-modal="true">
+      <section className="flex max-h-[92vh] w-full max-w-5xl flex-col overflow-hidden rounded-xl border border-slate-200 bg-white shadow-2xl">
+        <DialogHeader
+          icon={Search}
+          title="Create Lab Request"
+          subtitle="Select tests and add clinical notes for this encounter."
+          onClose={onClose}
+        />
 
-        <label className="block">
-          <span className="mb-1 block text-xs font-medium text-muted-foreground">
-            Search tests
-          </span>
-          <Input
-            placeholder="Search by code, name, specimen"
-            value={labTestSearch}
-            onChange={(e) => onLabTestSearchChange(e.target.value)}
-          />
-        </label>
-      </div>
+        <form onSubmit={onSubmit} className="flex min-h-0 flex-1 flex-col">
+          <div className="scrollbar-none min-h-0 flex-1 overflow-y-auto bg-slate-50 px-6 py-5">
+            <div className="grid gap-4 xl:grid-cols-[minmax(0,1.7fr)_minmax(18rem,0.9fr)]">
+              <div className="overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm">
+                <div className="border-b border-slate-200 bg-slate-50 px-4 py-3">
+                  <h3 className="text-sm font-semibold text-slate-950">Available Lab Tests</h3>
+                  <p className="mt-1 text-xs text-slate-500">
+                    Search and select tests for this encounter.
+                  </p>
+                </div>
+                <div className="space-y-4 p-4">
+                  <div className="grid gap-3 md:grid-cols-[12rem_1fr]">
+                    <FormField label="Priority">
+                      <select
+                        value={form.priority}
+                        onChange={(e) => onChange({ ...form, priority: e.target.value })}
+                        className="h-10 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm text-slate-900 shadow-sm outline-none transition focus:border-sky-500 focus:ring-2 focus:ring-sky-500/20"
+                      >
+                        <option value="routine">Routine</option>
+                        <option value="urgent">Urgent</option>
+                        <option value="stat">Stat</option>
+                      </select>
+                    </FormField>
 
-      <div className="max-h-64 overflow-auto rounded-md border border-slate-200">
-        {labTestsLoading && (
-          <div className="px-3 py-2 text-sm text-slate-500">Loading lab tests...</div>
-        )}
+                    <FormField label="Search tests">
+                      <Input
+                        placeholder="Search by code, name, specimen"
+                        value={labTestSearch}
+                        onChange={(e) => onLabTestSearchChange(e.target.value)}
+                      />
+                    </FormField>
+                  </div>
 
-        {!labTestsLoading &&
-          labTests.map((test) => (
-            <label
-              key={test.id}
-              className="flex cursor-pointer items-start gap-3 border-b border-slate-100 px-3 py-2 last:border-b-0 hover:bg-slate-50"
+                  <div className="grid max-h-[28rem] gap-2 overflow-auto pr-1">
+                    {labTestsLoading && (
+                      <div className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-3 text-sm text-slate-500">
+                        Loading lab tests...
+                      </div>
+                    )}
+
+                    {!labTestsLoading &&
+                      visibleLabTests.map((test) => {
+                        const selected = form.selectedTestIds.includes(String(test.id));
+                        return (
+                          <button
+                            key={test.id}
+                            type="button"
+                            onClick={() => toggleTest(test.id)}
+                            className={[
+                              "flex w-full items-start gap-3 rounded-lg border p-3 text-left shadow-sm transition",
+                              selected
+                                ? "border-sky-300 bg-sky-50/70 ring-1 ring-sky-200"
+                                : "border-slate-200 bg-white hover:border-sky-200 hover:bg-slate-50",
+                            ].join(" ")}
+                          >
+                            <span
+                              className={[
+                                "mt-0.5 inline-flex size-5 shrink-0 items-center justify-center rounded-full border",
+                                selected
+                                  ? "border-sky-500 bg-sky-600 text-white"
+                                  : "border-slate-300 bg-white text-transparent",
+                              ].join(" ")}
+                              aria-hidden
+                            >
+                              <CheckCircle2 className="size-3.5" />
+                            </span>
+                            <span className="min-w-0 flex-1">
+                              <span className="block text-sm font-semibold text-slate-950">
+                                {test.name}
+                              </span>
+                              <span className="mt-1 block text-xs text-slate-500">
+                                {[test.testCode, test.specimenType].filter(Boolean).join(" / ") || "Catalog test"}
+                              </span>
+                              {test.description && (
+                                <span className="mt-1 line-clamp-2 block text-xs text-slate-500">
+                                  {test.description}
+                                </span>
+                              )}
+                            </span>
+                            <span className="shrink-0 text-sm font-semibold text-slate-700">
+                              {formatMoney(test.price || 0, "EUR")}
+                            </span>
+                          </button>
+                        );
+                      })}
+
+                    {!labTestsLoading && visibleLabTests.length === 0 && (
+                      <div className="rounded-lg border border-dashed border-slate-200 bg-slate-50 px-4 py-8 text-center text-sm text-slate-500">
+                        No active lab tests match.
+                      </div>
+                    )}
+                  </div>
+
+                  {labTestsError && <p className="text-xs text-rose-600">{labTestsError}</p>}
+                </div>
+              </div>
+
+              <div className="overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm">
+                <div className="border-b border-slate-200 bg-slate-50 px-4 py-3">
+                  <h3 className="text-sm font-semibold text-slate-950">Selected Tests</h3>
+                  <p className="mt-1 text-xs text-slate-500">
+                    {form.selectedTestIds.length} selected for this request
+                  </p>
+                </div>
+                <div className="space-y-4 p-4">
+                  <div className="rounded-lg border border-slate-200 bg-slate-50 p-3">
+                    <div className="flex items-center justify-between gap-3">
+                      <span className="text-sm font-medium text-slate-600">Total price</span>
+                      <span className="text-base font-semibold text-slate-950">
+                        {formatMoney(selectedTotal, "EUR")}
+                      </span>
+                    </div>
+                  </div>
+
+                  {selectedTests.length > 0 ? (
+                    <div className="max-h-56 space-y-2 overflow-auto pr-1">
+                      {selectedTests.map((test) => (
+                        <div key={test.id} className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm">
+                          <p className="font-medium text-slate-950">{test.name}</p>
+                          <p className="mt-1 text-xs text-slate-500">
+                            {[test.testCode, test.specimenType].filter(Boolean).join(" / ") || "Selected lab test"}
+                          </p>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="rounded-lg border border-dashed border-slate-200 bg-slate-50 px-4 py-8 text-center">
+                      <p className="text-sm font-semibold text-slate-900">No tests selected</p>
+                      <p className="mt-1 text-sm text-slate-500">Selected tests will appear here.</p>
+                    </div>
+                  )}
+
+                  <FormField label="Clinical notes">
+                    <Textarea
+                      placeholder="Clinical notes"
+                      value={form.clinicalNotes}
+                      onChange={(e) => onChange({ ...form, clinicalNotes: e.target.value })}
+                    />
+                  </FormField>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div className="flex justify-end gap-2 border-t border-slate-200 bg-white px-6 py-4">
+            <button
+              type="button"
+              onClick={onClose}
+              disabled={saving}
+              className="h-10 rounded-lg border border-slate-200 bg-white px-4 text-sm font-medium text-slate-700 transition hover:bg-slate-50 disabled:opacity-50"
             >
-              <input
-                type="checkbox"
-                className="mt-1"
-                checked={form.selectedTestIds.includes(String(test.id))}
-                onChange={() => toggleTest(test.id)}
-              />
-              <span className="min-w-0 flex-1">
-                <span className="block text-sm font-medium text-slate-950">
-                  {test.testCode ? `${test.testCode} - ` : ""}
-                  {test.name}
-                </span>
-                <span className="block text-xs text-slate-500">
-                  {[test.specimenType, test.description].filter(Boolean).join(" | ") || "No details"}
-                </span>
-              </span>
-              <span className="shrink-0 text-sm font-semibold text-slate-700">
-                {formatMoney(test.price || 0, "EUR")}
-              </span>
-            </label>
-          ))}
-
-        {!labTestsLoading && labTests.length === 0 && (
-          <div className="px-3 py-2 text-sm text-slate-500">No active lab tests match.</div>
-        )}
-      </div>
-
-      {labTestsError && <p className="text-xs text-rose-600">{labTestsError}</p>}
-
-      {form.selectedTestIds.length > 0 && (
-        <div className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-700">
-          Selected tests: <span className="font-semibold">{form.selectedTestIds.length}</span>
-          <span className="mx-2 text-slate-300">|</span>
-          Estimated lab total: <span className="font-semibold">{formatMoney(selectedTotal, "EUR")}</span>
-        </div>
-      )}
-
-      <Textarea
-        placeholder="Clinical notes"
-        value={form.clinicalNotes}
-        onChange={(e) => onChange({ ...form, clinicalNotes: e.target.value })}
-      />
-
-      <Button type="submit" disabled={saving || form.selectedTestIds.length === 0}>
-        {saving ? "Saving..." : "Create Lab Request"}
-      </Button>
-    </form>
+              Cancel
+            </button>
+            <button
+              type="submit"
+              disabled={saving || form.selectedTestIds.length === 0}
+              className="h-10 rounded-lg bg-sky-600 px-4 text-sm font-medium text-white transition hover:bg-sky-700 disabled:opacity-50"
+            >
+              {saving ? "Saving..." : "Create Lab Request"}
+            </button>
+          </div>
+        </form>
+      </section>
+    </div>
   );
 }
 
@@ -1772,50 +1957,78 @@ function LabRequestHistory({
   onPageChange,
 }) {
   if (labRequests.length === 0) {
-    return <p className="text-sm text-muted-foreground">No lab requests yet.</p>;
+    return (
+      <div className="overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm">
+        <HistoryHeader
+          title="Lab Request History"
+          count={0}
+          page={page}
+          totalPages={totalPages}
+          onPageChange={onPageChange}
+        />
+        <div className="flex min-h-40 items-center justify-center p-6 text-center">
+          <div>
+            <p className="text-sm font-semibold text-slate-900">No lab requests yet</p>
+            <p className="mt-1 text-sm text-slate-500">
+              Created lab requests for this encounter will appear here.
+            </p>
+          </div>
+        </div>
+      </div>
+    );
   }
 
   return (
-    <div className="overflow-hidden rounded-lg border border-slate-200">
+    <div className="overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm">
       <HistoryHeader
-        title="Lab request history"
+        title="Lab Request History"
         count={labRequests.length}
         page={page}
         totalPages={totalPages}
         onPageChange={onPageChange}
       />
-      <div className="divide-y divide-slate-100">
+      <div className="space-y-3 bg-slate-50 p-3">
         {visibleLabRequests.map((request) => (
-          <details key={request.id} className="group bg-white">
-            <summary className="grid cursor-pointer list-none gap-3 px-4 py-3 hover:bg-slate-50 md:grid-cols-[minmax(0,1fr)_8rem_12rem] md:items-center">
-              <div className="min-w-0">
-                <p className="truncate text-sm font-medium text-slate-950">
-                  {request.requestNumber}
-                </p>
-                <p className="mt-1 truncate text-xs text-slate-500">
-                  {(request.items ?? []).map((item) => item.testName).join(", ")}
-                </p>
+          <details key={request.id} className="group overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm">
+            <summary className="cursor-pointer list-none p-4 transition hover:bg-slate-50">
+              <div className="flex flex-wrap items-start justify-between gap-3">
+                <div className="min-w-0">
+                  <p className="truncate text-sm font-semibold text-slate-950">
+                    {request.requestNumber || `Lab request #${request.id}`}
+                  </p>
+                  <p className="mt-1 truncate text-xs text-slate-500">
+                    {(request.items ?? []).map((item) => item.testName).join(", ") || "No tests listed"}
+                  </p>
+                </div>
+                <div className="flex flex-wrap items-center gap-2">
+                  <span className={`inline-flex rounded-full px-2.5 py-1 text-xs font-medium ring-1 ring-inset ${taskPriorityClasses(request.priority)}`}>
+                    {request.priority || "routine"}
+                  </span>
+                  <Badge>{request.status}</Badge>
+                </div>
               </div>
-              <Badge>{request.status}</Badge>
-              <p className="truncate text-xs text-slate-500 md:text-right">
-                {request.priority}
-              </p>
+              <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-slate-500">
+                <span>{request.items?.length ?? 0} tests</span>
+                <span>Requested {formatDate(request.requestedAt || request.createdAt)}</span>
+                {request.requestedByDoctorName && (
+                  <span>{request.requestedByDoctorName}</span>
+                )}
+              </div>
             </summary>
-            <div className="space-y-2 border-t border-slate-100 bg-slate-50 px-4 py-3">
+            <div className="space-y-2 border-t border-slate-100 bg-white px-4 py-3">
               {request.clinicalNotes && (
-                <p className="text-sm text-slate-700">{request.clinicalNotes}</p>
+                <p className="rounded-lg bg-slate-50 p-3 text-sm text-slate-700">{request.clinicalNotes}</p>
               )}
               {(request.items ?? []).map((item) => (
                 <div
                   key={item.id}
-                  className="rounded-md border border-slate-200 bg-white p-3 text-sm"
+                  className="rounded-lg border border-slate-200 bg-slate-50 p-3 text-sm"
                 >
                   <p className="font-medium text-slate-950">
-                    {item.testCode ? `${item.testCode} - ` : ""}
                     {item.testName}
                   </p>
                   <p className="mt-1 text-slate-600">
-                    Specimen: {item.specimenType || "-"}
+                    {[item.testCode, item.specimenType].filter(Boolean).join(" / ") || "Specimen details unavailable"}
                   </p>
                 </div>
               ))}
@@ -1835,55 +2048,83 @@ function PrescriptionHistory({
   onPageChange,
 }) {
   if (prescriptions.length === 0) {
-    return <p className="text-sm text-muted-foreground">No prescriptions yet.</p>;
+    return (
+      <div className="overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm">
+        <HistoryHeader
+          title="Prescription History"
+          count={0}
+          page={page}
+          totalPages={totalPages}
+          onPageChange={onPageChange}
+        />
+        <div className="flex min-h-40 items-center justify-center p-6 text-center">
+          <div>
+            <p className="text-sm font-semibold text-slate-900">No prescriptions yet</p>
+            <p className="mt-1 text-sm text-slate-500">
+              Prescriptions added for this encounter will appear here.
+            </p>
+          </div>
+        </div>
+      </div>
+    );
   }
 
   return (
-    <div className="overflow-hidden rounded-lg border border-slate-200">
+    <div className="overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm">
       <HistoryHeader
-        title="Prescription history"
+        title="Prescription History"
         count={prescriptions.length}
         page={page}
         totalPages={totalPages}
         onPageChange={onPageChange}
       />
-      <div className="divide-y divide-slate-100">
+      <div className="space-y-3 bg-slate-50 p-3">
         {visiblePrescriptions.map((prescription) => {
           const items = prescription.items ?? [];
           const firstItem = items[0];
           return (
-            <details key={prescription.id} className="group bg-white">
-              <summary className="grid cursor-pointer list-none gap-3 px-4 py-3 hover:bg-slate-50 md:grid-cols-[minmax(0,1fr)_8rem_12rem] md:items-center">
-                <div className="min-w-0">
-                  <p className="truncate text-sm font-medium text-slate-950">
-                    Prescription #{prescription.id}
-                  </p>
-                  <p className="mt-1 truncate text-xs text-slate-500">
-                    {firstItem
-                      ? `${firstItem.medicationName} - ${firstItem.dosage}, ${firstItem.frequency}`
-                      : "No medication items"}
-                    {items.length > 1 ? ` +${items.length - 1} more` : ""}
-                  </p>
+            <details key={prescription.id} className="group overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm">
+              <summary className="cursor-pointer list-none p-4 transition hover:bg-slate-50">
+                <div className="flex flex-wrap items-start justify-between gap-3">
+                  <div className="min-w-0">
+                    <p className="truncate text-sm font-semibold text-slate-950">
+                      Prescription #{prescription.id}
+                    </p>
+                    <p className="mt-1 truncate text-xs text-slate-500">
+                      {firstItem?.medicationName || "No medication items"}
+                      {items.length > 1 ? ` +${items.length - 1} more` : ""}
+                    </p>
+                  </div>
+                  <Badge>{prescription.status}</Badge>
                 </div>
-                <Badge>{prescription.status}</Badge>
-                <p className="truncate text-xs text-slate-500 md:text-right">
-                  {prescription.doctorName}
-                </p>
+                {firstItem && (
+                  <div className="mt-3 rounded-lg bg-slate-50 p-3 text-sm text-slate-700">
+                    <span className="font-medium text-slate-950">{firstItem.dosage}</span>
+                    <span className="mx-2 text-slate-300">/</span>
+                    {firstItem.frequency}
+                    <span className="mx-2 text-slate-300">/</span>
+                    {firstItem.duration}
+                  </div>
+                )}
+                <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-slate-500">
+                  {prescription.doctorName && <span>{prescription.doctorName}</span>}
+                  {prescription.createdAt && <span>{formatDate(prescription.createdAt)}</span>}
+                </div>
               </summary>
-              <div className="space-y-2 border-t border-slate-100 bg-slate-50 px-4 py-3">
+              <div className="space-y-2 border-t border-slate-100 bg-white px-4 py-3">
                 {prescription.notes && (
-                  <p className="text-sm text-slate-700">{prescription.notes}</p>
+                  <p className="rounded-lg bg-slate-50 p-3 text-sm text-slate-700">{prescription.notes}</p>
                 )}
                 {items.map((item) => (
                   <div
                     key={item.id}
-                    className="rounded-md border border-slate-200 bg-white p-3 text-sm"
+                    className="rounded-lg border border-slate-200 bg-slate-50 p-3 text-sm"
                   >
                     <p className="font-medium text-slate-950">
                       {item.medicationName}
                     </p>
                     <p className="mt-1 text-slate-600">
-                      {item.dosage} | {item.frequency} | {item.duration}
+                      {item.dosage} / {item.frequency} / {item.duration}
                     </p>
                     {item.instructions && (
                       <p className="mt-1 text-slate-500">{item.instructions}</p>
@@ -1900,39 +2141,42 @@ function PrescriptionHistory({
 }
 
 function HistoryHeader({ title, count, page, totalPages, onPageChange }) {
+  const showPagination = count > HISTORY_PAGE_SIZE;
   return (
     <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-200 bg-slate-50 px-4 py-3">
       <div>
         <p className="text-sm font-semibold text-slate-950">{title}</p>
         <p className="text-xs text-slate-500">
-          Showing {Math.min(HISTORY_PAGE_SIZE, count)} per page, {count} total
+          Showing {count} {count === 1 ? "record" : "records"}
         </p>
       </div>
-      <div className="flex items-center gap-2">
-        <Button
-          type="button"
-          variant="outline"
-          size="icon-sm"
-          disabled={page <= 1}
-          onClick={() => onPageChange(page - 1)}
-          aria-label="Previous page"
-        >
-          <ChevronLeft className="h-4 w-4" aria-hidden />
-        </Button>
-        <span className="min-w-16 text-center text-xs font-medium text-slate-600">
-          {page} / {totalPages}
-        </span>
-        <Button
-          type="button"
-          variant="outline"
-          size="icon-sm"
-          disabled={page >= totalPages}
-          onClick={() => onPageChange(page + 1)}
-          aria-label="Next page"
-        >
-          <ChevronRight className="h-4 w-4" aria-hidden />
-        </Button>
-      </div>
+      {showPagination && (
+        <div className="flex items-center gap-2">
+          <Button
+            type="button"
+            variant="outline"
+            size="icon-sm"
+            disabled={page <= 1}
+            onClick={() => onPageChange(page - 1)}
+            aria-label="Previous page"
+          >
+            <ChevronLeft className="h-4 w-4" aria-hidden />
+          </Button>
+          <span className="min-w-16 text-center text-xs font-medium text-slate-600">
+            {page} / {totalPages}
+          </span>
+          <Button
+            type="button"
+            variant="outline"
+            size="icon-sm"
+            disabled={page >= totalPages}
+            onClick={() => onPageChange(page + 1)}
+            aria-label="Next page"
+          >
+            <ChevronRight className="h-4 w-4" aria-hidden />
+          </Button>
+        </div>
+      )}
     </div>
   );
 }

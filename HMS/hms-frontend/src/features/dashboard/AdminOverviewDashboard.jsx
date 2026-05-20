@@ -20,6 +20,7 @@ import {
   DashboardFrame,
   EmptyState,
   ErrorBanner,
+  AnimatedStatNumber,
   LoadingDashboard,
   MetricCard,
 } from "@/features/dashboard/DashboardPrimitives";
@@ -97,7 +98,9 @@ export default function AdminOverviewDashboard() {
         { label: "New Appointment", to: "/appointments/new", kind: "appointment", visible: auth.hasPermission("Appointments.Create") },
       ]}
     >
-      {state.status === "loading" && <LoadingDashboard />}
+      {state.status === "loading" && (
+        <LoadingDashboard statCount={8} cardCount={4} columns="lg:grid-cols-4" />
+      )}
       {state.status === "error" && <ErrorBanner message={state.error} onRetry={() => void load()} />}
 
       {state.status === "ready" && (
@@ -225,9 +228,9 @@ function buildAdminDashboard(data, auth) {
       tone: "bg-emerald-50 text-emerald-700",
     },
     auth.isSuperAdmin && {
-      label: "Users / Roles",
-      value: `${getTotal(data.users?.data, users)} / ${roles.length}`,
-      helper: "Access governance",
+      label: "Total Users",
+      value: getTotal(data.users?.data, users),
+      helper: `${roles.length} roles configured`,
       icon: <ShieldCheck className="size-5" />,
       tone: "bg-violet-50 text-violet-700",
     },
@@ -314,7 +317,9 @@ function SummaryLine({ label, value, icon }) {
         <span className="text-slate-400">{icon}</span>
         {label}
       </span>
-      <span className="font-semibold text-slate-950">{value}</span>
+      <span className="font-semibold text-slate-950">
+        {typeof value === "number" ? <AnimatedStatNumber value={value} /> : value}
+      </span>
     </div>
   );
 }

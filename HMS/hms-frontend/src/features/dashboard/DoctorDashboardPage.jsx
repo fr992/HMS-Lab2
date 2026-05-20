@@ -16,6 +16,10 @@ import {
   fetchDoctorDashboard,
   getApiErrorMessage,
 } from "@/features/dashboard/doctorDashboardApi";
+import {
+  AnimatedStatNumber,
+  DashboardPageSkeleton,
+} from "@/features/dashboard/DashboardPrimitives";
 import QuickAddMenu from "@/features/dashboard/QuickAddMenu";
 import NotificationBell from "@/features/notifications/NotificationBell";
 
@@ -208,7 +212,9 @@ export default function DoctorDashboardPage() {
       />
 
       <div className="space-y-6 p-4 sm:p-5 lg:p-6">
-        {status === "loading" && <DashboardSkeleton />}
+        {status === "loading" && (
+          <DashboardPageSkeleton statCount={6} cardCount={2} columns="lg:grid-cols-3" />
+        )}
 
         {status === "error" && (
           <div className="rounded-lg border border-rose-200 bg-rose-50 p-5 text-sm text-rose-900">
@@ -311,7 +317,7 @@ function MetricCard({ metric }) {
             {metric.label}
           </p>
           <p className="mt-3 text-3xl font-semibold leading-none text-slate-950">
-            {metric.value ?? 0}
+            <AnimatedStatNumber value={metric.value} />
           </p>
         </div>
         <div className={`inline-flex size-10 shrink-0 items-center justify-center rounded-lg ${metric.tone}`}>
@@ -457,24 +463,3 @@ function EmptyText({ children }) {
   );
 }
 
-function DashboardSkeleton() {
-  return (
-    <>
-      <section className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
-        {Array.from({ length: 6 }).map((_, index) => (
-          <div
-            key={index}
-            className="h-32 animate-pulse rounded-lg border border-slate-200 bg-white p-4 shadow-sm"
-          >
-            <div className="h-3 w-24 rounded bg-slate-200" />
-            <div className="mt-5 h-8 w-14 rounded bg-slate-200" />
-          </div>
-        ))}
-      </section>
-      <section className="grid gap-4 lg:grid-cols-[minmax(0,2fr)_minmax(21rem,1fr)]">
-        <div className="h-96 animate-pulse rounded-lg border border-slate-200 bg-white" />
-        <div className="h-96 animate-pulse rounded-lg border border-slate-200 bg-white" />
-      </section>
-    </>
-  );
-}

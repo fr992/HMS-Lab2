@@ -45,7 +45,9 @@ export default function NurseDashboardPage() {
       userName={auth.userName}
       userRole={auth.userRole}
     >
-      {state.status === "loading" && <LoadingDashboard />}
+      {state.status === "loading" && (
+        <LoadingDashboard statCount={4} cardCount={2} columns="lg:grid-cols-4" />
+      )}
       {state.status === "error" && <ErrorBanner message={state.error} onRetry={() => void load()} />}
 
       {state.status === "ready" && (
