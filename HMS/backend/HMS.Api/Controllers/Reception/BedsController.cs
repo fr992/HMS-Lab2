@@ -1,9 +1,10 @@
-using System.Security.Claims;
 using HMS.Api.Authorization;
 using HMS.Application.Abstractions.Identity;
 using HMS.Application.Exceptions;
 using HMS.Contracts.Identity;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using System.Security.Claims;
 
 namespace HMS.Api.Controllers.Reception;
 
@@ -26,6 +27,16 @@ public sealed class BedsController : ControllerBase
         CancellationToken cancellationToken)
     {
         var result = await _service.GetBedsAsync(status, departmentId, cancellationToken);
+        return Ok(result);
+    }
+
+    [HttpGet("department")]
+    [Authorize(Roles = "Doctor")]
+    public async Task<ActionResult<IReadOnlyList<BedPatientDetailsDto>>> GetDepartmentBeds(
+        CancellationToken cancellationToken)
+    {
+        var result = await _service.GetBedsWithOccupancyByDepartmentAsync(CurrentUserId(), cancellationToken);
+
         return Ok(result);
     }
 

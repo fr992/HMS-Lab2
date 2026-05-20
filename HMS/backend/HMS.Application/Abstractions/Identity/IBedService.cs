@@ -12,4 +12,5 @@ public interface IBedService
     Task<BedAssignmentDto> ReleaseByBedAsync(int bedId, ReleaseBedDto request, int actorUserId, CancellationToken cancellationToken);
     Task<BedAssignmentDto> ReleaseAssignmentAsync(int assignmentId, ReleaseBedDto request, int actorUserId, CancellationToken cancellationToken);
     Task<IReadOnlyList<BedAssignmentDto>> GetActiveAssignmentsAsync(CancellationToken cancellationToken);
+    Task<IReadOnlyList<BedPatientDetailsDto>> GetBedsWithOccupancyByDepartmentAsync(int actorUserId, CancellationToken cancellationToken);
 }

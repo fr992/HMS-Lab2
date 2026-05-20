@@ -39,6 +39,7 @@ public class HmsDbContext : DbContext
     public DbSet<InvoiceItem> InvoiceItems => Set<InvoiceItem>();
     public DbSet<Payment> Payments => Set<Payment>();
     public DbSet<Setting> Settings => Set<Setting>();
+    public DbSet<StaffProfile> StaffProfiles => Set<StaffProfile>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {

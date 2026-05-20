@@ -23,6 +23,11 @@ export async function fetchActiveBedAssignments() {
   return Array.isArray(data) ? data : [];
 }
 
+export async function fetchDoctorDepartmentBeds() {
+  const { data } = await api.get("/beds/department");
+  return Array.isArray(data) ? data : [];
+}
+
 export async function assignBed(bedId, body) {
   const { data } = await api.post(`/beds/${bedId}/assign`, body);
   return data;

@@ -352,7 +352,16 @@ export default function Sidebar() {
                 collapsed={collapsed}
               />
             )}
-            {canReadBeds && (
+            {canReadBeds && isDoctor && (
+              <NavLink
+                to="/doctor/beds"
+                icon={BedDouble}
+                label="Department Beds"
+                className={linkClass("/doctor/beds")}
+                collapsed={collapsed}
+              />
+            )}
+            {canReadBeds && !isDoctor && (
               <NavLink
                 to="/bed-assignments"
                 icon={BedDouble}

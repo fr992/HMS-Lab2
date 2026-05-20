@@ -51,6 +51,69 @@ public sealed class BedService : IBedService
             .ToListAsync(cancellationToken);
     }
 
+    public async Task<IReadOnlyList<BedPatientDetailsDto>> GetBedsWithOccupancyByDepartmentAsync(
+        int actorUserId,
+        CancellationToken cancellationToken)
+    {
+        var loggedInDepartmentId = await _db.StaffProfiles
+            .AsNoTracking()
+            .Where(sp => sp.Person.UserId == actorUserId)
+            .Select(sp => sp.DepartmentId)
+            .FirstOrDefaultAsync(cancellationToken);
+
+        if (!loggedInDepartmentId.HasValue)
+            return Array.Empty<BedPatientDetailsDto>();
+
+        return await _db.Beds
+            .AsNoTracking()
+            .Where(b => b.DepartmentId == loggedInDepartmentId)
+            .OrderBy(b => b.Ward)
+            .ThenBy(b => b.RoomNumber)
+            .ThenBy(b => b.BedNumber)
+            .Select(b => new BedPatientDetailsDto
+            {
+                BedId = b.Id,
+                BedLabel = b.BedNumber,
+                Ward = b.Ward,
+                RoomNumber = b.RoomNumber,
+                Floor = b.Floor,
+                DepartmentName = b.Department == null ? null : b.Department.Name,
+                IsActive = b.IsActive,
+                Status = !b.IsActive
+                    ? BedOccupancyStatus.Inactive
+                    : !b.Assignments.Any(a => a.ReleasedAt == null)
+                        ? BedOccupancyStatus.Available
+                        : BedOccupancyStatus.Occupied,
+                Notes = b.Notes,
+
+                PatientProfileId = b.Assignments
+                    .Where(a => a.ReleasedAt == null)
+                    .Select(a => (int?)a.PatientProfileId)
+                    .FirstOrDefault(),
+                PatientName = b.Assignments
+                    .Where(a => a.ReleasedAt == null)
+                    .Select(a => a.PatientProfile.Person.FirstName + " " + a.PatientProfile.Person.LastName)
+                    .FirstOrDefault(),
+                PatientNumber = b.Assignments
+                    .Where(a => a.ReleasedAt == null)
+                    .Select(a => a.PatientProfile.PatientNumber)
+                    .FirstOrDefault(),
+                EncounterId = b.Assignments
+                    .Where(a => a.ReleasedAt == null)
+                    .Select(a => a.EncounterId)
+                    .FirstOrDefault(),
+                EncounterNumber = b.Assignments
+                    .Where(a => a.ReleasedAt == null)
+                    .Select(a => a.Encounter == null ? null : a.Encounter.EncounterNumber)
+                    .FirstOrDefault(),
+                AssignedAt = b.Assignments
+                    .Where(a => a.ReleasedAt == null)
+                    .Select(a => (DateTime?)a.AssignedAt)
+                    .FirstOrDefault()
+            })
+            .ToListAsync(cancellationToken);
+    }
+
     public async Task<BedDto> GetBedAsync(int id, CancellationToken cancellationToken)
     {
         var bed = await ProjectBedsToDto(_db.Beds.AsNoTracking().Where(x => x.Id == id))
