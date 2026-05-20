@@ -229,3 +229,115 @@ section[id] {
     transform: none;
   }
 }
+
+.appointment-print-document {
+  display: none;
+}
+
+@media print {
+  @page {
+    margin: 18mm;
+  }
+
+  body {
+    background: #ffffff !important;
+  }
+
+  body * {
+    visibility: hidden !important;
+  }
+
+  .appointment-print-document,
+  .appointment-print-document * {
+    visibility: visible !important;
+  }
+
+  .appointment-print-document {
+    display: block !important;
+    position: absolute;
+    inset: 0 auto auto 0;
+    width: 100%;
+    color: #0f172a;
+    background: #ffffff;
+    font-family: "Geist Variable", Arial, sans-serif;
+  }
+
+  .appointment-print-header {
+    display: flex;
+    justify-content: space-between;
+    gap: 24px;
+    border-bottom: 2px solid #0f172a;
+    padding-bottom: 18px;
+    margin-bottom: 22px;
+  }
+
+  .appointment-print-header p {
+    margin: 0 0 6px;
+    color: #475569;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+  }
+
+  .appointment-print-header h1 {
+    margin: 0;
+    font-size: 28px;
+    line-height: 1.1;
+  }
+
+  .appointment-print-header span {
+    display: inline-block;
+    margin-top: 8px;
+    border: 1px solid #cbd5e1;
+    border-radius: 999px;
+    padding: 4px 10px;
+    font-size: 12px;
+    font-weight: 700;
+    text-transform: capitalize;
+  }
+
+  .appointment-print-header strong {
+    font-size: 14px;
+  }
+
+  .appointment-print-section {
+    break-inside: avoid;
+    border: 1px solid #cbd5e1;
+    border-radius: 10px;
+    padding: 16px;
+    margin-bottom: 16px;
+  }
+
+  .appointment-print-section h2 {
+    margin: 0 0 12px;
+    font-size: 15px;
+  }
+
+  .appointment-print-section dl {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px 18px;
+    margin: 0;
+  }
+
+  .appointment-print-field dt {
+    color: #64748b;
+    font-size: 10px;
+    font-weight: 800;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+  }
+
+  .appointment-print-field dd {
+    margin: 3px 0 0;
+    font-size: 13px;
+    font-weight: 650;
+  }
+
+  .appointment-print-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+  }
+}

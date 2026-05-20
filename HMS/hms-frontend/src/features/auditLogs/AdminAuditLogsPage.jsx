@@ -159,7 +159,7 @@ export default function AdminAuditLogsPage() {
         </div>
       </div>
 
-      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
+      <div className="grid grid-cols-4 gap-3">
         <SummaryTile label="Visible Events" value={stats.visible} icon={<Database className="size-4 text-slate-400" aria-hidden />} />
         <SummaryTile label="Warnings" value={stats.warning} icon={<AlertTriangle className="size-4 text-amber-500" aria-hidden />} />
         <SummaryTile label="Errors" value={stats.error} icon={<Bug className="size-4 text-rose-500" aria-hidden />} />

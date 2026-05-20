@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
+import { CalendarClock, Clock3, FileText, Hospital, Stethoscope } from "lucide-react";
 import {
   fetchAppointmentById,
   fetchAppointments,
@@ -13,6 +14,21 @@ import {
   hasTimeOverlap,
   isActiveForConflict,
 } from "@/features/appointments/appointmentScheduling";
+import {
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+
+const labelCls = "text-xs font-semibold uppercase tracking-wide text-slate-500";
+const fieldCls =
+  "mt-1.5 h-10 rounded-lg border-slate-200 bg-white text-sm shadow-sm focus-visible:ring-sky-500/20";
+const selectCls =
+  "mt-1.5 h-10 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm text-slate-900 shadow-sm outline-none transition focus:border-sky-500 focus:ring-2 focus:ring-sky-500/20 disabled:cursor-not-allowed disabled:opacity-50";
 
 function toDatetimeLocalValue(iso) {
   if (!iso) return "";
@@ -20,6 +36,33 @@ function toDatetimeLocalValue(iso) {
   if (Number.isNaN(d.getTime())) return "";
   const pad = (n) => String(n).padStart(2, "0");
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+}
+
+function datePart(value) {
+  return value ? value.slice(0, 10) : "";
+}
+
+function timePart(value) {
+  return value ? value.slice(11, 16) : "";
+}
+
+function combineDateTime(date, time) {
+  if (!date || !time) return "";
+  return `${date}T${time}`;
+}
+
+function FormField({ icon, label, children, className = "" }) {
+  return (
+    <label className={`block ${className}`}>
+      <span className="flex items-center gap-2">
+        <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-sky-50 text-sky-700 ring-1 ring-sky-100">
+          {icon}
+        </span>
+        <span className={labelCls}>{label}</span>
+      </span>
+      {children}
+    </label>
+  );
 }
 
 export default function AppointmentEditPage() {
@@ -142,8 +185,7 @@ export default function AppointmentEditPage() {
         }
         setForm({
           doctorProfileId: String(a.doctorProfileId),
-          departmentId:
-            a.departmentId != null ? String(a.departmentId) : "",
+          departmentId: a.departmentId != null ? String(a.departmentId) : "",
           scheduledStart: toDatetimeLocalValue(a.scheduledStart),
           scheduledEnd: toDatetimeLocalValue(a.scheduledEnd),
           appointmentType: a.appointmentType ?? "",
@@ -159,6 +201,28 @@ export default function AppointmentEditPage() {
       cancelled = true;
     };
   }, [id]);
+
+  const setAppointmentDate = (date) => {
+    setForm((current) => ({
+      ...current,
+      scheduledStart: combineDateTime(date, timePart(current.scheduledStart)),
+      scheduledEnd: combineDateTime(date, timePart(current.scheduledEnd)),
+    }));
+  };
+
+  const setStartTime = (time) => {
+    setForm((current) => ({
+      ...current,
+      scheduledStart: combineDateTime(datePart(current.scheduledStart), time),
+    }));
+  };
+
+  const setEndTime = (time) => {
+    setForm((current) => ({
+      ...current,
+      scheduledEnd: combineDateTime(datePart(current.scheduledStart), time),
+    }));
+  };
 
   const onSubmit = async (e) => {
     e.preventDefault();
@@ -196,166 +260,192 @@ export default function AppointmentEditPage() {
   };
 
   if (loading) {
-    return <p className="text-sm text-slate-600">Loading…</p>;
+    return <p className="text-sm text-slate-600">Loading...</p>;
   }
 
   return (
-    <div className="mx-auto max-w-xl space-y-6">
-      <div>
-        <Link
-          to={`/appointments/${id}`}
-          className="text-sm font-medium text-sky-800 hover:underline"
-        >
-          ← Back
-        </Link>
-        <h1 className="mt-2 text-xl font-semibold text-slate-900">
-          Edit appointment
-        </h1>
+    <div className="space-y-5">
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+        <div className="flex items-start gap-3">
+          <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-sky-100 text-sky-700 ring-1 ring-sky-200">
+            <CalendarClock className="h-6 w-6" aria-hidden />
+          </span>
+          <div>
+            <Link
+              to={`/appointments/${id}`}
+              className="text-sm font-medium text-sky-800 hover:underline"
+            >
+              Back to appointment
+            </Link>
+            <h1 className="mt-1 text-2xl font-semibold tracking-tight text-slate-950">
+              Edit Appointment
+            </h1>
+            <p className="mt-1 text-sm text-slate-600">
+              Update appointment schedule and information
+            </p>
+          </div>
+        </div>
       </div>
 
       {error && (
         <div
-          className="rounded-md border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-900"
+          className="rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-900"
           role="alert"
         >
           {error}
         </div>
       )}
 
-      <form
-        onSubmit={onSubmit}
-        className="space-y-4 rounded-xl border border-slate-200 bg-white p-5 shadow-sm"
-      >
-        <label className="block">
-          <span className="text-sm font-medium text-slate-700">Doctor</span>
-          <select
-            required
-            value={form.doctorProfileId}
-            onChange={(e) =>
-              setForm((f) => ({ ...f, doctorProfileId: e.target.value }))
-            }
-            disabled={saving || doctorsStatus === "loading"}
-            className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm shadow-sm focus:border-sky-500 focus:outline-none focus:ring-1 focus:ring-sky-500"
-          >
-            <option value="">Select doctor</option>
-            {doctors.map((d) => (
-              <option key={d.id} value={d.id}>
-                {d.fullName}
-              </option>
-            ))}
-          </select>
-        </label>
+      <form onSubmit={onSubmit} className="space-y-4">
+        <Card className="rounded-xl bg-white shadow-sm">
+          <CardHeader className="border-b border-slate-100">
+            <CardTitle className="text-base text-slate-950">Schedule Information</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="grid gap-4 md:grid-cols-2">
+              <FormField
+                icon={<Stethoscope className="h-4 w-4" aria-hidden />}
+                label="Doctor"
+              >
+                <select
+                  required
+                  value={form.doctorProfileId}
+                  onChange={(e) =>
+                    setForm((f) => ({ ...f, doctorProfileId: e.target.value }))
+                  }
+                  disabled={saving || doctorsStatus === "loading"}
+                  className={selectCls}
+                >
+                  <option value="">Select doctor</option>
+                  {doctors.map((d) => (
+                    <option key={d.id} value={d.id}>
+                      {d.fullName}
+                    </option>
+                  ))}
+                </select>
+              </FormField>
 
-        <label className="block">
-          <span className="text-sm font-medium text-slate-700">
-            Department (optional)
-          </span>
-          <select
-            value={form.departmentId}
-            onChange={(e) =>
-              setForm((f) => ({ ...f, departmentId: e.target.value }))
-            }
-            disabled={saving || departmentsStatus === "loading"}
-            className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm shadow-sm focus:border-sky-500 focus:outline-none focus:ring-1 focus:ring-sky-500"
-          >
-            <option value="">
-              {departmentsStatus === "loading"
-                ? "Loading departments..."
-                : "No department"}
-            </option>
-            {departments.map((d) => (
-              <option key={d.id} value={String(d.id)}>
-                {d.name}
-              </option>
-            ))}
-          </select>
-          {departmentsError && (
-            <p className="mt-1 text-xs text-amber-800" role="status">
-              {departmentsError}
-            </p>
-          )}
-        </label>
+              <FormField
+                icon={<Hospital className="h-4 w-4" aria-hidden />}
+                label="Department"
+              >
+                <select
+                  value={form.departmentId}
+                  onChange={(e) =>
+                    setForm((f) => ({ ...f, departmentId: e.target.value }))
+                  }
+                  disabled={saving || departmentsStatus === "loading"}
+                  className={selectCls}
+                >
+                  <option value="">
+                    {departmentsStatus === "loading"
+                      ? "Loading departments..."
+                      : "No department"}
+                  </option>
+                  {departments.map((d) => (
+                    <option key={d.id} value={String(d.id)}>
+                      {d.name}
+                    </option>
+                  ))}
+                </select>
+                {departmentsError && (
+                  <p className="mt-1.5 text-xs font-medium text-amber-800" role="status">
+                    {departmentsError}
+                  </p>
+                )}
+              </FormField>
 
-        <label className="block">
-          <span className="text-sm font-medium text-slate-700">Starts</span>
-          <input
-            type="datetime-local"
-            required
-            value={form.scheduledStart}
-            onChange={(e) =>
-              setForm((f) => ({ ...f, scheduledStart: e.target.value }))
-            }
-            disabled={saving}
-            className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm shadow-sm focus:border-sky-500 focus:outline-none focus:ring-1 focus:ring-sky-500"
-          />
-        </label>
+              <FormField
+                icon={<FileText className="h-4 w-4" aria-hidden />}
+                label="Appointment Type"
+              >
+                <Input
+                  type="text"
+                  value={form.appointmentType}
+                  onChange={(e) =>
+                    setForm((f) => ({ ...f, appointmentType: e.target.value }))
+                  }
+                  disabled={saving}
+                  className={fieldCls}
+                />
+              </FormField>
 
-        <label className="block">
-          <span className="text-sm font-medium text-slate-700">Ends</span>
-          <input
-            type="datetime-local"
-            required
-            value={form.scheduledEnd}
-            onChange={(e) =>
-              setForm((f) => ({ ...f, scheduledEnd: e.target.value }))
-            }
-            disabled={saving}
-            className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm shadow-sm focus:border-sky-500 focus:outline-none focus:ring-1 focus:ring-sky-500"
-          />
-          {slotError && (
-            <p className="mt-1 text-xs text-rose-600" role="alert">
-              {slotError}
-            </p>
-          )}
-          {!slotError && checkingSlot && (
-            <p className="mt-1 text-xs text-slate-500" role="status">
-              Checking doctor availability...
-            </p>
-          )}
-        </label>
+              <FormField
+                icon={<CalendarClock className="h-4 w-4" aria-hidden />}
+                label="Date"
+              >
+                <Input
+                  type="date"
+                  required
+                  value={datePart(form.scheduledStart)}
+                  onChange={(e) => setAppointmentDate(e.target.value)}
+                  disabled={saving}
+                  className={fieldCls}
+                />
+              </FormField>
 
-        <label className="block">
-          <span className="text-sm font-medium text-slate-700">
-            Appointment type
-          </span>
-          <input
-            type="text"
-            value={form.appointmentType}
-            onChange={(e) =>
-              setForm((f) => ({ ...f, appointmentType: e.target.value }))
-            }
-            disabled={saving}
-            className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm shadow-sm focus:border-sky-500 focus:outline-none focus:ring-1 focus:ring-sky-500"
-          />
-        </label>
+              <FormField icon={<Clock3 className="h-4 w-4" aria-hidden />} label="Start Time">
+                <Input
+                  type="time"
+                  required
+                  value={timePart(form.scheduledStart)}
+                  onChange={(e) => setStartTime(e.target.value)}
+                  disabled={saving}
+                  className={fieldCls}
+                />
+              </FormField>
 
-        <label className="block">
-          <span className="text-sm font-medium text-slate-700">Reason</span>
-          <textarea
-            value={form.reason}
-            onChange={(e) =>
-              setForm((f) => ({ ...f, reason: e.target.value }))
-            }
-            rows={3}
-            disabled={saving}
-            className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm shadow-sm focus:border-sky-500 focus:outline-none focus:ring-1 focus:ring-sky-500"
-          />
-        </label>
+              <FormField icon={<Clock3 className="h-4 w-4" aria-hidden />} label="End Time">
+                <Input
+                  type="time"
+                  required
+                  value={timePart(form.scheduledEnd)}
+                  onChange={(e) => setEndTime(e.target.value)}
+                  disabled={saving}
+                  className={fieldCls}
+                />
+                {slotError && (
+                  <p className="mt-1.5 text-xs font-medium text-rose-600" role="alert">
+                    {slotError}
+                  </p>
+                )}
+                {!slotError && checkingSlot && (
+                  <p className="mt-1.5 text-xs font-medium text-slate-500" role="status">
+                    Checking doctor availability...
+                  </p>
+                )}
+              </FormField>
 
-        <div className="flex justify-end gap-2 pt-2">
-          <Link
-            to={`/appointments/${id}`}
-            className="rounded-lg border border-slate-200 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
-          >
-            Cancel
-          </Link>
-          <button
+              <FormField
+                icon={<FileText className="h-4 w-4" aria-hidden />}
+                label="Reason"
+                className="md:col-span-2"
+              >
+                <Textarea
+                  value={form.reason}
+                  onChange={(e) =>
+                    setForm((f) => ({ ...f, reason: e.target.value }))
+                  }
+                  rows={3}
+                  disabled={saving}
+                  className="mt-1.5 min-h-24 rounded-lg border-slate-200 bg-white text-sm shadow-sm focus-visible:ring-sky-500/20"
+                />
+              </FormField>
+            </div>
+          </CardContent>
+        </Card>
+
+        <div className="sticky bottom-0 z-20 flex flex-col-reverse gap-3 border-t border-slate-200 bg-white/95 px-0 py-4 shadow-[0_-10px_24px_rgba(15,23,42,0.06)] backdrop-blur sm:flex-row sm:justify-end">
+          <Button asChild variant="outline" className="h-10 px-4">
+            <Link to={`/appointments/${id}`}>Cancel</Link>
+          </Button>
+          <Button
             type="submit"
             disabled={saving || checkingSlot || !!slotError}
-            className="rounded-lg bg-sky-600 px-4 py-2 text-sm font-medium text-white hover:bg-sky-700 disabled:opacity-50"
+            className="h-10 bg-sky-600 px-4 text-white hover:bg-sky-700"
           >
-            {saving ? "Saving…" : "Save changes"}
-          </button>
+            {saving ? "Saving..." : "Save Changes"}
+          </Button>
         </div>
       </form>
     </div>

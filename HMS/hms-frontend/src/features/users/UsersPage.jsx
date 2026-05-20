@@ -63,6 +63,7 @@ export default function UsersPage() {
   const [search, setSearch] = useState("");
   const [page, setPage] = useState(1);
   const [pagination, setPagination] = useState(null);
+  const [userStats, setUserStats] = useState(null);
   const [roleFilter, setRoleFilter] = useState("all");
   const [statusFilter, setStatusFilter] = useState("all");
   const [editingUser, setEditingUser] = useState(null);
@@ -93,10 +94,12 @@ export default function UsersPage() {
       ]);
       setUsers(getPagedItems(usersResponse.data));
       setPagination(getPagination(usersResponse.data));
+      setUserStats(usersResponse.data?.stats ?? null);
       setRoles(getPagedItems(rolesResponse.data));
     } catch (e) {
       setError(apiError(e));
       setUsers([]);
+      setUserStats(null);
     } finally {
       setLoading(false);
     }
@@ -110,27 +113,32 @@ export default function UsersPage() {
 
   const stats = useMemo(
     () => [
-      { label: "Total Users", value: pagination?.totalCount ?? users.length, icon: Users, tone: "blue" },
+      {
+        label: "Total Users",
+        value: userStats?.totalUsers ?? pagination?.totalCount ?? 0,
+        icon: Users,
+        tone: "blue",
+      },
       {
         label: "Active Users",
-        value: users.filter((user) => user.isActive).length,
+        value: userStats?.activeUsers ?? 0,
         icon: UserCheck,
         tone: "emerald",
       },
       {
         label: "Inactive Users",
-        value: users.filter((user) => !user.isActive).length,
+        value: userStats?.inactiveUsers ?? 0,
         icon: UserX,
         tone: "slate",
       },
       {
         label: "Super Admins",
-        value: users.filter((user) => (user.roleNames ?? []).includes("SuperAdmin")).length,
+        value: userStats?.superAdmins ?? 0,
         icon: ShieldCheck,
         tone: "teal",
       },
     ],
-    [users, pagination]
+    [userStats, pagination]
   );
 
   function beginCreate() {

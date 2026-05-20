@@ -45,17 +45,23 @@ public sealed class AdminUsersController : ControllerBase
 
     [HttpGet]
     [RequirePermission("Users.Read")]
-    public async Task<ActionResult<PaginatedResponse<UserListItemResponseDto>>> List(
+    public async Task<ActionResult<UserListResponseDto>> List(
         [FromQuery] string? search,
+        [FromQuery] string? q,
         [FromQuery] string? role,
         [FromQuery] string? status,
+        [FromQuery] bool? isActive,
         [FromQuery] PaginationQuery pagination,
         CancellationToken cancellationToken)
     {
+        var effectiveStatus = status;
+        if (string.IsNullOrWhiteSpace(effectiveStatus) && isActive.HasValue)
+            effectiveStatus = isActive.Value ? "active" : "inactive";
+
         var (items, error) = await _userManagement.ListUsersAsync(
-            search ?? pagination.Search,
+            search ?? q ?? pagination.Search,
             role,
-            status,
+            effectiveStatus,
             pagination,
             cancellationToken);
         if (error is not null)
