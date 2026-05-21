@@ -149,6 +149,88 @@ namespace HMS.Persistence.Migrations
                     b.ToTable("BedAssignments", (string)null);
                 });
 
+            modelBuilder.Entity("HMS.Domain.Entities.BedAssignmentRequest", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<int?>("BedAssignmentId")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int?>("CreatedById")
+                        .HasColumnType("int");
+
+                    b.Property<int>("EncounterId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("Notes")
+                        .HasMaxLength(1000)
+                        .HasColumnType("nvarchar(1000)");
+
+                    b.Property<int>("PatientProfileId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("PreferredWard")
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<string>("Priority")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
+                    b.Property<DateTime>("RequestedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int>("RequestedByDoctorId")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime?>("ResolvedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int?>("ResolvedByUserId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int?>("UpdatedById")
+                        .HasColumnType("int");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("BedAssignmentId");
+
+                    b.HasIndex("PatientProfileId");
+
+                    b.HasIndex("RequestedAt");
+
+                    b.HasIndex("RequestedByDoctorId");
+
+                    b.HasIndex("ResolvedAt");
+
+                    b.HasIndex("ResolvedByUserId");
+
+                    b.HasIndex("Status");
+
+                    b.HasIndex("EncounterId", "PatientProfileId")
+                        .IsUnique()
+                        .HasFilter("[Status] = 'Pending'");
+
+                    b.ToTable("BedAssignmentRequests", (string)null);
+                });
+
             modelBuilder.Entity("HMS.Domain.Entities.Department", b =>
                 {
                     b.Property<int>("Id")
@@ -759,7 +841,7 @@ namespace HMS.Persistence.Migrations
                     b.HasIndex("PersonId")
                         .IsUnique();
 
-                    b.ToTable("StaffProfile");
+                    b.ToTable("StaffProfile", (string)null);
                 });
 
             modelBuilder.Entity("Identity.Domain.Entities.Appointment", b =>
@@ -1850,6 +1932,47 @@ namespace HMS.Persistence.Migrations
                     b.Navigation("PatientProfile");
 
                     b.Navigation("ReleasedByUser");
+                });
+
+            modelBuilder.Entity("HMS.Domain.Entities.BedAssignmentRequest", b =>
+                {
+                    b.HasOne("HMS.Domain.Entities.BedAssignment", "BedAssignment")
+                        .WithMany()
+                        .HasForeignKey("BedAssignmentId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.HasOne("Identity.Domain.Entities.Encounter", "Encounter")
+                        .WithMany()
+                        .HasForeignKey("EncounterId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("HMS.Domain.Entities.PatientProfile", "PatientProfile")
+                        .WithMany()
+                        .HasForeignKey("PatientProfileId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("HMS.Domain.Entities.DoctorProfile", "RequestedByDoctor")
+                        .WithMany()
+                        .HasForeignKey("RequestedByDoctorId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("Identity.Domain.Entities.User", "ResolvedByUser")
+                        .WithMany()
+                        .HasForeignKey("ResolvedByUserId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.Navigation("BedAssignment");
+
+                    b.Navigation("Encounter");
+
+                    b.Navigation("PatientProfile");
+
+                    b.Navigation("RequestedByDoctor");
+
+                    b.Navigation("ResolvedByUser");
                 });
 
             modelBuilder.Entity("HMS.Domain.Entities.DoctorProfile", b =>

@@ -45,6 +45,28 @@ export async function assignBed(bedId, body) {
   return data;
 }
 
+export async function createBedAssignmentRequest(encounterId, body) {
+  const { data } = await api.post(`/encounters/${encounterId}/bed-assignment-requests`, body);
+  return data;
+}
+
+export async function fetchBedAssignmentRequests(filters = {}) {
+  const params = {};
+  if (filters.status && filters.status !== "all") params.status = filters.status;
+  const { data } = await api.get("/bed-assignment-requests", { params });
+  return Array.isArray(data) ? data : [];
+}
+
+export async function assignBedAssignmentRequest(requestId, body) {
+  const { data } = await api.post(`/bed-assignment-requests/${requestId}/assign`, body);
+  return data;
+}
+
+export async function rejectBedAssignmentRequest(requestId, body) {
+  const { data } = await api.post(`/bed-assignment-requests/${requestId}/reject`, body);
+  return data;
+}
+
 export async function releaseBedAssignment(assignmentId, body) {
   const { data } = await api.post(`/beds/assignments/${assignmentId}/release`, body);
   return data;

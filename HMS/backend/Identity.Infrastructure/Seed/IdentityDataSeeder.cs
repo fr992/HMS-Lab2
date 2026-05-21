@@ -85,6 +85,10 @@ public sealed class IdentityDataSeeder
             ["Beds.Update"] = "Updates beds.",
             ["Beds.Assign"] = "Assigns beds to patients.",
             ["Beds.Release"] = "Releases beds from patients.",
+            ["BedAssignmentRequests.Create"] = "Creates bed assignment requests.",
+            ["BedAssignmentRequests.Read"] = "Reads bed assignment requests.",
+            ["BedAssignmentRequests.Assign"] = "Assigns beds from approved bed assignment requests.",
+            ["BedAssignmentRequests.Reject"] = "Rejects bed assignment requests.",
             ["LabRequests.Read"] = "Reads lab requests.",
             ["LabRequests.UpdateStatus"] = "Updates lab request status.",
             ["LabResults.Create"] = "Creates lab results.",
@@ -120,6 +124,7 @@ public sealed class IdentityDataSeeder
             "LabResults.Update",
             "Nurses.Read", "NurseTasks.Assign", "NurseTasks.Read", "NurseTasks.Complete",
             "Beds.Read", "Beds.Create", "Beds.Update", "Beds.Assign", "Beds.Release",
+            "BedAssignmentRequests.Create", "BedAssignmentRequests.Read", "BedAssignmentRequests.Assign", "BedAssignmentRequests.Reject",
         ]),
         ("Receptionist",
         [
@@ -129,7 +134,8 @@ public sealed class IdentityDataSeeder
             "Payments.Read", "Payments.Create", "Payments.UpdateStatus", "Payments.ConfirmCash",
             "LabResults.Read",
             "LabTests.Read",
-            "Beds.Read", "Beds.Assign", "Beds.Release"
+            "Beds.Read", "Beds.Assign", "Beds.Release",
+            "BedAssignmentRequests.Read", "BedAssignmentRequests.Assign", "BedAssignmentRequests.Reject"
         ]),
         ("Doctor",
         [
@@ -145,7 +151,7 @@ public sealed class IdentityDataSeeder
             "NurseTasks.Assign",
             "NurseTasks.Read",
             "LabResults.Create",
-            "Beds.Read", "Beds.Assign"
+            "Beds.Read", "BedAssignmentRequests.Create", "BedAssignmentRequests.Read"
         ]),
         ("Nurse",
         [
@@ -350,6 +356,17 @@ public sealed class IdentityDataSeeder
             .ToDictionaryAsync(r => r.Name, r => r.Id, cancellationToken);
         var permissions = await _db.Permissions.AsNoTracking()
             .ToDictionaryAsync(p => p.Name, p => p.Id, cancellationToken);
+
+        if (roles.TryGetValue("Doctor", out var doctorRoleId) &&
+            permissions.TryGetValue("Beds.Assign", out var bedsAssignPermissionId))
+        {
+            var directBedAssignLinks = await _db.RolePermissions
+                .Where(rp => rp.RoleId == doctorRoleId && rp.PermissionId == bedsAssignPermissionId)
+                .ToListAsync(cancellationToken);
+
+            if (directBedAssignLinks.Count > 0)
+                _db.RolePermissions.RemoveRange(directBedAssignLinks);
+        }
 
         foreach (var (roleName, permissionNames) in RolePermissionMap)
         {

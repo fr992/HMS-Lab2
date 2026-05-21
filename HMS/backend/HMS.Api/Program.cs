@@ -86,6 +86,7 @@ builder.Services.AddScoped<ILabTestService, LabTestService>();
 builder.Services.AddScoped<IDoctorDashboardService, DoctorDashboardService>();
 builder.Services.AddScoped<INurseTaskService, NurseTaskService>();
 builder.Services.AddScoped<IBedService, BedService>();
+builder.Services.AddScoped<IBedAssignmentRequestService, BedAssignmentRequestService>();
 builder.Services.AddScoped<IInvoiceService, InvoiceService>();
 builder.Services.AddScoped<IPaymentService, PaymentService>();
 builder.Services.AddScoped<ISettingsService, SettingsService>();

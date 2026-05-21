@@ -13,5 +13,6 @@ namespace HMS.Contracts.Identity
         public List<PrescriptionDto> Prescriptions { get; set; } = new(); // []
         public List<DiagnosisDto> Diagnoses { get; set; } = new(); // [] ose kjo
         public List<LabRequestDto> LabRequests { get; set; } = new();
+        public List<BedAssignmentRequestDto> BedAssignmentRequests { get; set; } = new();
     }
 }

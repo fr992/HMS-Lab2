@@ -425,8 +425,16 @@ public sealed class BedService : IBedService
                     EncounterNumber = x.Encounter == null ? null : x.Encounter.EncounterNumber,
                     AssignedAt = x.AssignedAt,
                     AssignedByUserId = x.AssignedByUserId,
+                    AssignedByUserName = x.AssignedByUser.Person == null
+                        ? x.AssignedByUser.UserName
+                        : x.AssignedByUser.Person.FirstName + " " + x.AssignedByUser.Person.LastName,
                     ReleasedAt = x.ReleasedAt,
                     ReleasedByUserId = x.ReleasedByUserId,
+                    ReleasedByUserName = x.ReleasedByUser == null
+                        ? null
+                        : x.ReleasedByUser.Person == null
+                            ? x.ReleasedByUser.UserName
+                            : x.ReleasedByUser.Person.FirstName + " " + x.ReleasedByUser.Person.LastName,
                     Notes = x.Notes,
                     ReleaseNotes = x.ReleaseNotes,
                     CreatedAt = x.CreatedAt,
@@ -452,8 +460,16 @@ public sealed class BedService : IBedService
             EncounterNumber = x.Encounter == null ? null : x.Encounter.EncounterNumber,
             AssignedAt = x.AssignedAt,
             AssignedByUserId = x.AssignedByUserId,
+            AssignedByUserName = x.AssignedByUser.Person == null
+                ? x.AssignedByUser.UserName
+                : x.AssignedByUser.Person.FirstName + " " + x.AssignedByUser.Person.LastName,
             ReleasedAt = x.ReleasedAt,
             ReleasedByUserId = x.ReleasedByUserId,
+            ReleasedByUserName = x.ReleasedByUser == null
+                ? null
+                : x.ReleasedByUser.Person == null
+                    ? x.ReleasedByUser.UserName
+                    : x.ReleasedByUser.Person.FirstName + " " + x.ReleasedByUser.Person.LastName,
             Notes = x.Notes,
             ReleaseNotes = x.ReleaseNotes,
             CreatedAt = x.CreatedAt,

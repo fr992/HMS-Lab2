@@ -482,6 +482,35 @@ public sealed class EncounterService : IEncounterService
                                         UpdatedAt = r.UpdatedAt
                                     }).ToList()
                             }).ToList()
+                    }).ToList(),
+
+                BedAssignmentRequests = _db.BedAssignmentRequests
+                    .AsNoTracking()
+                    .Where(br => br.EncounterId == e.Id)
+                    .OrderByDescending(br => br.RequestedAt)
+                    .Select(br => new BedAssignmentRequestDto
+                    {
+                        Id = br.Id,
+                        EncounterId = br.EncounterId,
+                        EncounterNumber = br.Encounter.EncounterNumber,
+                        PatientProfileId = br.PatientProfileId,
+                        PatientName = br.PatientProfile.Person.FirstName + " " + br.PatientProfile.Person.LastName,
+                        PatientNumber = br.PatientProfile.PatientNumber,
+                        RequestedByDoctorId = br.RequestedByDoctorId,
+                        RequestedByDoctorName = br.RequestedByDoctor.StaffProfile.Person.FirstName + " " + br.RequestedByDoctor.StaffProfile.Person.LastName,
+                        Status = br.Status,
+                        Priority = br.Priority,
+                        Notes = br.Notes,
+                        PreferredWard = br.PreferredWard,
+                        RequestedAt = br.RequestedAt,
+                        ResolvedAt = br.ResolvedAt,
+                        ResolvedByUserId = br.ResolvedByUserId,
+                        BedAssignmentId = br.BedAssignmentId,
+                        AssignedBedLabel = br.BedAssignment == null
+                            ? null
+                            : br.BedAssignment.Bed.Ward + " / " + br.BedAssignment.Bed.RoomNumber + " / " + br.BedAssignment.Bed.BedNumber,
+                        CreatedAt = br.CreatedAt,
+                        UpdatedAt = br.UpdatedAt
                     }).ToList()
             })
         .FirstOrDefaultAsync(cancellationToken);

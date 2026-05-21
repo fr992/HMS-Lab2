@@ -12,8 +12,10 @@ public sealed class BedAssignmentDto
     public string? EncounterNumber { get; set; }
     public DateTime AssignedAt { get; set; }
     public int AssignedByUserId { get; set; }
+    public string? AssignedByUserName { get; set; }
     public DateTime? ReleasedAt { get; set; }
     public int? ReleasedByUserId { get; set; }
+    public string? ReleasedByUserName { get; set; }
     public string? Notes { get; set; }
     public string? ReleaseNotes { get; set; }
     public DateTime CreatedAt { get; set; }

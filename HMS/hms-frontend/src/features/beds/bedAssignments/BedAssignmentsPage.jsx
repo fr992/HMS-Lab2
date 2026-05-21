@@ -20,10 +20,13 @@ import { ToastNotice } from "@/features/beds/components/BedPageStates";
 import { fetchPatients } from "@/features/patients/patientsApi";
 import {
   assignBed,
+  assignBedAssignmentRequest,
   fetchActiveBedAssignments,
+  fetchBedAssignmentRequests,
   fetchBeds,
   fetchDepartmentsList,
   getApiErrorMessage,
+  rejectBedAssignmentRequest,
   releaseBed,
   releaseBedAssignment,
 } from "@/features/beds/api/bedAssignmentsApi";
@@ -75,6 +78,10 @@ function patientLabel(patient) {
   return name || patient.patientName || "Patient";
 }
 
+function userDisplayName(name, userId) {
+  return String(name ?? "").trim() || (userId ? `User #${userId}` : "-");
+}
+
 function bedLocation(bed) {
   return [bed.departmentName || bed.ward, bed.roomNumber, bed.bedNumber]
     .filter(Boolean)
@@ -107,6 +114,16 @@ function statusMeta(status) {
     return {
       label: "Maintenance",
       icon: Wrench,
+      badge: "bg-amber-50 text-amber-900 ring-amber-200",
+      card: "border-amber-200 bg-amber-50/70 text-amber-950 hover:bg-amber-50",
+      rail: "border-l-amber-400",
+      dot: "bg-amber-500",
+    };
+  }
+  if (key === "pending") {
+    return {
+      label: "Pending",
+      icon: Clock,
       badge: "bg-amber-50 text-amber-900 ring-amber-200",
       card: "border-amber-200 bg-amber-50/70 text-amber-950 hover:bg-amber-50",
       rail: "border-l-amber-400",
@@ -160,14 +177,25 @@ function assignmentStatus(bed) {
   return bed.currentAssignment ? "active" : "unassigned";
 }
 
+function requestPriorityClasses(priority) {
+  const value = normalize(priority);
+  if (value === "stat") return "bg-rose-50 text-rose-800 ring-rose-200";
+  if (value === "urgent") return "bg-orange-50 text-orange-800 ring-orange-200";
+  return "bg-slate-100 text-slate-700 ring-slate-200";
+}
+
 export default function BedAssignmentsPage() {
   const auth = useAuth();
   const canAssign = auth.hasPermission("Beds.Assign");
   const canRelease = auth.hasPermission("Beds.Release");
   const canReadPatients = auth.hasPermission("Patients.Read");
+  const canReadBedRequests = auth.hasPermission("BedAssignmentRequests.Read");
+  const canAssignBedRequests = auth.hasPermission("BedAssignmentRequests.Assign");
+  const canRejectBedRequests = auth.hasPermission("BedAssignmentRequests.Reject");
 
   const [beds, setBeds] = useState([]);
   const [assignments, setAssignments] = useState([]);
+  const [bedRequests, setBedRequests] = useState([]);
   const [departments, setDepartments] = useState([]);
   const [patients, setPatients] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -181,9 +209,11 @@ export default function BedAssignmentsPage() {
   const [bedStatusFilter, setBedStatusFilter] = useState("all");
   const [assignmentFilter, setAssignmentFilter] = useState("all");
   const [dialog, setDialog] = useState({ type: null, bed: null, assignment: null });
+  const [requestDialog, setRequestDialog] = useState({ type: null, request: null });
   const [assignForm, setAssignForm] = useState(EMPTY_ASSIGN_FORM);
   const [patientSearch, setPatientSearch] = useState("");
   const [releaseNotes, setReleaseNotes] = useState("");
+  const [rejectNotes, setRejectNotes] = useState("");
 
   const showToast = useCallback((message, type = "success") => {
     setToast({ message, type });
@@ -194,27 +224,30 @@ export default function BedAssignmentsPage() {
     setLoading(true);
     setError("");
     try {
-      const [bedData, assignmentData, departmentData, patientData] = await Promise.all([
+      const [bedData, assignmentData, departmentData, patientData, requestData] = await Promise.all([
         fetchBeds({
           departmentId: departmentFilter,
         }),
         fetchActiveBedAssignments(),
         canReadPatients ? fetchDepartmentsList() : Promise.resolve([]),
         canReadPatients ? fetchPatients() : Promise.resolve([]),
+        canReadBedRequests ? fetchBedAssignmentRequests({ status: "Pending" }) : Promise.resolve([]),
       ]);
       setBeds(bedData);
       setAssignments(assignmentData);
       setDepartments(departmentData);
       setPatients(Array.isArray(patientData) ? patientData : []);
+      setBedRequests(Array.isArray(requestData) ? requestData : []);
     } catch (e) {
       setError(getApiErrorMessage(e));
       setBeds([]);
       setAssignments([]);
+      setBedRequests([]);
     } finally {
       setLoading(false);
       setRefreshing(false);
     }
-  }, [canReadPatients, departmentFilter]);
+  }, [canReadBedRequests, canReadPatients, departmentFilter]);
 
   useEffect(() => {
     void load();
@@ -357,6 +390,22 @@ export default function BedAssignmentsPage() {
     });
   }
 
+  function openRequestAssign(request) {
+    setRequestDialog({ type: "assignRequest", request });
+    setAssignForm({
+      ...EMPTY_ASSIGN_FORM,
+      patientProfileId: String(request.patientProfileId || ""),
+      encounterId: String(request.encounterId || ""),
+      ward: request.preferredWard || "all",
+      notes: request.notes || "",
+    });
+  }
+
+  function openRequestReject(request) {
+    setRejectNotes("");
+    setRequestDialog({ type: "rejectRequest", request });
+  }
+
   function openView(bed) {
     setDialog({ type: "view", bed, assignment: bed.currentAssignment });
   }
@@ -368,8 +417,10 @@ export default function BedAssignmentsPage() {
 
   function closeDialog() {
     setDialog({ type: null, bed: null, assignment: null });
+    setRequestDialog({ type: null, request: null });
     setAssignForm(EMPTY_ASSIGN_FORM);
     setReleaseNotes("");
+    setRejectNotes("");
   }
 
   async function handleAssign(event) {
@@ -423,6 +474,50 @@ export default function BedAssignmentsPage() {
         });
       }
       showToast("Bed released.");
+      closeDialog();
+      await load();
+    } catch (e) {
+      showToast(getApiErrorMessage(e), "error");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function handleAssignRequest(event) {
+    event.preventDefault();
+    if (saving || !requestDialog.request) return;
+
+    const bedId = Number.parseInt(assignForm.bedId, 10);
+    if (!bedId) {
+      showToast("Available bed is required.", "error");
+      return;
+    }
+
+    setSaving(true);
+    try {
+      await assignBedAssignmentRequest(requestDialog.request.id, {
+        bedId,
+        notes: assignForm.notes.trim() || null,
+      });
+      showToast("Bed request assigned.");
+      closeDialog();
+      await load();
+    } catch (e) {
+      showToast(getApiErrorMessage(e), "error");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function handleRejectRequest() {
+    if (saving || !requestDialog.request) return;
+
+    setSaving(true);
+    try {
+      await rejectBedAssignmentRequest(requestDialog.request.id, {
+        reason: rejectNotes.trim() || null,
+      });
+      showToast("Bed request rejected.");
       closeDialog();
       await load();
     } catch (e) {
@@ -556,6 +651,39 @@ export default function BedAssignmentsPage() {
         }}
       />
 
+      {canReadBedRequests && (
+        <section className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
+          <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <h2 className="text-base font-semibold text-slate-950">Bed Requests</h2>
+              <p className="mt-1 text-sm text-slate-500">
+                {bedRequests.length} pending requests awaiting assignment.
+              </p>
+            </div>
+            <ClipboardList className="size-5 text-slate-400" aria-hidden />
+          </div>
+
+          {loading ? (
+            <LoadingState label="Loading bed requests..." />
+          ) : bedRequests.length === 0 ? (
+            <EmptyState label="No pending bed requests" detail="Doctor bed requests will appear here for reception review." />
+          ) : (
+            <div className="grid gap-3 xl:grid-cols-2">
+              {bedRequests.map((request) => (
+                <BedRequestCard
+                  key={request.id}
+                  request={request}
+                  canAssign={canAssignBedRequests}
+                  canReject={canRejectBedRequests}
+                  onAssign={openRequestAssign}
+                  onReject={openRequestReject}
+                />
+              ))}
+            </div>
+          )}
+        </section>
+      )}
+
       <section className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
         <div className="mb-4 flex items-center justify-between gap-3">
           <div>
@@ -646,6 +774,31 @@ export default function BedAssignmentsPage() {
         />
       )}
 
+      {requestDialog.type === "assignRequest" && (
+        <RequestAssignDialog
+          request={requestDialog.request}
+          form={assignForm}
+          saving={saving}
+          availableBeds={availableBeds}
+          wardOptions={wardOptions}
+          roomOptions={modalRoomOptions}
+          onChange={(patch) => setAssignForm((current) => ({ ...current, ...patch }))}
+          onClose={closeDialog}
+          onSubmit={handleAssignRequest}
+        />
+      )}
+
+      {requestDialog.type === "rejectRequest" && (
+        <RejectRequestDialog
+          request={requestDialog.request}
+          saving={saving}
+          notes={rejectNotes}
+          onNotes={setRejectNotes}
+          onClose={closeDialog}
+          onConfirm={handleRejectRequest}
+        />
+      )}
+
       {dialog.type === "release" && (
         <ReleaseDialog
           bed={dialog.bed}
@@ -668,6 +821,63 @@ export default function BedAssignmentsPage() {
         />
       )}
     </div>
+  );
+}
+
+function BedRequestCard({ request, canAssign, canReject, onAssign, onReject }) {
+  return (
+    <article className="rounded-lg border border-slate-200 bg-slate-50 p-4 shadow-sm">
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div className="min-w-0">
+          <p className="text-sm font-semibold text-slate-950">
+            {request.patientName || "Patient"}
+          </p>
+          <p className="mt-1 text-xs text-slate-500">
+            {[request.patientNumber, request.encounterNumber].filter(Boolean).join(" - ") || `Encounter #${request.encounterId}`}
+          </p>
+        </div>
+        <div className="flex flex-wrap gap-2">
+          <span className={`inline-flex rounded-full px-2.5 py-1 text-xs font-medium ring-1 ring-inset ${requestPriorityClasses(request.priority)}`}>
+            {request.priority || "routine"}
+          </span>
+          <StatusBadge status={request.status} />
+        </div>
+      </div>
+
+      <div className="mt-3 grid gap-2 text-sm sm:grid-cols-2">
+        <InfoLine label="Requested by" value={request.requestedByDoctorName || "-"} />
+        <InfoLine label="Requested date" value={formatDateTime(request.requestedAt)} />
+        <InfoLine label="Preferred ward" value={request.preferredWard || "-"} />
+        <InfoLine label="Request" value={`#${request.id}`} />
+      </div>
+
+      {request.notes && (
+        <p className="mt-3 rounded-lg border border-slate-200 bg-white p-3 text-sm text-slate-700">
+          {request.notes}
+        </p>
+      )}
+
+      <div className="mt-4 flex flex-wrap justify-end gap-2">
+        {canReject && (
+          <button
+            type="button"
+            onClick={() => onReject(request)}
+            className="h-9 rounded-lg border border-slate-200 bg-white px-3 text-sm font-medium text-slate-700 transition hover:bg-slate-50"
+          >
+            Reject
+          </button>
+        )}
+        {canAssign && (
+          <button
+            type="button"
+            onClick={() => onAssign(request)}
+            className="h-9 rounded-lg bg-sky-600 px-3 text-sm font-medium text-white transition hover:bg-sky-700"
+          >
+            Assign Bed
+          </button>
+        )}
+      </div>
+    </article>
   );
 }
 
@@ -934,9 +1144,7 @@ function BedRow({ bed, canAssign, canRelease, onAssign, onRelease, onView }) {
       <td className="px-4 py-3 font-medium text-slate-900">{bed.bedNumber || "-"}</td>
       <td className="px-4 py-3"><StatusBadge status={bed.status} /></td>
       <td className="px-4 py-3 text-slate-600">{formatDateTime(assignment?.assignedAt)}</td>
-      <td className="px-4 py-3 text-slate-600">
-        {assignment?.assignedByUserId ? `User #${assignment.assignedByUserId}` : "-"}
-      </td>
+      <td className="px-4 py-3 text-slate-600">{userDisplayName(assignment?.assignedByUserName, assignment?.assignedByUserId)}</td>
       <td className="px-4 py-3">
         <div className="flex justify-end gap-2">
           {occupied && (
@@ -1129,6 +1337,143 @@ function AssignBedDialog({
   );
 }
 
+function RequestAssignDialog({
+  request,
+  form,
+  saving,
+  availableBeds,
+  wardOptions,
+  roomOptions,
+  onChange,
+  onClose,
+  onSubmit,
+}) {
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/55 p-4" role="dialog" aria-modal="true">
+      <section className="w-full max-w-3xl overflow-hidden rounded-xl border border-slate-200 bg-white shadow-2xl">
+        <DialogHeader title="Assign Bed Request" subtitle="Select an available bed for this pending request." onClose={onClose} />
+        <form onSubmit={onSubmit} className="space-y-4 bg-slate-50 px-6 py-5">
+          <div className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
+            <DetailGrid
+              items={[
+                ["Patient", request?.patientName || "-"],
+                ["Patient Number", request?.patientNumber || "-"],
+                ["Encounter", request?.encounterNumber || request?.encounterId || "-"],
+                ["Requested By", request?.requestedByDoctorName || "-"],
+                ["Priority", request?.priority || "routine"],
+                ["Preferred Ward", request?.preferredWard || "-"],
+              ]}
+            />
+            {request?.notes && (
+              <p className="mt-3 rounded-lg bg-slate-50 p-3 text-sm text-slate-700">
+                {request.notes}
+              </p>
+            )}
+          </div>
+
+          <div className="grid gap-4 md:grid-cols-3">
+            <Field label="Ward filter">
+              <select
+                value={form.ward}
+                onChange={(event) =>
+                  onChange({ ward: event.target.value, roomNumber: "all", bedId: "" })
+                }
+                disabled={saving}
+                className="h-11 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm text-slate-900 shadow-sm outline-none transition focus:border-sky-500 focus:ring-2 focus:ring-sky-500/20"
+              >
+                <option value="all">All wards</option>
+                {wardOptions.map((ward) => (
+                  <option key={ward} value={ward}>{ward}</option>
+                ))}
+              </select>
+            </Field>
+            <Field label="Room filter">
+              <select
+                value={form.roomNumber}
+                onChange={(event) => onChange({ roomNumber: event.target.value, bedId: "" })}
+                disabled={saving}
+                className="h-11 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm text-slate-900 shadow-sm outline-none transition focus:border-sky-500 focus:ring-2 focus:ring-sky-500/20"
+              >
+                <option value="all">All rooms</option>
+                {roomOptions.map((room) => (
+                  <option key={room} value={room}>{room}</option>
+                ))}
+              </select>
+            </Field>
+            <Field label="Available bed" required>
+              <select
+                value={form.bedId}
+                onChange={(event) => onChange({ bedId: event.target.value })}
+                disabled={saving}
+                className="h-11 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm text-slate-900 shadow-sm outline-none transition focus:border-sky-500 focus:ring-2 focus:ring-sky-500/20"
+                required
+              >
+                <option value="">Select bed</option>
+                {availableBeds.map((bed) => (
+                  <option key={bed.id} value={bed.id}>{bedLocation(bed)}</option>
+                ))}
+              </select>
+            </Field>
+          </div>
+
+          <Field label="Assignment notes">
+            <textarea
+              value={form.notes}
+              onChange={(event) => onChange({ notes: event.target.value })}
+              disabled={saving}
+              rows={3}
+              placeholder="Optional assignment notes"
+              className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 shadow-sm outline-none transition placeholder:text-slate-400 focus:border-sky-500 focus:ring-2 focus:ring-sky-500/20"
+            />
+          </Field>
+
+          <DialogActions onClose={onClose} saving={saving} submitLabel="Assign Bed" savingLabel="Assigning..." />
+        </form>
+      </section>
+    </div>
+  );
+}
+
+function RejectRequestDialog({ request, saving, notes, onNotes, onClose, onConfirm }) {
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/55 p-4" role="dialog" aria-modal="true">
+      <section className="w-full max-w-xl overflow-hidden rounded-xl border border-slate-200 bg-white shadow-2xl">
+        <DialogHeader title="Reject Bed Request" subtitle="Confirm that this request should not be assigned." onClose={onClose} />
+        <div className="space-y-4 bg-slate-50 px-6 py-5">
+          <div className="rounded-lg border border-slate-200 bg-white p-4">
+            <DetailGrid
+              items={[
+                ["Patient", request?.patientName || "-"],
+                ["Encounter", request?.encounterNumber || request?.encounterId || "-"],
+                ["Requested By", request?.requestedByDoctorName || "-"],
+                ["Requested Date", formatDateTime(request?.requestedAt)],
+              ]}
+            />
+          </div>
+          <Field label="Reason">
+            <textarea
+              value={notes}
+              onChange={(event) => onNotes(event.target.value)}
+              disabled={saving}
+              rows={3}
+              placeholder="Optional rejection reason"
+              className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 shadow-sm outline-none transition placeholder:text-slate-400 focus:border-sky-500 focus:ring-2 focus:ring-sky-500/20"
+            />
+          </Field>
+          <div className="flex justify-end gap-2 border-t border-slate-200 pt-4">
+            <button type="button" onClick={onClose} disabled={saving} className="h-10 rounded-lg border border-slate-200 bg-white px-4 text-sm font-medium text-slate-700 transition hover:bg-slate-50 disabled:opacity-50">
+              Cancel
+            </button>
+            <button type="button" onClick={onConfirm} disabled={saving} className="h-10 rounded-lg bg-sky-600 px-4 text-sm font-medium text-white transition hover:bg-sky-700 disabled:opacity-50">
+              {saving ? "Rejecting..." : "Reject Request"}
+            </button>
+          </div>
+        </div>
+      </section>
+    </div>
+  );
+}
+
 function ReleaseDialog({ bed, assignment, saving, releaseNotes, onReleaseNotes, onClose, onConfirm }) {
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/55 p-4" role="dialog" aria-modal="true">
@@ -1185,7 +1530,7 @@ function ViewDialog({ bed, assignment, canRelease, onRelease, onClose }) {
             <p className="mt-1.5 text-sm text-slate-600">
               {[bed?.departmentName || bed?.ward, bed?.roomNumber ? `Room ${bed.roomNumber}` : null]
                 .filter(Boolean)
-                .join(" · ") || "Location unavailable"}
+                .join(" - ") || "Location unavailable"}
             </p>
           </div>
           <button type="button" onClick={onClose} className="inline-flex size-9 items-center justify-center rounded-lg text-slate-500 transition hover:bg-slate-100 hover:text-slate-900" aria-label="Close">
@@ -1217,9 +1562,9 @@ function ViewDialog({ bed, assignment, canRelease, onRelease, onClose }) {
               <h3 className="mb-3 text-sm font-semibold text-slate-950">Assignment timeline</h3>
               <div className="grid gap-3 sm:grid-cols-2">
                 <InfoLine label="Assigned date" value={formatDateTime(assignment?.assignedAt)} />
-                <InfoLine label="Assigned by" value={assignment?.assignedByUserId ? `User #${assignment.assignedByUserId}` : "-"} />
+                <InfoLine label="Assigned by" value={userDisplayName(assignment?.assignedByUserName, assignment?.assignedByUserId)} />
                 <InfoLine label="Released date" value={formatDateTime(assignment?.releasedAt)} />
-                <InfoLine label="Released by" value={assignment?.releasedByUserId ? `User #${assignment.releasedByUserId}` : "-"} />
+                <InfoLine label="Released by" value={userDisplayName(assignment?.releasedByUserName, assignment?.releasedByUserId)} />
               </div>
             </div>
           </div>

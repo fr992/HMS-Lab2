@@ -76,6 +76,9 @@ public sealed class BedsController : ControllerBase
         [FromBody] AssignBedDto request,
         CancellationToken cancellationToken)
     {
+        if (User.IsInRole("Doctor"))
+            throw new ForbiddenException("Doctors can request bed assignments but cannot assign beds directly.");
+
         var result = await _service.AssignAsync(bedId, request, CurrentUserId(), cancellationToken);
         return Ok(result);
     }

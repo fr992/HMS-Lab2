@@ -35,6 +35,7 @@ public class HmsDbContext : DbContext
     public DbSet<NurseTask> NurseTasks => Set<NurseTask>();
     public DbSet<Bed> Beds => Set<Bed>();
     public DbSet<BedAssignment> BedAssignments => Set<BedAssignment>();
+    public DbSet<BedAssignmentRequest> BedAssignmentRequests => Set<BedAssignmentRequest>();
     public DbSet<Invoice> Invoices => Set<Invoice>();
     public DbSet<InvoiceItem> InvoiceItems => Set<InvoiceItem>();
     public DbSet<Payment> Payments => Set<Payment>();
