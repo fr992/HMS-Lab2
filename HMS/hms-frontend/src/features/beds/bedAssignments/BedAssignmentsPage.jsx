@@ -1,6 +1,8 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   BedDouble,
+  ChevronLeft,
+  ChevronRight,
   CheckCircle2,
   ClipboardList,
   Clock,
@@ -14,6 +16,7 @@ import {
 } from "lucide-react";
 import { useAuth } from "@/auth/AuthContext";
 import { CountUpValue } from "@/features/dashboard/DashboardPrimitives";
+import { ToastNotice } from "@/features/beds/components/BedPageStates";
 import { fetchPatients } from "@/features/patients/patientsApi";
 import {
   assignBed,
@@ -23,7 +26,7 @@ import {
   getApiErrorMessage,
   releaseBed,
   releaseBedAssignment,
-} from "@/features/bedAssignments/api/bedAssignmentsApi";
+} from "@/features/beds/api/bedAssignmentsApi";
 
 const STATUS_OPTIONS = [
   { value: "all", label: "All statuses" },
@@ -287,24 +290,46 @@ export default function BedAssignmentsPage() {
   const groupedRooms = useMemo(() => {
     const groups = new Map();
     for (const bed of filteredBeds) {
-      const key = `${bed.departmentName || bed.ward || "Ward"}|${bed.roomNumber || "Room"}`;
+      const key = `${bed.departmentName || bed.ward || "Ward"}|${bed.floor || ""}`;
       if (!groups.has(key)) {
         groups.set(key, {
           key,
           ward: bed.departmentName || bed.ward || "Unassigned ward",
-          roomNumber: bed.roomNumber || "Unassigned",
+          floor: bed.floor || "Floor not set",
+          rooms: new Map(),
+        });
+      }
+      const roomKey = bed.roomNumber || "Unassigned";
+      const group = groups.get(key);
+      if (!group.rooms.has(roomKey)) {
+        group.rooms.set(roomKey, {
+          key: `${key}|${roomKey}`,
+          roomNumber: roomKey,
           beds: [],
         });
       }
-      groups.get(key).beds.push(bed);
+      group.rooms.get(roomKey).beds.push(bed);
     }
     return [...groups.values()]
-      .map((room) => {
-        const occupied = room.beds.filter((bed) => normalize(bed.status) === "occupied").length;
-        const available = room.beds.filter((bed) => normalize(bed.status) === "available").length;
-        return { ...room, occupied, available };
+      .map((group) => {
+        const rooms = [...group.rooms.values()].map((room) => ({
+          ...room,
+          beds: room.beds.sort((a, b) =>
+            `${a.bedNumber || ""}`.localeCompare(`${b.bedNumber || ""}`)
+          ),
+        }));
+        const bedsInGroup = rooms.flatMap((room) => room.beds);
+        const occupied = bedsInGroup.filter((bed) => normalize(bed.status) === "occupied").length;
+        const available = bedsInGroup.filter((bed) => normalize(bed.status) === "available").length;
+        return {
+          ...group,
+          occupied,
+          available,
+          total: bedsInGroup.length,
+          rooms: rooms.sort((a, b) => `${a.roomNumber}`.localeCompare(`${b.roomNumber}`)),
+        };
       })
-      .sort((a, b) => `${a.ward} ${a.roomNumber}`.localeCompare(`${b.ward} ${b.roomNumber}`));
+      .sort((a, b) => `${a.ward} ${a.floor}`.localeCompare(`${b.ward} ${b.floor}`));
   }, [filteredBeds]);
 
   const stats = useMemo(() => {
@@ -523,34 +548,28 @@ export default function BedAssignmentsPage() {
         </div>
       </section>
 
-      {toast && (
-        <div
-          role={toast.type === "error" ? "alert" : "status"}
-          className={
-            toast.type === "error"
-              ? "rounded-lg border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-900"
-              : "rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-900"
-          }
-        >
-          {toast.message}
-        </div>
-      )}
-
-      {error && (
-        <div className="rounded-lg border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-900" role="alert">
-          {error}
-        </div>
-      )}
+      <ToastNotice
+        notice={toast || (error ? { message: error, type: "error" } : null)}
+        onClose={() => {
+          setToast(null);
+          setError("");
+        }}
+      />
 
       <section className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
         <div className="mb-4 flex items-center justify-between gap-3">
           <div>
-            <h2 className="text-base font-semibold text-slate-950">Visual Bed Management</h2>
+            <h2 className="text-base font-semibold text-slate-950">Ward Bed Board</h2>
             <p className="mt-1 text-sm text-slate-500">
               {assignments.length} active assignments across the current bed view.
             </p>
           </div>
           <ClipboardList className="size-5 text-slate-400" aria-hidden />
+        </div>
+        <div className="mb-4 flex flex-wrap gap-4 text-sm text-slate-700">
+          <LegendItem label="Occupied" className="border-blue-300 bg-blue-100" />
+          <LegendItem label="Available" className="border-emerald-300 bg-emerald-100" />
+          <LegendItem label="Maintenance" className="border-slate-300 bg-slate-200" />
         </div>
 
         {loading ? (
@@ -558,7 +577,7 @@ export default function BedAssignmentsPage() {
         ) : groupedRooms.length === 0 ? (
           <EmptyState label="No beds found" detail="Adjust filters or add active beds before assigning patients." />
         ) : (
-          <div className="grid gap-4 xl:grid-cols-2">
+          <div className="grid gap-4">
             {groupedRooms.map((room) => (
               <RoomCard
                 key={room.key}
@@ -705,79 +724,179 @@ function StatusBadge({ status }) {
   );
 }
 
+function LegendItem({ label, className }) {
+  return (
+    <span className="inline-flex items-center gap-2">
+      <span className={`size-3 rounded border ${className}`} />
+      {label}
+    </span>
+  );
+}
+
 function RoomCard({ room, canAssign, canRelease, onAssign, onRelease, onView }) {
   return (
-    <article className="rounded-lg border border-slate-200 bg-white p-3 shadow-sm transition hover:border-slate-300 hover:shadow-md">
-      <div className="mb-3 flex items-start justify-between gap-3">
+    <article className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
+      <div className="mb-4 flex items-start justify-between gap-3">
         <div>
-          <h3 className="text-sm font-semibold leading-5 text-slate-950">{room.ward}</h3>
-          <p className="mt-1 flex items-center gap-1.5 text-xs font-medium uppercase tracking-wide text-slate-500">
+          <h3 className="text-base font-semibold leading-5 text-slate-950">{room.ward}</h3>
+          <p className="mt-1 flex items-center gap-1.5 text-sm text-slate-500">
             <MapPin className="size-3.5" aria-hidden />
-            Room {room.roomNumber}
+            {room.floor}
           </p>
         </div>
         <div className="shrink-0 text-right">
-          <span className="rounded-full bg-slate-100 px-2.5 py-1 text-xs font-medium text-slate-700">
-            {room.beds.length} beds
+          <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-700">
+            {room.available} available
           </span>
           <p className="mt-1.5 text-xs text-slate-500">
-            <span className="font-medium text-blue-700">{room.occupied}</span> occupied ·{" "}
-            <span className="font-medium text-emerald-700">{room.available}</span> open
+            <span className="font-medium text-blue-700">{room.occupied}</span> occupied /{" "}
+            <span className="font-medium text-slate-700">{room.total}</span> total
           </p>
         </div>
       </div>
-      <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5">
-        {room.beds.map((bed) => (
-          <BedTile
-            key={bed.id}
-            bed={bed}
-            canAssign={canAssign}
-            canRelease={canRelease}
-            onAssign={onAssign}
-            onRelease={onRelease}
-            onView={onView}
-          />
+      <div className="-mx-1 flex snap-x snap-mandatory items-start gap-3 overflow-x-auto px-1 pb-2 [scrollbar-gutter:stable]">
+        {room.rooms.map((roomGroup) => (
+          <div
+            key={roomGroup.key}
+            className="w-fit min-w-48 max-w-none shrink-0 snap-start rounded-lg border border-slate-200 bg-slate-50/70 p-3"
+          >
+            <div className="mb-2 flex items-center justify-between gap-2">
+              <h4 className="text-sm font-semibold text-slate-900">Room {roomGroup.roomNumber}</h4>
+              <span className="rounded-full bg-white px-2.5 py-1 text-xs font-medium text-slate-600 ring-1 ring-slate-200">
+                {roomGroup.beds.length} beds
+              </span>
+            </div>
+            <BedCarousel
+              beds={roomGroup.beds}
+              renderBed={(bed) => (
+                <BedTile
+                  bed={bed}
+                  canAssign={canAssign}
+                  canRelease={canRelease}
+                  onAssign={onAssign}
+                  onRelease={onRelease}
+                  onView={onView}
+                />
+              )}
+            />
+          </div>
         ))}
       </div>
     </article>
   );
 }
 
+function BedCarousel({ beds, renderBed }) {
+  const scrollerRef = useRef(null);
+  const showControls = beds.length > 4;
+
+  function move(direction) {
+    const scroller = scrollerRef.current;
+    if (!scroller) return;
+
+    scroller.scrollBy({
+      left: direction * scroller.clientWidth,
+      behavior: "smooth",
+    });
+  }
+
+  return (
+    <div className="flex items-center gap-2">
+      {showControls && (
+        <CarouselButton label="Previous 4 beds" onClick={() => move(-1)} icon={ChevronLeft} />
+      )}
+      <div
+        ref={scrollerRef}
+        className="flex shrink-0 gap-2 overflow-hidden scroll-smooth"
+        style={bedViewportStyle(beds.length)}
+      >
+        {beds.map((bed) => (
+          <div key={bed.id} className="shrink-0">
+            {renderBed(bed)}
+          </div>
+        ))}
+      </div>
+      {showControls && (
+        <CarouselButton label="Next 4 beds" onClick={() => move(1)} icon={ChevronRight} />
+      )}
+    </div>
+  );
+}
+
+function CarouselButton({ icon, label, onClick }) {
+  const ActionIcon = icon;
+
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className="inline-flex size-8 shrink-0 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-600 shadow-sm transition hover:border-sky-200 hover:bg-sky-50 hover:text-sky-700 focus:outline-none focus:ring-2 focus:ring-sky-500/25"
+      aria-label={label}
+      title={label}
+    >
+      <ActionIcon className="size-4" aria-hidden />
+    </button>
+  );
+}
+
+function bedViewportStyle(bedCount) {
+  const visibleBeds = Math.max(1, Math.min(bedCount, 4));
+  const gapCount = Math.max(0, visibleBeds - 1);
+  return {
+    width: `${visibleBeds * 9 + gapCount * 0.5}rem`,
+    maxWidth: "calc(100vw - 12rem)",
+  };
+}
+
 function BedTile({ bed, canAssign, canRelease, onAssign, onRelease, onView }) {
-  const meta = statusMeta(bed.status);
   const occupied = normalize(bed.status) === "occupied";
   const available = normalize(bed.status) === "available";
+  const maintenance = bed.isActive === false || ["inactive", "maintenance"].includes(normalize(bed.status));
+  const tileTone = occupied
+    ? "border-blue-300 bg-blue-50 text-blue-800 hover:bg-blue-100"
+    : maintenance
+      ? "border-slate-200 bg-slate-100 text-slate-600 hover:bg-slate-200"
+      : "border-emerald-300 bg-emerald-50 text-emerald-800 hover:bg-emerald-100";
+  const iconTone = occupied ? "text-blue-500" : maintenance ? "text-slate-400" : "text-emerald-500";
+
   return (
-    <div className={`rounded-lg border-l-4 p-2.5 transition ${meta.card} ${meta.rail}`}>
-      <div className="flex items-center justify-between gap-2">
-        <p className="truncate text-sm font-semibold leading-tight">{bed.bedNumber}</p>
-        <span className={`size-2.5 shrink-0 rounded-full ${meta.dot}`} title={meta.label} />
-      </div>
-      <p className="mt-1 truncate text-[11px] font-semibold uppercase tracking-wide text-current/70">
-        {meta.label}
-      </p>
-      <p className="mt-1.5 line-clamp-2 min-h-8 text-xs text-current/75">
+    <article className={`group min-h-20 w-36 shrink-0 rounded-lg border p-2 text-left transition ${tileTone}`}>
+      <button
+        type="button"
+        onClick={() => occupied && onView(bed)}
+        disabled={!occupied}
+        className="block w-full disabled:cursor-default"
+        title={bedLocation(bed)}
+      >
+        <BedDouble className={`size-4 shrink-0 ${iconTone}`} aria-hidden />
+        <p className="mt-1 truncate text-sm font-semibold leading-tight">
+          Bed {bed.bedNumber || `#${bed.id}`}
+        </p>
+      </button>
+      <p className="mt-0.5 line-clamp-1 min-h-4 text-[11px] font-medium text-current/80">
         {occupied
           ? bed.currentAssignment?.patientName || "Occupied"
-          : bed.notes || "Ready for assignment"}
+          : maintenance
+            ? "Maintenance"
+            : "Available"}
       </p>
-      <div className="mt-2 flex gap-1.5">
+      <div className="mt-1.5 flex justify-center gap-1 opacity-100 sm:opacity-0 sm:transition sm:group-hover:opacity-100 sm:group-focus-within:opacity-100">
         {occupied && (
           <button
             type="button"
             onClick={() => onView(bed)}
-            className="inline-flex h-7 w-8 items-center justify-center rounded-md border border-white/70 bg-white/75 text-slate-700 shadow-sm transition hover:bg-white"
+            className="inline-flex size-6 items-center justify-center rounded-md border border-white/80 bg-white/85 text-slate-700 shadow-sm transition hover:bg-white"
             aria-label={`View bed ${bed.bedNumber}`}
             title="View assignment"
           >
-            <Eye className="size-3.5" aria-hidden />
+            <Eye className="size-3" aria-hidden />
           </button>
         )}
         {available && canAssign && (
           <button
             type="button"
             onClick={() => onAssign(bed)}
-            className="inline-flex h-7 flex-1 items-center justify-center rounded-md bg-sky-600 px-2 text-xs font-medium text-white shadow-sm transition hover:bg-sky-700"
+            className="inline-flex h-6 items-center justify-center rounded-md bg-sky-600 px-2 text-[11px] font-medium text-white shadow-sm transition hover:bg-sky-700"
           >
             Assign
           </button>
@@ -786,14 +905,15 @@ function BedTile({ bed, canAssign, canRelease, onAssign, onRelease, onView }) {
           <button
             type="button"
             onClick={() => onRelease(bed)}
-            className="inline-flex h-7 flex-1 items-center justify-center rounded-md border border-white/70 bg-white/80 px-2 text-xs font-medium text-slate-800 shadow-sm transition hover:bg-white"
+            className="inline-flex h-6 items-center justify-center rounded-md border border-white/80 bg-white/85 px-2 text-[11px] font-medium text-slate-800 shadow-sm transition hover:bg-white"
           >
             Release
           </button>
         )}
       </div>
-    </div>
+    </article>
   );
+
 }
 
 function BedRow({ bed, canAssign, canRelease, onAssign, onRelease, onView }) {

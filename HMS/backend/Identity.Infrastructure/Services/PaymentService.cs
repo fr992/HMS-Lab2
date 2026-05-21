@@ -62,6 +62,7 @@ public sealed class PaymentService : IPaymentService
         };
 
         _db.Payments.Add(payment);
+        await SyncInvoiceStatusAsync(payment.InvoiceId, actorUserId, payment.UpdatedAt, cancellationToken);
         await _db.SaveChangesAsync(cancellationToken);
 
         return await GetByIdAsync(payment.Id, cancellationToken);
@@ -136,6 +137,7 @@ public sealed class PaymentService : IPaymentService
         if (status == PaymentStatus.Paid && !payment.PaidAt.HasValue)
             payment.PaidAt = payment.UpdatedAt;
 
+        await SyncInvoiceStatusAsync(payment.InvoiceId, actorUserId, payment.UpdatedAt, cancellationToken);
         await _db.SaveChangesAsync(cancellationToken);
 
         await NotifyPatientPaymentConfirmedAsync(payment.Id, previousStatus, payment.Status, cancellationToken);
@@ -168,6 +170,7 @@ public sealed class PaymentService : IPaymentService
         payment.UpdatedAt = now;
         payment.UpdatedById = actorUserId;
 
+        await SyncInvoiceStatusAsync(payment.InvoiceId, actorUserId, payment.UpdatedAt, cancellationToken);
         await _db.SaveChangesAsync(cancellationToken);
 
         await NotifyPatientPaymentConfirmedAsync(payment.Id, previousStatus, payment.Status, cancellationToken);
@@ -194,6 +197,40 @@ public sealed class PaymentService : IPaymentService
             CreatedAt = payment.CreatedAt,
             UpdatedAt = payment.UpdatedAt
         });
+    }
+
+    private async Task SyncInvoiceStatusAsync(
+        int invoiceId,
+        int actorUserId,
+        DateTime updatedAt,
+        CancellationToken cancellationToken)
+    {
+        var invoice = await _db.Invoices
+            .FirstOrDefaultAsync(x => x.Id == invoiceId, cancellationToken);
+
+        if (invoice is null || invoice.Status == InvoiceStatus.Cancelled)
+            return;
+
+        var payments = await _db.Payments
+            .Where(x => x.InvoiceId == invoiceId)
+            .ToListAsync(cancellationToken);
+
+        var paidAmount = payments
+            .Where(x => x.Status == PaymentStatus.Paid)
+            .Sum(x => x.Amount);
+
+        var nextStatus = paidAmount <= 0m
+            ? InvoiceStatus.Issued
+            : paidAmount >= invoice.TotalAmount
+                ? InvoiceStatus.Paid
+                : InvoiceStatus.PartiallyPaid;
+
+        if (invoice.Status == nextStatus)
+            return;
+
+        invoice.Status = nextStatus;
+        invoice.UpdatedAt = updatedAt;
+        invoice.UpdatedById = actorUserId;
     }
 
     private static void EnsureCanConfirmCash(string currentStatus)

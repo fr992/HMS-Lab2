@@ -31,7 +31,7 @@ import {
   assignBed,
   fetchBeds,
   getApiErrorMessage as getBedApiErrorMessage,
-} from "@/features/bedAssignments/api/bedAssignmentsApi";
+} from "@/features/beds/api/bedAssignmentsApi";
 import InvoiceFormDialog from "@/features/invoices/components/InvoiceFormDialog";
 import { formatMoney } from "@/features/invoices/invoiceFormat";
 

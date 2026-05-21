@@ -30,7 +30,7 @@ import LabTestPage from "@/features/labtests/LabTests";
 import LabRequestsPage from "@/features/labRequests/LabRequestsPage";
 import LabRequestDetailPage from "@/features/labRequests/LabRequestDetailPage";
 import NurseTasksPage from "@/features/nurseTasks/NurseTasksPage";
-import BedAssignmentsPage from "@/features/bedAssignments/BedAssignmentsPage";
+import BedAssignmentsPage from "@/features/beds/bedAssignments/BedAssignmentsPage";
 import StaffManagementPage from "@/features/staff/StaffManagementPage";
 import InvoicesListPage from "@/features/invoices/InvoicesListPage";
 import InvoiceDetailPage from "@/features/invoices/InvoiceDetailPage";
@@ -38,7 +38,8 @@ import PaymentsPage from "@/features/payments/PaymentsPage";
 import SettingsPage from "@/features/settings/SettingsPage";
 import NotificationsPage from "@/features/notifications/NotificationsPage";
 import AdminAuditLogsPage from "@/features/auditLogs/AdminAuditLogsPage";
-import DoctorBedView from "@/features/bedAssignments/DoctorBedView";
+import DoctorBedView from "@/features/beds/bedAssignments/DoctorBedView";
+import BedManagement from "@/features/beds/bedManagement/BedManagement";
 
 
 export default function App() {
@@ -251,6 +252,17 @@ export default function App() {
             }
           >
             <Route index element={<BedAssignmentsPage />} />
+          </Route>
+
+          <Route
+            path="/bed-management"
+            element={
+              <PermissionRoute anyPermission={["Beds.Create", "Beds.Update", "Beds.Release", "Beds.Read"]}>
+                <AdminLayout />
+              </PermissionRoute>
+            }
+          >
+            <Route index element={<BedManagement />} />
           </Route>
 
           <Route

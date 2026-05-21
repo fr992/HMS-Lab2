@@ -41,6 +41,10 @@ export default function Sidebar() {
   const canReadLabRequests = auth.hasPermission("LabRequests.Read");
   const canReadNurseTasks = auth.hasPermission("NurseTasks.Read");
   const canReadBeds = auth.hasPermission("Beds.Read");
+  const canManageBeds =
+    auth.hasPermission("Beds.Create") ||
+    auth.hasPermission("Beds.Update") ||
+    auth.hasPermission("Beds.Release");
   const canReadInvoices = auth.hasPermission("Invoices.Read");
   const canReadPayments = auth.hasPermission("Payments.Read");
   const canManageSettings = auth.hasPermission("Settings.Manage");
@@ -188,6 +192,15 @@ export default function Sidebar() {
                   icon={BedDouble}
                   label="Bed Assignments"
                   className={linkClass("/bed-assignments")}
+                  collapsed={collapsed}
+                />
+              )}
+              {(canReadBeds || canManageBeds) && (
+                <NavLink
+                  to="/bed-management"
+                  icon={BedDouble}
+                  label="Bed Management"
+                  className={linkClass("/bed-management")}
                   collapsed={collapsed}
                 />
               )}
@@ -367,6 +380,15 @@ export default function Sidebar() {
                 icon={BedDouble}
                 label="Bed Assignments"
                 className={linkClass("/bed-assignments")}
+                collapsed={collapsed}
+              />
+            )}
+            {(canReadBeds || canManageBeds) && !isDoctor && (
+              <NavLink
+                to="/bed-management"
+                icon={BedDouble}
+                label="Bed Management"
+                className={linkClass("/bed-management")}
                 collapsed={collapsed}
               />
             )}

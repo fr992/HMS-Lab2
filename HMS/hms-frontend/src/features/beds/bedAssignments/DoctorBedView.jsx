@@ -11,7 +11,7 @@ import {
 import {
   fetchDoctorDepartmentBeds,
   getApiErrorMessage,
-} from "@/features/bedAssignments/api/bedAssignmentsApi";
+} from "@/features/beds/api/bedAssignmentsApi";
 
 function normalize(value) {
   return String(value ?? "").trim().toLowerCase();
