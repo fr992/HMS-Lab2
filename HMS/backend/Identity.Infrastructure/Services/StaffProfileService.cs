@@ -182,6 +182,70 @@ public sealed class StaffProfileService : IStaffProfileService
         }
     }
 
+    public async Task<(StaffProfileDto? staff, string? error)> CreateGeneralStaffAsync(
+        CreateGeneralStaffRequestDto request,
+        int? createdByUserId,
+        CancellationToken cancellationToken = default)
+    {
+        var roleName = NormalizeGeneralStaffRole(request.RoleName);
+        if (roleName is null)
+            return (null, "Only Receptionist and Laboratorant staff can be created from this endpoint.");
+
+        var validationError = await ValidateCommonAsync(
+            request.UserName,
+            request.Email,
+            request.Password,
+            request.FirstName,
+            request.LastName,
+            request.PersonalNumber,
+            request.StaffNumber,
+            request.DepartmentId,
+            cancellationToken);
+
+        if (validationError is not null)
+            return (null, validationError);
+
+        await using var transaction = await _db.Database.BeginTransactionAsync(cancellationToken);
+        try
+        {
+            var user = await CreateUserAsync(
+                request.UserName,
+                request.Email,
+                request.Password,
+                request.IsActive,
+                roleName,
+                createdByUserId,
+                cancellationToken);
+
+            var staffProfile = await CreateStaffProfileAsync(
+                user.Id,
+                request.FirstName,
+                request.LastName,
+                request.PersonalNumber,
+                request.DateOfBirth,
+                request.Gender,
+                request.Phone,
+                request.Address,
+                request.City,
+                request.Country,
+                request.StaffNumber,
+                request.DepartmentId,
+                request.EmploymentStatus,
+                request.HireDate,
+                createdByUserId,
+                cancellationToken);
+
+            await transaction.CommitAsync(cancellationToken);
+
+            return (await MapStaffAsync(staffProfile.Id, roleName, request.IsActive, cancellationToken), null);
+        }
+        catch (Exception ex)
+        {
+            await transaction.RollbackAsync(cancellationToken);
+            return (null, ex.Message);
+        }
+    }
+
     private async Task<string?> ValidateCommonAsync(
         string userName,
         string email,
@@ -192,6 +256,37 @@ public sealed class StaffProfileService : IStaffProfileService
         string staffNumber,
         int? departmentId,
         string licenseNumber,
+        CancellationToken cancellationToken)
+    {
+        var validationError = await ValidateCommonAsync(
+            userName,
+            email,
+            password,
+            firstName,
+            lastName,
+            personalNumber,
+            staffNumber,
+            departmentId,
+            cancellationToken);
+
+        if (validationError is not null)
+            return validationError;
+
+        if (string.IsNullOrWhiteSpace(licenseNumber))
+            return "License number is required.";
+
+        return null;
+    }
+
+    private async Task<string?> ValidateCommonAsync(
+        string userName,
+        string email,
+        string password,
+        string firstName,
+        string lastName,
+        string? personalNumber,
+        string staffNumber,
+        int? departmentId,
         CancellationToken cancellationToken)
     {
         if (string.IsNullOrWhiteSpace(userName))
@@ -206,8 +301,6 @@ public sealed class StaffProfileService : IStaffProfileService
             return "Last name is required.";
         if (string.IsNullOrWhiteSpace(staffNumber))
             return "Staff number is required.";
-        if (string.IsNullOrWhiteSpace(licenseNumber))
-            return "License number is required.";
 
         var trimmedUserName = userName.Trim();
         var normalizedEmail = email.Trim().ToLowerInvariant();
@@ -383,8 +476,46 @@ public sealed class StaffProfileService : IStaffProfileService
             .SingleAsync(cancellationToken);
     }
 
+    private async Task<StaffProfileDto> MapStaffAsync(
+        int id,
+        string roleName,
+        bool isActive,
+        CancellationToken cancellationToken)
+    {
+        return await _db.Set<StaffProfile>()
+            .AsNoTracking()
+            .Where(s => s.Id == id)
+            .Select(s => new StaffProfileDto
+            {
+                Id = s.Id,
+                UserId = s.Person.UserId,
+                PersonId = s.Person.Id,
+                FirstName = s.Person.FirstName,
+                LastName = s.Person.LastName,
+                FullName = (s.Person.FirstName + " " + s.Person.LastName).Trim(),
+                Email = s.Person.User != null ? s.Person.User.Email : null,
+                RoleName = roleName,
+                StaffNumber = s.StaffNumber,
+                IsActive = isActive,
+                DepartmentId = s.DepartmentId,
+                DepartmentName = s.Department != null ? s.Department.Name : null
+            })
+            .SingleAsync(cancellationToken);
+    }
+
     private static string? NormalizeOptional(string? value)
     {
         return string.IsNullOrWhiteSpace(value) ? null : value.Trim();
+    }
+
+    private static string? NormalizeGeneralStaffRole(string? roleName)
+    {
+        var normalized = roleName?.Trim().Replace(" ", string.Empty).ToLowerInvariant();
+        return normalized switch
+        {
+            "reception" or "receptionist" => "Receptionist",
+            "lab" or "labstaff" or "laboratory" or "laboratorant" => "Laboratorant",
+            _ => null
+        };
     }
 }

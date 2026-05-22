@@ -29,8 +29,9 @@ const TITLE_BY_PREFIX = [
   ["/lab-requests", "Lab Requests"],
   ["/nurse-tasks", "Nurse Tasks"],
   ["/bed-assignments", "Bed Assignments"],
+  ["/bed-requests", "Bed Requests"],
   ["/bed-management", "Bed Management"],
-  ["/doctor/beds", "Department Beds"],
+  ["/doctor/beds", "Bed Assignments"],
   ["/invoices", "Invoices"],
   ["/payments", "Payments"],
   ["/notifications", "Notifications"],
@@ -52,6 +53,7 @@ const ROUTES_WITH_LOCAL_SEARCH = [
   "/lab-requests",
   "/nurse-tasks",
   "/bed-assignments",
+  "/bed-requests",
   "/bed-management",
   "/doctor/beds",
   "/invoices",
@@ -109,7 +111,7 @@ export default function AdminLayout() {
     <div className="flex h-screen w-full max-w-full gap-2 overflow-hidden bg-slate-100 p-2 text-slate-900 sm:gap-3 sm:p-3">
       <Sidebar />
       <main className="scrollbar-none min-h-0 min-w-0 flex-1 overflow-y-auto rounded-lg bg-slate-50">
-        <header className="sticky top-0 z-30 rounded-t-lg border-b border-slate-200 bg-white/95 px-4 py-3 backdrop-blur sm:px-5 lg:px-6">
+        <header className="sticky top-0 z-[100] overflow-visible rounded-t-lg border-b border-slate-200 bg-white/95 px-4 py-3 backdrop-blur sm:px-5 lg:px-6">
           <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
             <h1 className="truncate text-xl font-semibold text-slate-950 sm:text-2xl">
               {pageTitle(pathname)}

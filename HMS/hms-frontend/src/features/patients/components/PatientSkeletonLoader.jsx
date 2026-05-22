@@ -1,11 +1,8 @@
 const SKELETON_HEADERS = [
   "Patient #",
   "Full Name",
-  "Email",
   "Phone",
-  "Gender",
   "City",
-  "Country",
   "Blood Type",
   "Primary Doctor",
   "Actions",
@@ -16,7 +13,7 @@ export function PatientTableSkeleton() {
     <div className="flex min-h-0 flex-1 flex-col">
       <div className="min-h-0 flex-1 overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm">
         <div className="scrollbar-none h-full min-h-[12rem] overflow-x-auto overflow-y-auto">
-          <table className="min-w-[70rem] w-full sm:min-w-[76rem]">
+          <table className="min-w-[52rem] w-full">
             <thead className="sticky top-0 z-10 border-b border-slate-200 bg-slate-50">
               <tr>
                 {SKELETON_HEADERS.map((h) => (
@@ -39,16 +36,7 @@ export function PatientTableSkeleton() {
                     <div className="h-4 w-32 rounded bg-slate-200" />
                   </td>
                   <td className="px-2 py-3 sm:px-3">
-                    <div className="h-4 w-40 rounded bg-slate-200" />
-                  </td>
-                  <td className="px-2 py-3 sm:px-3">
                     <div className="h-4 w-24 rounded bg-slate-200" />
-                  </td>
-                  <td className="px-2 py-3 sm:px-3">
-                    <div className="h-4 w-12 rounded bg-slate-200" />
-                  </td>
-                  <td className="px-2 py-3 sm:px-3">
-                    <div className="h-4 w-20 rounded bg-slate-200" />
                   </td>
                   <td className="px-2 py-3 sm:px-3">
                     <div className="h-4 w-20 rounded bg-slate-200" />

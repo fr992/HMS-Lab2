@@ -13,4 +13,9 @@ public interface IStaffProfileService
         CreateNurseStaffRequestDto request,
         int? createdByUserId,
         CancellationToken cancellationToken = default);
+
+    Task<(StaffProfileDto? staff, string? error)> CreateGeneralStaffAsync(
+        CreateGeneralStaffRequestDto request,
+        int? createdByUserId,
+        CancellationToken cancellationToken = default);
 }

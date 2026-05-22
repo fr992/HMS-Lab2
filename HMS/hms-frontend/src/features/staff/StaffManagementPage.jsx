@@ -20,8 +20,8 @@ import { CountUpValue } from "@/features/dashboard/DashboardPrimitives";
 import { MAX_LIST_PAGE_SIZE, PaginationBar, paginateArray } from "@/lib/pagination.jsx";
 import {
   createDoctorStaff,
+  createGeneralStaff,
   createNurseStaff,
-  createStaffUser,
   fetchDepartments,
   fetchDoctors,
   fetchNurses,
@@ -121,10 +121,6 @@ function staffTypeLabel(type) {
   if (type === "Laboratorant") return "Lab Staff";
   if (type === "SuperAdmin") return "Super Admin";
   return type;
-}
-
-function createdUserId(created) {
-  return Number(created?.id ?? created?.Id);
 }
 
 function needsClinicalProfile(staffType) {
@@ -369,8 +365,10 @@ export default function StaffManagementPage() {
     if (!form.firstName.trim()) next.firstName = "Required";
     if (!form.lastName.trim()) next.lastName = "Required";
     if (!form.phoneNumber.trim()) next.phoneNumber = "Required";
-    if (isCreate && needsClinicalProfile(form.staffType)) {
+    if (isCreate) {
       if (!form.staffNumber.trim()) next.staffNumber = "Required";
+    }
+    if (isCreate && needsClinicalProfile(form.staffType)) {
       if (!form.licenseNumber.trim()) next.licenseNumber = "Required";
     }
     return next;
@@ -449,21 +447,19 @@ export default function StaffManagementPage() {
             LicenseNumber: licenseNumber,
           });
         } else {
-          const created = await createStaffUser({
+          await createGeneralStaff({
             UserName: userName,
             Email: email,
             Password: form.password,
-            RoleNames: [form.staffType],
-          });
-          const id = createdUserId(created);
-          if (!id) throw new Error("Staff account was created, but the response did not include a user id.");
-          await updateStaffUser(id, {
-            Email: email,
             FirstName: firstName,
             LastName: lastName,
-            PhoneNumber: phoneNumber,
+            Phone: phoneNumber,
             IsActive: form.isActive,
-            RoleNames: [form.staffType],
+            RoleName: form.staffType,
+            StaffNumber: staffNumber,
+            DepartmentId: numberOrNull(form.departmentId),
+            EmploymentStatus: form.employmentStatus,
+            HireDate: form.hireDate || null,
           });
         }
         showToast("Staff account created.");
@@ -824,7 +820,7 @@ function StaffDialog({
   const isCreate = mode === "create";
   const isLastCreateStep = createStep === STAFF_CREATE_STEPS.length - 1;
   const currentStep = STAFF_CREATE_STEPS[createStep];
-  const showProfileFields = needsClinicalProfile(form.staffType);
+  const showLicenseField = needsClinicalProfile(form.staffType);
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/55 p-4" role="dialog" aria-modal="true">
       <section className="flex max-h-[92vh] w-full max-w-3xl flex-col overflow-hidden rounded-xl border border-slate-200 bg-white shadow-2xl">
@@ -988,7 +984,7 @@ function StaffDialog({
                   </Field>
                 </>
               )}
-              {isCreate && currentStep.id === "profile" && showProfileFields && (
+              {isCreate && currentStep.id === "profile" && (
                 <>
                   <Field label="Staff number" required>
                     <input
@@ -1002,18 +998,20 @@ function StaffDialog({
                     />
                     <FieldError message={fieldErrors.staffNumber} />
                   </Field>
-                  <Field label="License number" required>
-                    <input
-                      value={form.licenseNumber}
-                      onChange={(event) => onChange({ licenseNumber: event.target.value })}
-                      disabled={saving}
-                      className={`h-11 w-full rounded-lg border bg-white px-3 text-sm text-slate-900 shadow-sm outline-none transition focus:border-sky-500 focus:ring-2 focus:ring-sky-500/20 ${
-                        fieldErrors.licenseNumber ? "border-rose-300" : "border-slate-200"
-                      }`}
-                      required
-                    />
-                    <FieldError message={fieldErrors.licenseNumber} />
-                  </Field>
+                  {showLicenseField && (
+                    <Field label="License number" required>
+                      <input
+                        value={form.licenseNumber}
+                        onChange={(event) => onChange({ licenseNumber: event.target.value })}
+                        disabled={saving}
+                        className={`h-11 w-full rounded-lg border bg-white px-3 text-sm text-slate-900 shadow-sm outline-none transition focus:border-sky-500 focus:ring-2 focus:ring-sky-500/20 ${
+                          fieldErrors.licenseNumber ? "border-rose-300" : "border-slate-200"
+                        }`}
+                        required
+                      />
+                      <FieldError message={fieldErrors.licenseNumber} />
+                    </Field>
+                  )}
                   <Field label="Department">
                     <select
                       value={form.departmentId}
@@ -1052,11 +1050,6 @@ function StaffDialog({
                     />
                   </Field>
                 </>
-              )}
-              {isCreate && currentStep.id === "profile" && !showProfileFields && (
-                <div className="md:col-span-2 rounded-lg border border-slate-200 bg-white p-4 text-sm text-slate-600">
-                  This role only needs an account and person record.
-                </div>
               )}
             </div>
           </div>

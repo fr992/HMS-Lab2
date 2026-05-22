@@ -3,6 +3,7 @@ import { useAuth } from "@/auth/AuthContext";
 import {
   CalendarDays,
   BedDouble,
+  ChevronDown,
   ClipboardCheck,
   ClipboardList,
   LayoutDashboard,
@@ -41,10 +42,12 @@ export default function Sidebar() {
   const canReadLabRequests = auth.hasPermission("LabRequests.Read");
   const canReadNurseTasks = auth.hasPermission("NurseTasks.Read");
   const canReadBeds = auth.hasPermission("Beds.Read");
+  const canReadBedRequests = auth.hasPermission("BedAssignmentRequests.Read");
   const canManageBeds =
     auth.hasPermission("Beds.Create") ||
     auth.hasPermission("Beds.Update") ||
-    auth.hasPermission("Beds.Release");
+    auth.hasPermission("Beds.Release") ||
+    auth.hasPermission("Beds.Assign");
   const canReadInvoices = auth.hasPermission("Invoices.Read");
   const canReadPayments = auth.hasPermission("Payments.Read");
   const canManageSettings = auth.hasPermission("Settings.Manage");
@@ -55,6 +58,18 @@ export default function Sidebar() {
   const isNurse = auth.hasRole("Nurse") || auth.hasRole("Infermier");
   const isPatient = auth.userRole === "Patient";
   const isOperationalStaff = !isAdmin && !isDoctor && !isNurse && !isPatient;
+  const canAccessBedManagement = canManageBeds && !isDoctor && !isNurse;
+  const canAccessBeds = canReadBeds || canReadBedRequests || canAccessBedManagement;
+  const [bedsOpen, setBedsOpen] = useState(() =>
+    [
+      "/bed-assignments",
+      "/bed-requests",
+      "/bed-management",
+      "/doctor/beds",
+    ].some((route) =>
+      typeof window === "undefined" ? false : window.location.pathname.startsWith(route)
+    )
+  );
 
   const linkClass = (to) => {
     const on = pathname === to || (to !== "/admin" && pathname.startsWith(to));
@@ -66,6 +81,51 @@ export default function Sidebar() {
         : "text-slate-300 hover:bg-slate-800/90 hover:text-white",
     ].join(" ");
   };
+
+  const bedsLinkClass = () => {
+    const on = [
+      "/bed-assignments",
+      "/bed-requests",
+      "/bed-management",
+      "/doctor/beds",
+    ].some((route) => pathname.startsWith(route));
+    return [
+      "flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition",
+      collapsed ? "justify-center" : "",
+      on
+        ? "bg-blue-600 text-white shadow-sm shadow-blue-950/25"
+        : "text-slate-300 hover:bg-slate-800/90 hover:text-white",
+    ].join(" ");
+  };
+
+  const bedSubLinkClass = (to) => {
+    const on = pathname.startsWith(to);
+    return [
+      "flex items-center gap-2 rounded-md py-1.5 pr-2 text-xs font-medium transition",
+      collapsed ? "justify-center px-2" : "ml-6 px-2",
+      on
+        ? "bg-slate-800 text-white"
+        : "text-slate-400 hover:bg-slate-800/80 hover:text-white",
+    ].join(" ");
+  };
+
+  const bedLinks = [
+    canReadBeds && {
+      to: isDoctor ? "/doctor/beds" : "/bed-assignments",
+      label: "Assignments",
+      icon: BedDouble,
+    },
+    canReadBedRequests && !isDoctor && {
+      to: "/bed-requests",
+      label: "Requests",
+      icon: ClipboardList,
+    },
+    canAccessBedManagement && {
+      to: "/bed-management",
+      label: "Management",
+      icon: BedDouble,
+    },
+  ].filter(Boolean);
 
   const handleLogout = () => {
     window.sessionStorage.setItem("hms.logout.redirect", "/");
@@ -139,7 +199,11 @@ export default function Sidebar() {
         )}
 
         {isAdmin &&
-          (canReadPatients || canReadAppointments || canReadEncounters || canReadNurseTasks || canReadBeds) && (
+          (canReadPatients ||
+            canReadAppointments ||
+            canReadEncounters ||
+            canReadNurseTasks ||
+            canAccessBeds) && (
             <Section title="Patient Care" collapsed={collapsed}>
               {canReadPatients && (
                 <NavLink
@@ -186,22 +250,14 @@ export default function Sidebar() {
                   collapsed={collapsed}
                 />
               )}
-              {canReadBeds && (
-                <NavLink
-                  to="/bed-assignments"
-                  icon={BedDouble}
-                  label="Bed Assignments"
-                  className={linkClass("/bed-assignments")}
+              {canAccessBeds && (
+                <BedsNavGroup
+                  open={bedsOpen}
+                  onToggle={() => setBedsOpen((value) => !value)}
                   collapsed={collapsed}
-                />
-              )}
-              {(canReadBeds || canManageBeds) && (
-                <NavLink
-                  to="/bed-management"
-                  icon={BedDouble}
-                  label="Bed Management"
-                  className={linkClass("/bed-management")}
-                  collapsed={collapsed}
+                  className={bedsLinkClass()}
+                  links={bedLinks}
+                  subLinkClass={bedSubLinkClass}
                 />
               )}
             </Section>
@@ -264,7 +320,7 @@ export default function Sidebar() {
             canReadAppointments ||
             canReadEncounters ||
             canReadNurseTasks ||
-            canReadBeds) && (
+            canAccessBeds) && (
           <Section title={isOperationalStaff ? "Overview" : "Clinical"} collapsed={collapsed}>
             {isDoctor && (
               <NavLink
@@ -365,31 +421,14 @@ export default function Sidebar() {
                 collapsed={collapsed}
               />
             )}
-            {canReadBeds && isDoctor && (
-              <NavLink
-                to="/doctor/beds"
-                icon={BedDouble}
-                label="Department Beds"
-                className={linkClass("/doctor/beds")}
+            {canAccessBeds && (
+              <BedsNavGroup
+                open={bedsOpen}
+                onToggle={() => setBedsOpen((value) => !value)}
                 collapsed={collapsed}
-              />
-            )}
-            {canReadBeds && !isDoctor && (
-              <NavLink
-                to="/bed-assignments"
-                icon={BedDouble}
-                label="Bed Assignments"
-                className={linkClass("/bed-assignments")}
-                collapsed={collapsed}
-              />
-            )}
-            {(canReadBeds || canManageBeds) && !isDoctor && !isNurse && (
-              <NavLink
-                to="/bed-management"
-                icon={BedDouble}
-                label="Bed Management"
-                className={linkClass("/bed-management")}
-                collapsed={collapsed}
+                className={bedsLinkClass()}
+                links={bedLinks}
+                subLinkClass={bedSubLinkClass}
               />
             )}
             {canReadAppointments && !isAdmin && (
@@ -542,6 +581,52 @@ function Section({ title, children, collapsed }) {
         </p>
       )}
       {children}
+    </div>
+  );
+}
+
+function BedsNavGroup({ open, onToggle, collapsed, className, links, subLinkClass }) {
+  return (
+    <div className="space-y-1">
+      <button
+        type="button"
+        onClick={onToggle}
+        className={`${className} w-full`}
+        aria-expanded={open}
+        title={collapsed ? "Beds" : undefined}
+      >
+        <BedDouble className="size-4 shrink-0" aria-hidden />
+        {!collapsed && (
+          <>
+            <span className="min-w-0 flex-1 truncate text-left">Beds</span>
+            <ChevronDown
+              className={[
+                "size-4 shrink-0 transition-transform",
+                open ? "rotate-180" : "",
+              ].join(" ")}
+              aria-hidden
+            />
+          </>
+        )}
+      </button>
+      {open && (
+        <div className={collapsed ? "space-y-1" : "space-y-1"}>
+          {links.map((link) => {
+            const Icon = link.icon;
+            return (
+              <Link
+                key={link.to}
+                to={link.to}
+                className={subLinkClass(link.to)}
+                title={collapsed ? link.label : undefined}
+              >
+                <Icon className="size-3.5 shrink-0" aria-hidden />
+                {!collapsed && <span className="truncate">{link.label}</span>}
+              </Link>
+            );
+          })}
+        </div>
+      )}
     </div>
   );
 }

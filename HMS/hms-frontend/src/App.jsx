@@ -38,7 +38,6 @@ import PaymentsPage from "@/features/payments/PaymentsPage";
 import SettingsPage from "@/features/settings/SettingsPage";
 import NotificationsPage from "@/features/notifications/NotificationsPage";
 import AdminAuditLogsPage from "@/features/auditLogs/AdminAuditLogsPage";
-import DoctorBedView from "@/features/beds/bedAssignments/DoctorBedView";
 import BedManagement from "@/features/beds/bedManagement/BedManagement";
 
 
@@ -269,6 +268,17 @@ export default function App() {
           </Route>
 
           <Route
+            path="/bed-requests"
+            element={
+              <PermissionRoute anyPermission={["BedAssignmentRequests.Read"]}>
+                <AdminLayout />
+              </PermissionRoute>
+            }
+          >
+            <Route index element={<BedAssignmentsPage requestsOnly />} />
+          </Route>
+
+          <Route
             path="/invoices"
             element={
               <PermissionRoute anyPermission={["Invoices.Read"]}>
@@ -348,7 +358,7 @@ export default function App() {
               path="beds"
               element={
                 <PermissionRoute anyPermission={["Beds.Read"]}>
-                  <DoctorBedView />
+                  <BedAssignmentsPage readOnly />
                 </PermissionRoute>
               }
             />

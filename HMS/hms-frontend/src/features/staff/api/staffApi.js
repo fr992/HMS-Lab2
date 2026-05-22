@@ -165,8 +165,8 @@ export async function createNurseStaff(body) {
   return data;
 }
 
-export async function createStaffUser(body) {
-  const { data } = await api.post("/admin/users", body);
+export async function createGeneralStaff(body) {
+  const { data } = await api.post("/admin/staff/general", body);
   return data;
 }
 

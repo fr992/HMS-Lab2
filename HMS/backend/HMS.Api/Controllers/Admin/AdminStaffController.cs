@@ -62,4 +62,23 @@ public sealed class AdminStaffController : ControllerBase
 
         return Created($"/api/nurses/{nurse!.Id}", nurse);
     }
+
+    [HttpPost("general")]
+    [RequirePermission("Users.Create")]
+    [ProducesResponseType(typeof(StaffProfileDto), StatusCodes.Status201Created)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    public async Task<ActionResult<StaffProfileDto>> CreateGeneralStaff(
+        [FromBody] CreateGeneralStaffRequestDto request,
+        CancellationToken cancellationToken)
+    {
+        var (staff, error) = await _staffProfiles.CreateGeneralStaffAsync(
+            request,
+            CurrentUserId(),
+            cancellationToken);
+
+        if (error is not null)
+            return BadRequest(new { error });
+
+        return Created($"/api/admin/staff/{staff!.Id}", staff);
+    }
 }

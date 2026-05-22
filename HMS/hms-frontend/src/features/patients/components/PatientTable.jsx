@@ -79,7 +79,7 @@ export default function PatientTable({
 }) {
   const navigate = useNavigate();
   const [sort, setSort] = useState(
-    () => /** @type {{ key: 'patientNumber' | 'lastName' | 'email', dir: 'asc' | 'desc' }} */ ({
+    () => /** @type {{ key: 'patientNumber' | 'lastName', dir: 'asc' | 'desc' }} */ ({
       key: "patientNumber",
       dir: "asc",
     })
@@ -91,7 +91,7 @@ export default function PatientTable({
   );
 
   const toggleSort = useCallback(
-    (/** @type {'patientNumber' | 'lastName' | 'email'} */ k) => {
+    (/** @type {'patientNumber' | 'lastName'} */ k) => {
       setSort((s) => {
         if (s.key !== k) return { key: k, dir: "asc" };
         return { key: k, dir: s.dir === "asc" ? "desc" : "asc" };
@@ -117,7 +117,7 @@ export default function PatientTable({
   return (
     <div className="flex min-h-0 flex-1 flex-col">
       <div className="scrollbar-none min-h-0 flex-1 overflow-x-auto overflow-y-auto rounded-lg border border-slate-200 bg-white shadow-sm">
-        <table className="min-w-[70rem] w-full table-auto border-collapse text-left sm:min-w-[76rem]">
+        <table className="min-w-[52rem] w-full table-auto border-collapse text-left">
           <caption className="sr-only">Patient directory</caption>
           <thead className="sticky top-0 z-20 border-b border-slate-200 bg-slate-50 text-left text-xs font-semibold tracking-wide text-slate-600">
             <tr>
@@ -135,40 +135,21 @@ export default function PatientTable({
                 onSort={toggleSort}
                 className="w-[9rem] px-2 py-2.5 sm:px-3"
               />
-              <SortTh
-                label="Email"
-                sortKey="email"
-                current={sort}
-                onSort={toggleSort}
-                className="w-[11rem] min-w-0 px-2 py-2.5 sm:px-3"
-              />
               <th
                 scope="col"
-                className="w-[6.5rem] px-2 py-2.5 text-xs font-semibold uppercase sm:px-3"
+                className="w-[8rem] px-2 py-2.5 text-xs font-semibold uppercase sm:px-3"
               >
                 Phone
               </th>
               <th
                 scope="col"
-                className="w-[4.5rem] px-2 py-2.5 text-xs font-semibold uppercase sm:px-3"
-              >
-                Gender
-              </th>
-              <th
-                scope="col"
-                className="w-[5.5rem] px-2 py-2.5 text-xs font-semibold uppercase sm:px-3"
+                className="w-[7rem] px-2 py-2.5 text-xs font-semibold uppercase sm:px-3"
               >
                 City
               </th>
               <th
                 scope="col"
                 className="w-[5.5rem] px-2 py-2.5 text-xs font-semibold uppercase sm:px-3"
-              >
-                Country
-              </th>
-              <th
-                scope="col"
-                className="w-[4.5rem] px-2 py-2.5 text-xs font-semibold uppercase sm:px-3"
               >
                 Blood type
               </th>
@@ -205,20 +186,11 @@ export default function PatientTable({
                     {name}
                   </span>
                 </td>
-                <td className="max-w-0 px-2 py-2.5 text-slate-600 sm:px-3">
-                  <TipText text={p.email} className="text-slate-600" />
-                </td>
                 <td className="px-2 py-2.5 sm:px-3">
                   <TipText text={p.phone} />
                 </td>
                 <td className="px-2 py-2.5 sm:px-3">
-                  <TipText text={p.gender} />
-                </td>
-                <td className="px-2 py-2.5 sm:px-3">
                   <TipText text={p.city} />
-                </td>
-                <td className="px-2 py-2.5 sm:px-3">
-                  <TipText text={p.country} />
                 </td>
                 <td className="px-2 py-2.5 sm:px-3">
                   <TipText text={p.bloodType} />
