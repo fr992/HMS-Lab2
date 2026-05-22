@@ -164,6 +164,27 @@ section[id] {
     display: none;
   }
 
+  html,
+  body,
+  #root {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+
+  html::-webkit-scrollbar,
+  body::-webkit-scrollbar,
+  #root::-webkit-scrollbar {
+    display: none;
+  }
+
+  * {
+    scrollbar-width: none;
+  }
+
+  *::-webkit-scrollbar {
+    display: none;
+  }
+
   .notification-toast,
   .cn-toast {
     background: #ffffff !important;

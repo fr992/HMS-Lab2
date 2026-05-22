@@ -15,6 +15,7 @@ import {
   Users,
   X,
 } from "lucide-react";
+import { toast } from "sonner";
 import apiClient from "@/api/apiClient";
 import { CountUpValue } from "@/features/dashboard/DashboardPrimitives";
 import { MAX_LIST_PAGE_SIZE, PaginationBar, getPagedItems, paginateArray } from "@/lib/pagination.jsx";
@@ -67,7 +68,6 @@ export default function RolesPage() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
-  const [toast, setToast] = useState(null);
   const [dialogMode, setDialogMode] = useState(null);
   const [activeRole, setActiveRole] = useState(null);
   const [deleteId, setDeleteId] = useState(null);
@@ -75,9 +75,12 @@ export default function RolesPage() {
   const [page, setPage] = useState(1);
 
   const showToast = useCallback((message, type = "success") => {
-    setToast({ message, type });
-    window.setTimeout(() => setToast(null), 4000);
+    toast[type === "error" ? "error" : type === "warning" ? "warning" : "success"](message);
   }, []);
+
+  useEffect(() => {
+    if (error) showToast(error, "error");
+  }, [error, showToast]);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -235,9 +238,6 @@ export default function RolesPage() {
         <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
           Administration
         </p>
-        <h1 className="mt-1 text-2xl font-semibold tracking-tight text-slate-900 sm:text-3xl">
-          Roles
-        </h1>
         <p className="mt-1.5 text-sm text-slate-600">
           Manage role access and permission assignments.
         </p>
@@ -248,25 +248,6 @@ export default function RolesPage() {
           <StatCard key={stat.label} stat={stat} />
         ))}
       </div>
-
-      {toast && (
-        <div
-          role={toast.type === "error" ? "alert" : "status"}
-          className={
-            toast.type === "error"
-              ? "rounded-lg border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-900"
-              : "rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-900"
-          }
-        >
-          {toast.message}
-        </div>
-      )}
-
-      {error && (
-        <div className="rounded-lg border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-900">
-          {error}
-        </div>
-      )}
 
       <section className="min-h-0 flex-1">
         <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
@@ -304,7 +285,7 @@ export default function RolesPage() {
                 deleteActive={deleteId === role.id}
                 saving={saving}
                 onView={() => openRole(role, "view")}
-                onEdit={() => openRole(role, "edit")}
+                onEdit={() => openRole(role, role.name === "SuperAdmin" ? "view" : "edit")}
                 onAskDelete={() => setDeleteId(role.id)}
                 onCancelDelete={() => setDeleteId(null)}
                 onConfirmDelete={() => void confirmDelete(role)}
@@ -416,10 +397,15 @@ function RoleCard({
         <button
           type="button"
           onClick={onEdit}
-          className="inline-flex h-10 items-center justify-center gap-2 rounded-lg bg-sky-600 px-3 text-sm font-medium text-white transition hover:bg-sky-700"
+          disabled={isSuperAdmin}
+          className={
+            isSuperAdmin
+              ? "inline-flex h-10 items-center justify-center gap-2 rounded-lg border border-slate-200 bg-slate-100 px-3 text-sm font-medium text-slate-500"
+              : "inline-flex h-10 items-center justify-center gap-2 rounded-lg bg-sky-600 px-3 text-sm font-medium text-white transition hover:bg-sky-700"
+          }
         >
           <Pencil className="size-4" aria-hidden />
-          Assign
+          {isSuperAdmin ? "Display only" : "Assign"}
         </button>
       </div>
 
@@ -470,7 +456,7 @@ function RoleDialog({
   onChange,
   onTogglePermission,
 }) {
-  const readonly = mode === "view";
+  const readonly = mode === "view" || form.name === "SuperAdmin";
   const isCreate = !role;
   const title = readonly
     ? `${form.name || "Role"} Permissions`

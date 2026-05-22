@@ -71,7 +71,7 @@ export default function LoginPage() {
       const status = err.response?.status;
       setError(
         status
-          ? `Sign-in failed (HTTP ${status}). Check your credentials.`
+          ? `Incorrect credentials. Please try again. (Error ${status}) duhet me hek kete status`
           : "Sign-in failed. Please try again."
       );
     } finally {

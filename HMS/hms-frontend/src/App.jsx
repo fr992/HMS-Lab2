@@ -257,7 +257,10 @@ export default function App() {
           <Route
             path="/bed-management"
             element={
-              <PermissionRoute anyPermission={["Beds.Create", "Beds.Update", "Beds.Release", "Beds.Read"]}>
+              <PermissionRoute
+                anyPermission={["Beds.Create", "Beds.Update", "Beds.Release", "Beds.Assign"]}
+                blockedRoles={["Doctor", "Nurse", "Infermier"]}
+              >
                 <AdminLayout />
               </PermissionRoute>
             }

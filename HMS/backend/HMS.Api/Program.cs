@@ -125,6 +125,7 @@ app.UseSerilogRequestLogging();
 app.UseMiddleware<ExceptionHandlingMiddleware>();
 app.UseCors("frontend");
 app.UseAuthentication();
+app.UseMiddleware<MaintenanceModeMiddleware>();
 app.UseAuthorization();
 app.MapControllers();
 app.MapHub<NotificationsHub>("/hubs/notifications");

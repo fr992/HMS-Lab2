@@ -94,9 +94,6 @@ export default function PatientListToolbar({
   return (
     <section className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm sm:p-6">
       <div>
-        <h1 className="text-2xl font-semibold tracking-tight text-slate-900 sm:text-3xl">
-          Patients
-        </h1>
         <p className="mt-1.5 text-sm text-slate-600">
           Manage registered patients
         </p>

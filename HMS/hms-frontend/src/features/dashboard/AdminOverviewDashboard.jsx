@@ -1,392 +1,893 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
-import { Link } from "react-router-dom";
+import { useCallback, useEffect, useState } from "react";
 import {
+  AlertTriangle,
   Activity,
+  ArrowUpRight,
   BedDouble,
+  Bell,
   CalendarDays,
   CheckCircle2,
   ClipboardList,
-  CreditCard,
+  Clock,
+  DollarSign,
   FlaskConical,
-  ReceiptText,
-  ShieldCheck,
-  Stethoscope,
-  UserCog,
+  TrendingDown,
+  TrendingUp,
+  UserCheck,
   Users,
 } from "lucide-react";
+import {
+  Area,
+  AreaChart,
+  Bar,
+  BarChart,
+  CartesianGrid,
+  Cell,
+  Line,
+  LineChart,
+  Pie,
+  PieChart,
+  ResponsiveContainer,
+  Tooltip,
+  XAxis,
+  YAxis,
+} from "recharts";
+import api from "@/api/apiClient";
 import { useAuth } from "@/auth/AuthContext";
-import {
-  CardShell,
-  DashboardFrame,
-  EmptyState,
-  ErrorBanner,
-  AnimatedStatNumber,
-  LoadingDashboard,
-  MetricCard,
-} from "@/features/dashboard/DashboardPrimitives";
-import { fetchAdminDashboardData } from "@/features/dashboard/roleDashboardApi";
-import {
-  formatDateTime,
-  formatMoney,
-  getApiErrorMessage,
-  getPagedItems,
-  getTotalCount,
-  keyOf,
-  titleCase,
-} from "@/features/dashboard/dashboardUtils";
+import { Badge } from "@/components/ui/badge";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { getPagedItems, getTotalCount, keyOf } from "@/features/dashboard/dashboardUtils";
 
-export default function AdminOverviewDashboard() {
-  const auth = useAuth();
-  const [search, setSearch] = useState("");
-  const [state, setState] = useState({ status: "loading", data: {}, error: "" });
+const tooltipStyle = {
+  borderRadius: "8px",
+  border: "1px solid rgb(226 232 240)",
+  background: "white",
+  boxShadow: "0 4px 12px rgba(15,23,42,0.08)",
+  fontSize: "12px",
+};
 
-  const load = useCallback(async () => {
-    setState((current) => ({ ...current, status: "loading", error: "" }));
-    try {
-      const data = await fetchAdminDashboardData(auth);
-      setState({ status: "ready", data, error: "" });
-    } catch (error) {
-      setState({ status: "error", data: {}, error: getApiErrorMessage(error) });
-    }
-  }, [auth]);
+const statusColor = {
+  Admitted: "bg-blue-50 text-blue-700 border-blue-200",
+  Discharged: "bg-emerald-50 text-emerald-700 border-emerald-200",
+  "In Treatment": "bg-amber-50 text-amber-700 border-amber-200",
+  Waiting: "bg-slate-100 text-slate-600 border-slate-200",
+};
 
-  useEffect(() => {
-    void load();
-  }, [load]);
+function Skeleton({ className = "" }) {
+  return <div className={`animate-pulse rounded bg-slate-200 ${className}`} />;
+}
 
-  const dashboard = useMemo(() => buildAdminDashboard(state.data, auth), [auth, state.data]);
-  const normalizedSearch = search.trim().toLowerCase();
-  const filteredAppointments = filterItems(
-    dashboard.appointments,
-    normalizedSearch,
-    ["patientName", "doctorName", "departmentName", "status", "appointmentType"]
-  );
-  const filteredInvoices = filterItems(
-    dashboard.invoices,
-    normalizedSearch,
-    ["invoiceNumber", "patientName", "patientNumber", "status"]
-  );
-  const filteredTasks = filterItems(
-    dashboard.nurseTasks,
-    normalizedSearch,
-    ["patientName", "assignedToNurseName", "type", "priority", "status"]
-  );
-
+function EmptyChart({ label = "No chart data available yet." }) {
   return (
-    <DashboardFrame
-      title={
-        auth.isSuperAdmin
-          ? "SuperAdmin Dashboard"
-          : auth.hasRole("Admin")
-            ? "Admin Dashboard"
-            : `${auth.userRole || "Staff"} Dashboard`
-      }
-      subtitle={
-        auth.isSuperAdmin
-          ? "Full hospital command view across operations, billing, access, and clinical flow."
-          : auth.hasRole("Admin")
-            ? "Operational view scoped to your assigned administration permissions."
-            : "Role-based operational view with only the modules your permissions allow."
-      }
-      userName={auth.userName}
-      userRole={auth.userRole}
-      search={search}
-      onSearchChange={setSearch}
-      searchPlaceholder="Search patients, invoices, appointments..."
-      quickAddActions={[
-        { label: "Register Patient", to: "/patients/new", kind: "patient", visible: auth.hasPermission("Patients.Register") },
-        { label: "New Appointment", to: "/appointments/new", kind: "appointment", visible: auth.hasPermission("Appointments.Create") },
-      ]}
-    >
-      {state.status === "loading" && (
-        <LoadingDashboard statCount={8} cardCount={4} columns="lg:grid-cols-4" />
-      )}
-      {state.status === "error" && <ErrorBanner message={state.error} onRetry={() => void load()} />}
-
-      {state.status === "ready" && (
-        <>
-          <section className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
-            {dashboard.metrics.map((metric) => (
-              <MetricCard key={metric.label} {...metric} />
-            ))}
-          </section>
-
-          <section className="grid gap-4 xl:grid-cols-[minmax(0,1.25fr)_minmax(22rem,0.75fr)]">
-            <CardShell
-              title="Upcoming Appointments"
-              action={auth.hasPermission("Appointments.Read") && <DashboardLink to="/appointments" label="View all" />}
-            >
-              <AppointmentRows items={filteredAppointments.slice(0, 6)} />
-            </CardShell>
-            <CardShell
-              title="Billing Snapshot"
-              action={auth.hasPermission("Invoices.Read") && <DashboardLink to="/invoices" label="Open invoices" />}
-            >
-              <BillingSummary dashboard={dashboard} />
-            </CardShell>
-          </section>
-
-          <section className="grid gap-4 xl:grid-cols-2">
-            <CardShell
-              title="Recent Invoices"
-              action={auth.hasPermission("Payments.Read") && <DashboardLink to="/payments" label="Payments" />}
-            >
-              <InvoiceRows items={filteredInvoices.slice(0, 6)} />
-            </CardShell>
-            <CardShell
-              title={auth.isSuperAdmin ? "SuperAdmin Oversight" : "Care Team Work"}
-              action={auth.hasPermission("NurseTasks.Read") && <DashboardLink to="/nurse-tasks" label="Nurse tasks" />}
-            >
-              {auth.isSuperAdmin ? (
-                <SuperAdminRows dashboard={dashboard} />
-              ) : (
-                <TaskRows items={filteredTasks.slice(0, 6)} />
-              )}
-            </CardShell>
-          </section>
-
-          <ModuleHealth data={state.data} />
-        </>
-      )}
-    </DashboardFrame>
+    <div className="flex h-[240px] w-full items-center justify-center rounded-lg border border-dashed border-slate-200 bg-slate-50 text-sm font-medium text-slate-500">
+      {label}
+    </div>
   );
 }
 
-function buildAdminDashboard(data, auth) {
-  const patients = getList(data.patients?.data);
-  const appointments = getList(data.appointments?.data);
-  const invoices = getPagedItems(data.invoices?.data);
-  const payments = getPagedItems(data.payments?.data);
-  const labRequests = getPagedItems(data.labRequests?.data);
-  const nurseTasks = getList(data.nurseTasks?.data);
-  const beds = getList(data.beds?.data);
-  const assignments = getList(data.bedAssignments?.data);
-  const users = getPagedItems(data.users?.data);
-  const roles = getList(data.roles?.data);
-
-  const openInvoices = invoices.filter((item) =>
-    ["draft", "issued", "partially_paid"].includes(keyOf(item.status))
+function EmptyPanel({ label }) {
+  return (
+    <div className="rounded-lg border border-dashed border-slate-200 bg-slate-50 px-4 py-6 text-center text-sm font-medium text-slate-500">
+      {label}
+    </div>
   );
-  const dueInvoices = invoices.filter((item) => {
-    if (!item.dueAt) return false;
-    const dueAt = new Date(item.dueAt);
-    return !Number.isNaN(dueAt.getTime()) && dueAt < new Date() && keyOf(item.status) !== "paid";
-  });
-  const paidInvoices = invoices.filter((item) => keyOf(item.status) === "paid");
-  const pendingPayments = payments.filter((item) => keyOf(item.status) === "pending");
-  const openTasks = nurseTasks.filter((item) => keyOf(item.status) !== "completed");
-  const occupiedBeds = beds.filter((item) => keyOf(item.status || item.occupancyStatus) === "occupied").length || assignments.length;
+}
 
-  const metrics = [
-    auth.hasPermission("Patients.Read") && {
-      label: "Patients",
-      value: getTotal(data.patients?.data, patients),
-      helper: "Registered profiles",
-      icon: <Users className="size-5" />,
-      tone: "bg-blue-50 text-blue-700",
-    },
-    auth.hasPermission("Appointments.Read") && {
-      label: "Upcoming",
-      value: appointments.length,
-      helper: "Scheduled from now",
-      icon: <CalendarDays className="size-5" />,
-      tone: "bg-teal-50 text-teal-700",
-    },
-    auth.hasPermission("Invoices.Read") && {
-      label: "Open Invoices",
-      value: openInvoices.length,
-      helper: `${dueInvoices.length} overdue`,
-      icon: <ReceiptText className="size-5" />,
-      tone: "bg-amber-50 text-amber-700",
-    },
-    auth.hasPermission("Payments.Read") && {
-      label: "Pending Payments",
-      value: pendingPayments.length,
-      helper: "Awaiting confirmation",
-      icon: <CreditCard className="size-5" />,
-      tone: "bg-sky-50 text-sky-700",
-    },
-    auth.hasPermission("LabRequests.Read") && {
-      label: "Lab Requests",
-      value: labRequests.length,
-      helper: "Visible workflow items",
-      icon: <FlaskConical className="size-5" />,
-      tone: "bg-indigo-50 text-indigo-700",
-    },
-    auth.hasPermission("NurseTasks.Read") && {
-      label: "Open Nurse Tasks",
-      value: openTasks.length,
-      helper: "Pending care work",
-      icon: <ClipboardList className="size-5" />,
-      tone: "bg-rose-50 text-rose-700",
-    },
-    auth.hasPermission("Beds.Read") && {
-      label: "Occupied Beds",
-      value: occupiedBeds,
-      helper: `${Math.max(beds.length - occupiedBeds, 0)} available`,
-      icon: <BedDouble className="size-5" />,
-      tone: "bg-emerald-50 text-emerald-700",
-    },
-    auth.isSuperAdmin && {
-      label: "Total Users",
-      value: getTotal(data.users?.data, users),
-      helper: `${roles.length} roles configured`,
-      icon: <ShieldCheck className="size-5" />,
-      tone: "bg-violet-50 text-violet-700",
-    },
-  ].filter(Boolean);
+function hasAnyValue(items, keys) {
+  return items.some((item) =>
+    keys.some((key) => Number(item?.[key] ?? 0) > 0)
+  );
+}
 
-  return {
-    patients,
-    appointments,
-    invoices,
-    payments,
-    labRequests,
-    nurseTasks,
-    users,
-    roles,
-    dueInvoices,
-    paidInvoices,
-    openInvoices,
-    pendingPayments,
-    openTasks,
-    occupiedBeds,
-    totalBeds: beds.length,
-    metrics,
-  };
+function StatCard({ stat, loading }) {
+  if (loading) {
+    return (
+      <div className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
+        <div className="flex items-start justify-between gap-2">
+          <div className="min-w-0 flex-1 space-y-2">
+            <Skeleton className="h-3 w-3/4" />
+            <Skeleton className="h-6 w-1/2" />
+          </div>
+          <Skeleton className="h-9 w-9 shrink-0 rounded-lg" />
+        </div>
+        <Skeleton className="mt-2 h-3 w-2/3" />
+      </div>
+    );
+  }
+
+  const Icon = stat.icon;
+  return (
+    <div className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
+      <div className="flex items-start justify-between gap-2">
+        <div className="min-w-0">
+          <p className="truncate text-[10px] font-medium uppercase tracking-wider text-slate-500">
+            {stat.label}
+          </p>
+          <p className="mt-1 truncate text-xl font-bold text-slate-950">{stat.value}</p>
+        </div>
+        <div className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-lg ${stat.color}`}>
+          <Icon className="h-[18px] w-[18px]" />
+        </div>
+      </div>
+      <div className="mt-2 flex items-center gap-1">
+        {stat.trend === "up" && <TrendingUp className="h-3 w-3 text-emerald-600" />}
+        {stat.trend === "down" && <TrendingDown className="h-3 w-3 text-rose-600" />}
+        {stat.trend === "neutral" && <Activity className="h-3 w-3 text-emerald-600" />}
+        <span
+          className={`text-[11px] font-medium ${
+            stat.trend === "down" ? "text-rose-600" : "text-emerald-600"
+          }`}
+        >
+          {stat.change}
+        </span>
+        {stat.trend !== "neutral" && (
+          <span className="truncate text-[11px] text-slate-500">vs last</span>
+        )}
+      </div>
+    </div>
+  );
+}
+
+async function getData(url, fallback, options = {}) {
+  if (options.enabled === false) return fallback;
+
+  try {
+    const { data } = await api.get(url, {
+      timeout: 8000,
+      ...(options.config ?? {}),
+    });
+    return data ?? fallback;
+  } catch {
+    return fallback;
+  }
 }
 
 function getList(data) {
-  return Array.isArray(data) ? data : getPagedItems(data);
+  if (Array.isArray(data)) return data;
+  return getPagedItems(data);
 }
 
-function getTotal(data, list) {
-  return getTotalCount(data) || list.length;
+function numberOr(value, fallback = 0) {
+  const number = Number(value);
+  return Number.isFinite(number) ? number : fallback;
 }
 
-function filterItems(items, search, keys) {
-  if (!search) return items;
-  return items.filter((item) =>
-    keys.some((key) => String(item?.[key] ?? "").toLowerCase().includes(search))
+function formatCompactCurrency(value) {
+  const amount = numberOr(value);
+  if (amount >= 1000) return `$${Math.round(amount / 1000)}k`;
+  return `$${Math.round(amount).toLocaleString()}`;
+}
+
+function formatDateKey(value) {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return null;
+  return `${date.getUTCFullYear()}-${date.getUTCMonth()}`;
+}
+
+function lastSixMonths() {
+  const now = new Date();
+  return Array.from({ length: 6 }, (_, index) => {
+    const date = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() - 5 + index, 1));
+    return {
+      key: `${date.getUTCFullYear()}-${date.getUTCMonth()}`,
+      month: date.toLocaleString(undefined, { month: "short" }),
+    };
+  });
+}
+
+function buildPatientTrendFallback(patients) {
+  const months = lastSixMonths();
+  return months.map((month) => ({
+    month: month.month,
+    inpatient: 0,
+    outpatient: patients.filter((patient) => formatDateKey(patient.createdAt) === month.key).length,
+  }));
+}
+
+function buildRevenueFallback(invoices) {
+  const months = lastSixMonths();
+  return months.map((month) => ({
+    month: month.month,
+    revenue: Math.round(
+      invoices
+        .filter((invoice) => formatDateKey(invoice.issuedAt ?? invoice.createdAt) === month.key)
+        .reduce((sum, invoice) => sum + numberOr(invoice.totalAmount), 0) / 1000
+    ),
+  }));
+}
+
+function buildDepartmentFallback(appointments) {
+  const counts = appointments.reduce((map, appointment) => {
+    const name = appointment.departmentName || "Unassigned";
+    map.set(name, (map.get(name) ?? 0) + 1);
+    return map;
+  }, new Map());
+
+  return Array.from(counts, ([name, patients]) => ({ name, patients }))
+    .sort((a, b) => b.patients - a.patients)
+    .slice(0, 8);
+}
+
+function buildBedOccupancyFallback(beds) {
+  const activeBeds = beds.filter((bed) => bed.isActive !== false);
+  const occupied = activeBeds.filter((bed) =>
+    keyOf(bed.status || bed.occupancyStatus) === "occupied" || Boolean(bed.currentAssignment)
+  ).length;
+  const total = activeBeds.length;
+
+  return {
+    occupied,
+    available: Math.max(total - occupied, 0),
+    total,
+    icu: wardOccupancy(activeBeds, "icu"),
+    emergency: wardOccupancy(activeBeds, "emergency"),
+    general: wardOccupancy(activeBeds, "general"),
+  };
+}
+
+function wardOccupancy(beds, ward) {
+  const matching = beds.filter((bed) =>
+    String(bed.ward ?? "").toLowerCase().includes(ward)
   );
+  if (matching.length === 0) return 0;
+
+  const occupied = matching.filter((bed) =>
+    keyOf(bed.status || bed.occupancyStatus) === "occupied" || Boolean(bed.currentAssignment)
+  ).length;
+  return Math.round((occupied / matching.length) * 100);
 }
 
-function DashboardLink({ to, label }) {
-  return (
-    <Link to={to} className="text-sm font-semibold text-blue-600 hover:text-blue-700">
-      {label}
-    </Link>
-  );
+function getPatientName(patient) {
+  return patient.name || [patient.firstName, patient.lastName].filter(Boolean).join(" ") || "Patient";
 }
 
-function AppointmentRows({ items }) {
-  if (!items.length) return <EmptyState>No upcoming appointments in this view.</EmptyState>;
+function getInitials(name) {
+  return String(name || "?")
+    .trim()
+    .split(/\s+/)
+    .filter(Boolean)
+    .map((part) => part[0])
+    .join("")
+    .slice(0, 2)
+    .toUpperCase() || "?";
+}
+
+function getAge(value) {
+  if (!value) return null;
+  const birthDate = new Date(value);
+  if (Number.isNaN(birthDate.getTime())) return null;
+  const today = new Date();
+  let age = today.getFullYear() - birthDate.getFullYear();
+  const monthDiff = today.getMonth() - birthDate.getMonth();
+  if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birthDate.getDate())) age -= 1;
+  return age;
+}
+
+function relativeTime(value) {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "-";
+  const diff = Date.now() - date.getTime();
+  const minutes = Math.max(1, Math.floor(diff / 60000));
+  if (minutes < 60) return `${minutes}m ago`;
+  const hours = Math.floor(minutes / 60);
+  if (hours < 24) return `${hours}h ago`;
+  return `${Math.floor(hours / 24)}d ago`;
+}
+
+function formatTime(value) {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "-";
+  return date.toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit" });
+}
+
+function appointmentIsUpcoming(appointment) {
+  const date = new Date(appointment.scheduledStart);
+  if (Number.isNaN(date.getTime()) || date < new Date()) return false;
+  return keyOf(appointment.status) !== "cancelled";
+}
+
+export default function AdminOverviewDashboard() {
+  const auth = useAuth();
+  const [stats, setStats] = useState([]);
+  const [patientData, setPatientData] = useState([]);
+  const [revenueData, setRevenueData] = useState([]);
+  const [departmentData, setDepartmentData] = useState([]);
+  const [bedOccupancy, setBedOccupancy] = useState({
+    occupied: 0,
+    available: 0,
+    total: 0,
+    icu: 0,
+    emergency: 0,
+    general: 0,
+  });
+  const [recentPatients, setRecentPatients] = useState([]);
+  const [upcomingAppointments, setUpcomingAppointments] = useState([]);
+  const [notifications, setNotifications] = useState([]);
+
+  const [loadingStats, setLoadingStats] = useState(true);
+  const [loadingCharts, setLoadingCharts] = useState(true);
+  const [loadingPatients, setLoadingPatients] = useState(true);
+  const [loadingApts, setLoadingApts] = useState(true);
+  const [loadingAlerts, setLoadingAlerts] = useState(true);
+
+  const canReadPatients = auth.hasPermission("Patients.Read");
+  const canReadAppointments = auth.hasPermission("Appointments.Read");
+  const canReadUsers = auth.hasPermission("Users.Read");
+  const canReadLabRequests = auth.hasPermission("LabRequests.Read");
+  const canReadInvoices = auth.hasPermission("Invoices.Read");
+  const canReadNurseTasks = auth.hasPermission("NurseTasks.Read");
+  const canReadBeds = auth.hasPermission("Beds.Read");
+
+  const loadStats = useCallback(async () => {
+    setLoadingStats(true);
+
+    try {
+      const [
+        patientStats,
+        appointmentStats,
+        doctorStats,
+        labStats,
+        revenueStats,
+        taskStats,
+        patientListRaw,
+        appointmentListRaw,
+        doctorListRaw,
+        labListRaw,
+        invoiceListRaw,
+        taskListRaw,
+      ] = await Promise.all([
+        getData("/dashboard/stats/patients", {}, { enabled: canReadPatients }),
+        getData("/dashboard/stats/appointments/today", {}, { enabled: canReadAppointments }),
+        getData("/dashboard/stats/doctors/active", {}, { enabled: canReadUsers }),
+        getData("/dashboard/stats/lab/pending", {}, { enabled: canReadLabRequests }),
+        getData("/dashboard/stats/revenue/mtd", {}, { enabled: canReadInvoices }),
+        getData("/dashboard/stats/nurse-tasks/open", {}, { enabled: canReadNurseTasks }),
+        getData("/patients", [], { enabled: canReadPatients }),
+        getData("/receptionist/appointments", [], {
+          enabled: canReadAppointments,
+          config: { params: { from: new Date().toISOString() } },
+        }),
+        getData("/doctors", [], { enabled: canReadUsers }),
+        getData("/lab/requests", [], {
+          enabled: canReadLabRequests,
+          config: { params: { page: 1, pageSize: 100 } },
+        }),
+        getData("/invoices", [], {
+          enabled: canReadInvoices,
+          config: { params: { page: 1, pageSize: 100 } },
+        }),
+        getData("/nurse-tasks/my", [], { enabled: canReadNurseTasks }),
+      ]);
+
+      const patients = getList(patientListRaw);
+      const appointments = getList(appointmentListRaw);
+      const doctors = getList(doctorListRaw);
+      const labRequests = getList(labListRaw);
+      const invoices = getList(invoiceListRaw);
+      const tasks = getList(taskListRaw);
+      const today = new Date().toDateString();
+      const todayAppointments = appointments.filter((appointment) => {
+        const date = new Date(appointment.scheduledStart);
+        return !Number.isNaN(date.getTime()) && date.toDateString() === today;
+      });
+      const pendingLabItems = labRequests.filter((item) =>
+        !["completed", "cancelled"].includes(keyOf(item.status))
+      );
+      const paidStatuses = new Set(["paid", "partiallypaid", "partially_paid"]);
+      const revenueMtd = invoices
+        .filter((invoice) => paidStatuses.has(keyOf(invoice.status)))
+        .reduce((sum, invoice) => sum + numberOr(invoice.totalAmount), 0);
+      const openTasks = tasks.filter((task) =>
+        !["completed", "cancelled"].includes(keyOf(task.status))
+      );
+
+      setStats([
+        canReadPatients && {
+          label: "Total Patients",
+          value: numberOr(patientStats.total, getTotalCount(patientListRaw) || patients.length).toLocaleString(),
+          change: patientStats.change ?? "Current",
+          trend: patientStats.trend ?? "neutral",
+          icon: Users,
+          color: "bg-blue-50 text-blue-700",
+        },
+        canReadAppointments && {
+          label: "Today's Appointments",
+          value: numberOr(appointmentStats.count, todayAppointments.length).toString(),
+          change: appointmentStats.change ?? "Scheduled",
+          trend: appointmentStats.trend ?? "neutral",
+          icon: CalendarDays,
+          color: "bg-cyan-50 text-cyan-700",
+        },
+        canReadUsers && {
+          label: "Active Doctors",
+          value: numberOr(doctorStats.count, doctors.filter((doctor) => doctor.isActive !== false).length).toString(),
+          change: doctorStats.label ?? "On duty",
+          trend: "neutral",
+          icon: UserCheck,
+          color: "bg-emerald-50 text-emerald-700",
+        },
+        canReadLabRequests && {
+          label: "Pending Lab Results",
+          value: numberOr(labStats.count, pendingLabItems.length).toString(),
+          change: labStats.change ?? "Open",
+          trend: labStats.trend ?? "neutral",
+          icon: FlaskConical,
+          color: "bg-amber-50 text-amber-700",
+        },
+        canReadInvoices && {
+          label: "Revenue (MTD)",
+          value: revenueStats.formatted ?? formatCompactCurrency(revenueMtd),
+          change: revenueStats.change ?? "Current",
+          trend: revenueStats.trend ?? "neutral",
+          icon: DollarSign,
+          color: "bg-sky-50 text-sky-700",
+        },
+        canReadNurseTasks && {
+          label: "Open Nurse Tasks",
+          value: numberOr(taskStats.count, openTasks.length).toString(),
+          change: taskStats.change ?? "Open",
+          trend: taskStats.trend ?? "neutral",
+          icon: ClipboardList,
+          color: "bg-rose-50 text-rose-700",
+        },
+      ].filter(Boolean));
+    } catch {
+      setStats([]);
+    } finally {
+      setLoadingStats(false);
+    }
+  }, [
+    canReadAppointments,
+    canReadInvoices,
+    canReadLabRequests,
+    canReadNurseTasks,
+    canReadPatients,
+    canReadUsers,
+  ]);
+
+  useEffect(() => {
+    void loadStats();
+  }, [loadStats]);
+
+  useEffect(() => {
+    async function fetchCharts() {
+      const [patChart, revChart, deptChart, beds, patientListRaw, invoiceListRaw, appointmentListRaw, bedListRaw] = await Promise.all([
+        getData("/dashboard/charts/patient-trends", [], { enabled: canReadPatients }),
+        getData("/dashboard/charts/revenue", [], { enabled: canReadInvoices }),
+        getData("/dashboard/charts/departments", [], { enabled: canReadPatients }),
+        getData("/dashboard/beds/occupancy", {}, { enabled: canReadBeds }),
+        getData("/patients", [], { enabled: canReadPatients }),
+        getData("/invoices", [], {
+          enabled: canReadInvoices,
+          config: { params: { page: 1, pageSize: 100 } },
+        }),
+        getData("/receptionist/appointments", [], {
+          enabled: canReadAppointments,
+          config: { params: { from: new Date().toISOString() } },
+        }),
+        getData("/beds", [], { enabled: canReadBeds }),
+      ]);
+
+      const patients = getList(patientListRaw);
+      const invoices = getList(invoiceListRaw);
+      const appointments = getList(appointmentListRaw);
+      const bedList = getList(bedListRaw);
+      const primaryPatientChart = Array.isArray(patChart) ? patChart : [];
+      const primaryRevenueChart = Array.isArray(revChart) ? revChart : [];
+      const primaryDepartmentChart = Array.isArray(deptChart) ? deptChart : [];
+      const fallbackBeds = buildBedOccupancyFallback(bedList);
+      const primaryBeds = {
+        occupied: beds.occupied ?? 0,
+        available: beds.available ?? 0,
+        total: beds.total ?? 0,
+        icu: beds.icu_pct ?? beds.icuPct ?? 0,
+        emergency: beds.emergency_pct ?? beds.emergencyPct ?? 0,
+        general: beds.general_pct ?? beds.generalPct ?? 0,
+      };
+
+      setPatientData(
+        hasAnyValue(primaryPatientChart, ["inpatient", "outpatient"])
+          ? primaryPatientChart
+          : buildPatientTrendFallback(patients)
+      );
+      setRevenueData(
+        hasAnyValue(primaryRevenueChart, ["revenue"])
+          ? primaryRevenueChart
+          : buildRevenueFallback(invoices)
+      );
+      setDepartmentData(
+        hasAnyValue(primaryDepartmentChart, ["patients"])
+          ? primaryDepartmentChart
+          : buildDepartmentFallback(appointments)
+      );
+      setBedOccupancy(primaryBeds.total > 0 ? primaryBeds : fallbackBeds);
+      setLoadingCharts(false);
+    }
+
+    void fetchCharts();
+  }, [canReadAppointments, canReadBeds, canReadInvoices, canReadPatients]);
+
+  useEffect(() => {
+    async function fetchPatients() {
+      const [data, patientListRaw] = await Promise.all([
+        getData("/dashboard/patients/recent?limit=5", [], { enabled: canReadPatients }),
+        getData("/patients", [], { enabled: canReadPatients }),
+      ]);
+      const recent = Array.isArray(data) ? data : [];
+      const fallback = getList(patientListRaw)
+        .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
+        .slice(0, 5)
+        .map((patient) => ({
+          name: getPatientName(patient),
+          age: getAge(patient.dateOfBirth),
+          department: patient.departmentName || patient.primaryDoctorName || "Unassigned",
+          status: "Waiting",
+          time: relativeTime(patient.createdAt),
+        }));
+
+      setRecentPatients(recent.length > 0 ? recent : fallback);
+      setLoadingPatients(false);
+    }
+
+    void fetchPatients();
+  }, [canReadPatients]);
+
+  useEffect(() => {
+    async function fetchAppointments() {
+      const [data, appointmentListRaw] = await Promise.all([
+        getData("/dashboard/appointments/upcoming?limit=4", [], { enabled: canReadAppointments }),
+        getData("/receptionist/appointments", [], {
+          enabled: canReadAppointments,
+          config: { params: { from: new Date().toISOString() } },
+        }),
+      ]);
+      const upcoming = Array.isArray(data) ? data : [];
+      const fallback = getList(appointmentListRaw)
+        .filter(appointmentIsUpcoming)
+        .sort((a, b) => new Date(a.scheduledStart) - new Date(b.scheduledStart))
+        .slice(0, 4)
+        .map((appointment) => ({
+          patient: appointment.patientName || "Patient",
+          doctor: appointment.doctorName || "Doctor",
+          time: formatTime(appointment.scheduledStart),
+          type: appointment.appointmentType || "Appointment",
+        }));
+
+      setUpcomingAppointments(upcoming.length > 0 ? upcoming : fallback);
+      setLoadingApts(false);
+    }
+
+    void fetchAppointments();
+  }, [canReadAppointments]);
+
+  useEffect(() => {
+    async function fetchAlerts() {
+      const iconMap = {
+        warning: { icon: AlertTriangle, color: "text-amber-700 bg-amber-50" },
+        success: { icon: CheckCircle2, color: "text-emerald-700 bg-emerald-50" },
+        error: { icon: AlertTriangle, color: "text-rose-700 bg-rose-50" },
+        info: { icon: Bell, color: "text-blue-700 bg-blue-50" },
+      };
+      const raw = await getData("/dashboard/alerts?limit=4", []);
+      setNotifications(
+        (Array.isArray(raw) ? raw : []).map((n) => ({
+          ...n,
+          ...(iconMap[n.type] ?? iconMap.info),
+        }))
+      );
+      setLoadingAlerts(false);
+    }
+
+    void fetchAlerts();
+  }, []);
+
+  const pieData = [
+    { name: "Occupied", value: bedOccupancy.occupied, color: "#2563eb" },
+    { name: "Available", value: bedOccupancy.available, color: "#10b981" },
+  ];
+  const revenueStart = revenueData[0]?.revenue || 0;
+  const revenueEnd = revenueData.at(-1)?.revenue || 0;
+  const revenueChange = revenueStart > 0 ? (((revenueEnd - revenueStart) / revenueStart) * 100).toFixed(1) : "-";
+  const hasPatientTrendData = hasAnyValue(patientData, ["inpatient", "outpatient"]);
+  const hasRevenueData = hasAnyValue(revenueData, ["revenue"]);
+  const hasDepartmentData = hasAnyValue(departmentData, ["patients"]);
+  const hasBedData = bedOccupancy.total > 0 || pieData.some((item) => item.value > 0);
 
   return (
-    <div className="divide-y divide-slate-100">
-      {items.map((item) => (
-        <div key={item.id} className="grid gap-3 py-3 sm:grid-cols-[1fr_auto] sm:items-center">
-          <div className="min-w-0">
-            <p className="truncate font-semibold text-slate-950">{item.patientName || "Patient"}</p>
-            <p className="mt-1 truncate text-sm text-slate-500">
-              {[item.doctorName, item.departmentName, item.appointmentType].filter(Boolean).join(" - ")}
-            </p>
+    <div className="scrollbar-none flex-1 space-y-6 overflow-visible p-4 sm:p-6">
+      <div className="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-6">
+        {loadingStats
+          ? Array.from({ length: 6 }).map((_, i) => <StatCard key={i} loading />)
+          : stats.length > 0
+            ? stats.map((stat) => <StatCard key={stat.label} stat={stat} />)
+            : (
+                <div className="col-span-full">
+                  <EmptyPanel label="No dashboard metrics are available for this role." />
+                </div>
+              )}
+      </div>
+
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
+        <Card className="animate-fade-in lg:col-span-2 rounded-lg border-slate-200 bg-white shadow-sm">
+          <CardHeader className="pb-2">
+            <div className="flex items-center justify-between">
+              <CardTitle className="text-sm font-semibold">Patient Trends</CardTitle>
+              <div className="flex items-center gap-4 text-xs text-slate-500">
+                <span className="flex items-center gap-1.5">
+                  <span className="h-2.5 w-2.5 rounded-full bg-blue-600" /> Inpatient
+                </span>
+                <span className="flex items-center gap-1.5">
+                  <span className="h-2.5 w-2.5 rounded-full bg-cyan-500" /> Outpatient
+                </span>
+              </div>
+            </div>
+          </CardHeader>
+          <CardContent>
+            {loadingCharts ? (
+              <Skeleton className="h-[240px] w-full" />
+            ) : !hasPatientTrendData ? (
+              <EmptyChart label="No patient trend data yet." />
+            ) : (
+              <ResponsiveContainer width="100%" height={240}>
+                <AreaChart data={patientData}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
+                  <XAxis dataKey="month" tick={{ fontSize: 12 }} stroke="#64748b" />
+                  <YAxis tick={{ fontSize: 12 }} stroke="#64748b" />
+                  <Tooltip contentStyle={tooltipStyle} />
+                  <Area type="monotone" dataKey="outpatient" stroke="#06b6d4" fill="#cffafe" strokeWidth={2} />
+                  <Area type="monotone" dataKey="inpatient" stroke="#2563eb" fill="#dbeafe" strokeWidth={2} />
+                </AreaChart>
+              </ResponsiveContainer>
+            )}
+          </CardContent>
+        </Card>
+
+        <Card className="animate-fade-in rounded-lg border-slate-200 bg-white shadow-sm">
+          <CardHeader className="pb-2">
+            <div className="flex items-center justify-between">
+              <CardTitle className="text-sm font-semibold">Revenue Trend</CardTitle>
+              <Badge variant="secondary" className="gap-1 text-[10px]">
+                <TrendingUp className="h-2.5 w-2.5" />
+                {revenueChange === "-" ? "-" : `${Number(revenueChange) >= 0 ? "+" : ""}${revenueChange}%`}
+              </Badge>
+            </div>
+          </CardHeader>
+          <CardContent>
+            {loadingCharts ? (
+              <Skeleton className="h-[240px] w-full" />
+            ) : !hasRevenueData ? (
+              <EmptyChart label="No revenue trend data yet." />
+            ) : (
+              <ResponsiveContainer width="100%" height={240}>
+                <LineChart data={revenueData}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
+                  <XAxis dataKey="month" tick={{ fontSize: 11 }} stroke="#64748b" />
+                  <YAxis tick={{ fontSize: 11 }} stroke="#64748b" />
+                  <Tooltip contentStyle={tooltipStyle} formatter={(v) => [`$${v}k`, "Revenue"]} />
+                  <Line type="monotone" dataKey="revenue" stroke="#0284c7" strokeWidth={2.5} dot={{ r: 3, fill: "#0284c7" }} activeDot={{ r: 5 }} />
+                </LineChart>
+              </ResponsiveContainer>
+            )}
+          </CardContent>
+        </Card>
+      </div>
+
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
+        <Card className="animate-fade-in rounded-lg border-slate-200 bg-white shadow-sm">
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-semibold">Patients by Department</CardTitle>
+          </CardHeader>
+          <CardContent>
+            {loadingCharts ? (
+              <Skeleton className="h-[240px] w-full" />
+            ) : !hasDepartmentData ? (
+              <EmptyChart label="No department patient data yet." />
+            ) : (
+              <ResponsiveContainer width="100%" height={240}>
+                <BarChart data={departmentData} layout="vertical" margin={{ left: 10 }}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" horizontal={false} />
+                  <XAxis type="number" tick={{ fontSize: 11 }} stroke="#64748b" />
+                  <YAxis dataKey="name" type="category" tick={{ fontSize: 11 }} stroke="#64748b" width={75} />
+                  <Tooltip contentStyle={tooltipStyle} />
+                  <Bar dataKey="patients" fill="#2563eb" radius={[0, 4, 4, 0]} barSize={18} />
+                </BarChart>
+              </ResponsiveContainer>
+            )}
+          </CardContent>
+        </Card>
+
+        <Card className="animate-fade-in rounded-lg border-slate-200 bg-white shadow-sm">
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-semibold">Bed Occupancy</CardTitle>
+          </CardHeader>
+          <CardContent className="flex flex-col items-center">
+            {loadingCharts ? (
+              <>
+                <Skeleton className="h-[180px] w-full rounded-full" />
+                <Skeleton className="mt-4 h-4 w-48" />
+              </>
+            ) : !hasBedData ? (
+              <EmptyChart label="No bed occupancy data yet." />
+            ) : (
+              <>
+                <ResponsiveContainer width="100%" height={180}>
+                  <PieChart>
+                    <Pie data={pieData} cx="50%" cy="50%" innerRadius={55} outerRadius={75} paddingAngle={4} dataKey="value">
+                      {pieData.map((entry) => <Cell key={entry.name} fill={entry.color} />)}
+                    </Pie>
+                  </PieChart>
+                </ResponsiveContainer>
+                <div className="mt-2 flex gap-6">
+                  {pieData.map((item) => (
+                    <div key={item.name} className="flex items-center gap-2 text-xs">
+                      <span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: item.color }} />
+                      <span className="text-slate-500">
+                        {item.name}: <strong className="text-slate-950">{item.value}</strong>
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </>
+            )}
+          </CardContent>
+        </Card>
+
+        <Card className="animate-fade-in rounded-lg border-slate-200 bg-white shadow-sm">
+          <CardHeader className="pb-3">
+            <div className="flex items-center justify-between">
+              <CardTitle className="text-sm font-semibold">Live Alerts</CardTitle>
+              <button className="text-xs font-medium text-blue-600 hover:underline">View all</button>
+            </div>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            {loadingAlerts
+              ? Array.from({ length: 4 }).map((_, i) => (
+                  <div key={i} className="flex gap-3">
+                    <Skeleton className="h-8 w-8 shrink-0 rounded-lg" />
+                    <div className="flex-1 space-y-1.5">
+                      <Skeleton className="h-3 w-3/4" />
+                      <Skeleton className="h-3 w-full" />
+                      <Skeleton className="h-2.5 w-1/3" />
+                    </div>
+                  </div>
+                ))
+              : notifications.length === 0 ? (
+                  <EmptyPanel label="No live alerts right now." />
+                ) : notifications.map((n, i) => {
+                  const Icon = n.icon;
+                  return (
+                    <div key={`${n.title}-${i}`} className="flex gap-3">
+                      <div className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-lg ${n.color}`}>
+                        <Icon className="h-4 w-4" />
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <p className="text-xs font-medium text-slate-950">{n.title}</p>
+                        <p className="line-clamp-1 text-[11px] text-slate-500">{n.desc}</p>
+                        <p className="mt-0.5 text-[10px] text-slate-500">{n.time}</p>
+                      </div>
+                    </div>
+                  );
+                })}
+          </CardContent>
+        </Card>
+      </div>
+
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
+        <Card className="animate-fade-in rounded-lg border-slate-200 bg-white shadow-sm lg:col-span-2">
+          <CardHeader className="pb-3">
+            <div className="flex items-center justify-between">
+              <CardTitle className="text-sm font-semibold">Recent Patients</CardTitle>
+              <button className="flex items-center gap-1 text-xs font-medium text-blue-600 hover:underline">
+                View All <ArrowUpRight className="h-3 w-3" />
+              </button>
+            </div>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-3">
+              {loadingPatients
+                ? Array.from({ length: 5 }).map((_, i) => (
+                    <div key={i} className="flex items-center justify-between border-b border-slate-200 py-2 last:border-0">
+                      <div className="flex items-center gap-3">
+                        <Skeleton className="h-8 w-8 rounded-full" />
+                        <div className="space-y-1.5">
+                          <Skeleton className="h-3.5 w-32" />
+                          <Skeleton className="h-3 w-24" />
+                        </div>
+                      </div>
+                      <Skeleton className="h-5 w-20 rounded-full" />
+                    </div>
+                  ))
+                : recentPatients.length === 0 ? (
+                    <EmptyPanel label="No recent patients found." />
+                  ) : recentPatients.map((p, i) => (
+                    <div key={`${p.name}-${i}`} className="flex items-center justify-between border-b border-slate-200 py-2 last:border-0">
+                      <div className="flex items-center gap-3">
+                        <div className="flex h-8 w-8 items-center justify-center rounded-full bg-blue-50 text-xs font-semibold text-blue-700">
+                          {getInitials(p.name)}
+                        </div>
+                        <div>
+                          <p className="text-sm font-medium text-slate-950">{p.name}</p>
+                          <p className="text-xs text-slate-500">{p.department} - Age {p.age ?? "-"}</p>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-3">
+                        <Badge variant="outline" className={`text-[10px] font-medium ${statusColor[p.status] ?? ""}`}>{p.status}</Badge>
+                        <span className="hidden items-center gap-1 text-xs text-slate-500 sm:flex">
+                          <Clock className="h-3 w-3" /> {p.time}
+                        </span>
+                      </div>
+                    </div>
+                  ))}
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card className="animate-fade-in rounded-lg border-slate-200 bg-white shadow-sm">
+          <CardHeader className="pb-3">
+            <div className="flex items-center justify-between">
+              <CardTitle className="text-sm font-semibold">Today's Schedule</CardTitle>
+              <button className="flex items-center gap-1 text-xs font-medium text-blue-600 hover:underline">
+                View <ArrowUpRight className="h-3 w-3" />
+              </button>
+            </div>
+          </CardHeader>
+          <CardContent className="space-y-2">
+            {loadingApts
+              ? Array.from({ length: 4 }).map((_, i) => (
+                  <div key={i} className="space-y-2 rounded-lg border border-slate-200 p-3">
+                    <div className="flex items-center justify-between">
+                      <Skeleton className="h-4 w-20 rounded-full" />
+                      <Skeleton className="h-4 w-16" />
+                    </div>
+                    <Skeleton className="h-3.5 w-3/4" />
+                    <Skeleton className="h-3 w-1/2" />
+                  </div>
+                ))
+              : upcomingAppointments.length === 0 ? (
+                  <EmptyPanel label="No upcoming appointments found." />
+                ) : upcomingAppointments.map((apt, i) => (
+                  <div key={`${apt.patient}-${i}`} className="rounded-lg border border-slate-200 p-3 transition-shadow hover:shadow-sm">
+                    <div className="mb-1.5 flex items-center justify-between">
+                      <Badge variant="secondary" className="text-[10px]">{apt.type}</Badge>
+                      <span className="text-xs font-semibold text-blue-600">{apt.time}</span>
+                    </div>
+                    <p className="truncate text-sm font-medium text-slate-950">{apt.patient}</p>
+                    <p className="truncate text-[11px] text-slate-500">{apt.doctor}</p>
+                  </div>
+                ))}
+          </CardContent>
+        </Card>
+      </div>
+
+      <Card className="animate-fade-in rounded-lg border-slate-200 bg-white shadow-sm">
+        <CardContent className="flex items-center justify-between p-5">
+          <div className="flex items-center gap-4">
+            <div className="flex h-11 w-11 items-center justify-center rounded-lg bg-amber-50">
+              <BedDouble className="h-5 w-5 text-amber-700" />
+            </div>
+            <div>
+              {loadingCharts ? (
+                <>
+                  <Skeleton className="mb-1 h-4 w-48" />
+                  <Skeleton className="h-3 w-72" />
+                </>
+              ) : (
+                <>
+                  <p className="text-sm font-semibold text-slate-950">
+                    Bed availability - {bedOccupancy.available} of {bedOccupancy.total}
+                  </p>
+                  <p className="text-xs text-slate-500">
+                    ICU at {bedOccupancy.icu}% - Emergency at {bedOccupancy.emergency}% - General Ward at {bedOccupancy.general}%
+                  </p>
+                </>
+              )}
+            </div>
           </div>
-          <div className="text-sm font-medium text-slate-700">{formatDateTime(item.scheduledStart)}</div>
-        </div>
-      ))}
+          <button className="flex items-center gap-1 text-xs font-medium text-blue-600 hover:underline">
+            Manage Beds <ArrowUpRight className="h-3 w-3" />
+          </button>
+        </CardContent>
+      </Card>
     </div>
-  );
-}
-
-function BillingSummary({ dashboard }) {
-  return (
-    <div className="space-y-3">
-      <SummaryLine label="Open invoices" value={dashboard.openInvoices.length} icon={<ReceiptText className="size-4" />} />
-      <SummaryLine label="Overdue invoices" value={dashboard.dueInvoices.length} icon={<Activity className="size-4" />} />
-      <SummaryLine label="Paid invoices" value={dashboard.paidInvoices.length} icon={<CheckCircle2 className="size-4" />} />
-      <SummaryLine label="Pending payments" value={dashboard.pendingPayments.length} icon={<CreditCard className="size-4" />} />
-    </div>
-  );
-}
-
-function SummaryLine({ label, value, icon }) {
-  return (
-    <div className="flex items-center justify-between gap-3 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2">
-      <span className="inline-flex items-center gap-2 text-sm font-medium text-slate-700">
-        <span className="text-slate-400">{icon}</span>
-        {label}
-      </span>
-      <span className="font-semibold text-slate-950">
-        {typeof value === "number" ? <AnimatedStatNumber value={value} /> : value}
-      </span>
-    </div>
-  );
-}
-
-function InvoiceRows({ items }) {
-  if (!items.length) return <EmptyState>No invoices match the current search.</EmptyState>;
-
-  return (
-    <div className="divide-y divide-slate-100">
-      {items.map((item) => (
-        <div key={item.id} className="grid gap-3 py-3 sm:grid-cols-[1fr_auto] sm:items-center">
-          <div className="min-w-0">
-            <p className="truncate font-semibold text-slate-950">{item.invoiceNumber}</p>
-            <p className="mt-1 truncate text-sm text-slate-500">
-              {[item.patientName, titleCase(item.status)].filter(Boolean).join(" - ")}
-            </p>
-          </div>
-          <div className="text-sm font-semibold text-slate-900">
-            {formatMoney(item.totalAmount, item.currency)}
-          </div>
-        </div>
-      ))}
-    </div>
-  );
-}
-
-function TaskRows({ items }) {
-  if (!items.length) return <EmptyState>No nurse tasks match the current search.</EmptyState>;
-
-  return (
-    <div className="divide-y divide-slate-100">
-      {items.map((item) => (
-        <div key={item.id} className="grid gap-3 py-3 sm:grid-cols-[1fr_auto] sm:items-center">
-          <div className="min-w-0">
-            <p className="truncate font-semibold text-slate-950">{item.type || "Nurse task"}</p>
-            <p className="mt-1 truncate text-sm text-slate-500">
-              {[item.patientName, item.assignedToNurseName || "Unassigned", titleCase(item.status)].filter(Boolean).join(" - ")}
-            </p>
-          </div>
-          <div className="text-sm text-slate-600">{formatDateTime(item.dueAt)}</div>
-        </div>
-      ))}
-    </div>
-  );
-}
-
-function SuperAdminRows({ dashboard }) {
-  return (
-    <div className="grid gap-3 sm:grid-cols-2">
-      <SummaryLine label="Users" value={dashboard.users.length} icon={<UserCog className="size-4" />} />
-      <SummaryLine label="Roles" value={dashboard.roles.length} icon={<ShieldCheck className="size-4" />} />
-      <SummaryLine label="Lab requests" value={dashboard.labRequests.length} icon={<FlaskConical className="size-4" />} />
-      <SummaryLine label="Clinical tasks" value={dashboard.openTasks.length} icon={<Stethoscope className="size-4" />} />
-    </div>
-  );
-}
-
-function ModuleHealth({ data }) {
-  const failed = Object.entries(data).filter(([, result]) => result && !result.ok);
-  if (!failed.length) return null;
-
-  return (
-    <section className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
-      <p className="font-semibold">Some widgets were hidden because their data could not be loaded.</p>
-      <p className="mt-1">
-        {failed.map(([key]) => titleCase(key)).join(", ")}
-      </p>
-    </section>
   );
 }

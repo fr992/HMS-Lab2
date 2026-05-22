@@ -50,9 +50,13 @@ public sealed class BedAssignmentRequestService : IBedAssignmentRequestService
             if (requestedByDoctorId != encounter.DoctorProfileId)
                 throw new ForbiddenException("Doctor can only request beds for their own encounters.");
         }
+        else if (HasRole(roleList, "Nurse") || HasRole(roleList, "Infermier"))
+        {
+            requestedByDoctorId = encounter.DoctorProfileId;
+        }
         else if (!HasRole(roleList, "Admin") && !HasRole(roleList, "SuperAdmin"))
         {
-            throw new ForbiddenException("Only doctors and admins can request beds from encounters.");
+            throw new ForbiddenException("Only doctors, nurses, and admins can request beds from encounters.");
         }
 
         var hasPendingRequest = await _db.BedAssignmentRequests
@@ -72,7 +76,7 @@ public sealed class BedAssignmentRequestService : IBedAssignmentRequestService
                 x => x.PatientProfileId == encounter.PatientProfileId && x.ReleasedAt == null,
                 cancellationToken);
 
-        if (hasActiveBed)
+        if (hasActiveBed && !IsBedChangeOrReleaseRequest(request))
             throw new ConflictException("Patient already has an active bed assignment.");
 
         var now = DateTime.UtcNow;
@@ -145,9 +149,6 @@ public sealed class BedAssignmentRequestService : IBedAssignmentRequestService
         int actorUserId,
         CancellationToken cancellationToken)
     {
-        if (request.BedId <= 0)
-            throw new BadRequestException("Available bed is required.");
-
         await using var transaction = await _db.Database.BeginTransactionAsync(cancellationToken);
 
         var entity = await _db.BedAssignmentRequests
@@ -157,6 +158,57 @@ public sealed class BedAssignmentRequestService : IBedAssignmentRequestService
             throw new NotFoundException("Bed assignment request not found.");
 
         EnsurePending(entity);
+
+        var isReleaseRequest = IsBedReleaseRequest(entity, entity.Notes);
+        if (request.BedId <= 0 && !isReleaseRequest)
+            throw new BadRequestException("Available bed is required.");
+
+        if (isReleaseRequest)
+        {
+            var activeAssignment = await _db.BedAssignments
+                .FirstOrDefaultAsync(
+                    x => x.PatientProfileId == entity.PatientProfileId && x.ReleasedAt == null,
+                    cancellationToken);
+
+            if (activeAssignment is null)
+                throw new ConflictException("Patient does not have an active bed assignment to release.");
+
+            var releasedAt = DateTime.UtcNow;
+            activeAssignment.ReleasedAt = releasedAt;
+            activeAssignment.ReleasedByUserId = actorUserId;
+            activeAssignment.ReleaseNotes = NormalizeOptional(request.Notes) ?? "Approved bed release request.";
+            activeAssignment.UpdatedAt = releasedAt;
+
+            entity.Status = BedAssignmentRequestStatus.Assigned;
+            entity.ResolvedAt = releasedAt;
+            entity.ResolvedByUserId = actorUserId;
+            entity.BedAssignmentId = activeAssignment.Id;
+            entity.UpdatedAt = releasedAt;
+            entity.UpdatedById = actorUserId;
+
+            await _db.SaveChangesAsync(cancellationToken);
+            await transaction.CommitAsync(cancellationToken);
+
+            return await GetByIdAsync(entity.Id, cancellationToken);
+        }
+
+        if (IsBedChangeRequest(entity.Notes))
+        {
+            var activeAssignment = await _db.BedAssignments
+                .FirstOrDefaultAsync(
+                    x => x.PatientProfileId == entity.PatientProfileId && x.ReleasedAt == null,
+                    cancellationToken);
+
+            if (activeAssignment is not null)
+            {
+                var releasedAt = DateTime.UtcNow;
+                activeAssignment.ReleasedAt = releasedAt;
+                activeAssignment.ReleasedByUserId = actorUserId;
+                activeAssignment.ReleaseNotes = "Released for approved bed change request.";
+                activeAssignment.UpdatedAt = releasedAt;
+                await _db.SaveChangesAsync(cancellationToken);
+            }
+        }
 
         var assignment = await _bedService.AssignAsync(
             request.BedId,
@@ -296,6 +348,24 @@ public sealed class BedAssignmentRequestService : IBedAssignmentRequestService
             throw new BadRequestException("Priority must be routine, urgent, or stat.");
 
         return normalized;
+    }
+
+    private static bool IsBedChangeOrReleaseRequest(CreateBedAssignmentRequestDto request)
+    {
+        var notes = request.Notes ?? "";
+        return notes.Contains("[Bed change request]", StringComparison.OrdinalIgnoreCase)
+            || notes.Contains("[Bed release request]", StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static bool IsBedChangeRequest(string? notes)
+    {
+        return notes?.Contains("[Bed change request]", StringComparison.OrdinalIgnoreCase) == true;
+    }
+
+    private static bool IsBedReleaseRequest(BedAssignmentRequest? entity, string? notes)
+    {
+        return notes?.Contains("[Bed release request]", StringComparison.OrdinalIgnoreCase) == true
+            || entity?.Notes?.Contains("[Bed release request]", StringComparison.OrdinalIgnoreCase) == true;
     }
 
     private static string NormalizeStatus(string value)

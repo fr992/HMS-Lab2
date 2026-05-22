@@ -134,7 +134,7 @@ public sealed class IdentityDataSeeder
             "Payments.Read", "Payments.Create", "Payments.UpdateStatus", "Payments.ConfirmCash",
             "LabResults.Read",
             "LabTests.Read",
-            "Beds.Read", "Beds.Assign", "Beds.Release",
+            "Beds.Read", "Beds.Create", "Beds.Update", "Beds.Assign", "Beds.Release",
             "BedAssignmentRequests.Read", "BedAssignmentRequests.Assign", "BedAssignmentRequests.Reject"
         ]),
         ("Doctor",
@@ -155,16 +155,16 @@ public sealed class IdentityDataSeeder
         ]),
         ("Nurse",
         [
-            "NurseTasks.Read", "NurseTasks.Complete", "Beds.Read"
+            "NurseTasks.Read", "NurseTasks.Complete", "Beds.Read", "BedAssignmentRequests.Create"
         ]),
         ("Infermier",
         [
-            "NurseTasks.Read", "NurseTasks.Complete", "Beds.Read"
+            "NurseTasks.Read", "NurseTasks.Complete", "Beds.Read", "BedAssignmentRequests.Create"
         ]),
         ("Laboratorant",
         [
             "LabTests.Read",
-            "LabRequests.Read", "LabRequests.UpdateStatus",
+            "LabRequests.Read", "LabRequests.UpdateStatus", "LabResults.Read",
             "LabResults.Create", "LabResults.Update", "LabResults.Publish"
         ]),
         ("Patient",
@@ -366,6 +366,36 @@ public sealed class IdentityDataSeeder
 
             if (directBedAssignLinks.Count > 0)
                 _db.RolePermissions.RemoveRange(directBedAssignLinks);
+        }
+
+        foreach (var nurseRoleName in new[] { "Nurse", "Infermier" })
+        {
+            if (!roles.TryGetValue(nurseRoleName, out var nurseRoleId))
+                continue;
+
+            var disallowed = new[]
+            {
+                "Beds.Create",
+                "Beds.Update",
+                "Beds.Assign",
+                "Beds.Release",
+                "AuditLogs.Read"
+            };
+
+            var disallowedPermissionIds = disallowed
+                .Where(permissions.ContainsKey)
+                .Select(name => permissions[name])
+                .ToList();
+
+            if (disallowedPermissionIds.Count == 0)
+                continue;
+
+            var links = await _db.RolePermissions
+                .Where(rp => rp.RoleId == nurseRoleId && disallowedPermissionIds.Contains(rp.PermissionId))
+                .ToListAsync(cancellationToken);
+
+            if (links.Count > 0)
+                _db.RolePermissions.RemoveRange(links);
         }
 
         foreach (var (roleName, permissionNames) in RolePermissionMap)

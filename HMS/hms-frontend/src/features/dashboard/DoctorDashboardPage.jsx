@@ -21,7 +21,6 @@ import {
   DashboardPageSkeleton,
 } from "@/features/dashboard/DashboardPrimitives";
 import QuickAddMenu from "@/features/dashboard/QuickAddMenu";
-import NotificationBell from "@/features/notifications/NotificationBell";
 
 const emptyDashboard = {
   doctorName: "",
@@ -251,13 +250,10 @@ export default function DoctorDashboardPage() {
 
 function DashboardHeader({
   displayName,
-  userName,
   search,
   onSearchChange,
   quickAddActions,
 }) {
-  const profileName = userName ?? displayName;
-
   return (
     <header className="sticky top-0 z-30 rounded-t-lg border-b border-slate-200 bg-white/95 backdrop-blur">
       <div className="flex flex-col gap-4 px-4 py-3.5 sm:px-5 lg:flex-row lg:items-center lg:justify-between lg:px-6">
@@ -266,9 +262,6 @@ function DashboardHeader({
             <LayoutDashboard className="size-5" />
           </div>
           <div>
-            <h1 className="text-2xl font-semibold leading-tight text-slate-950">
-              Dashboard
-            </h1>
             <p className="mt-1 text-sm text-slate-500">
               Welcome back, Dr. {displayName}.
             </p>
@@ -289,17 +282,6 @@ function DashboardHeader({
 
           <QuickAddMenu actions={quickAddActions} />
 
-          <NotificationBell />
-
-          <div className="flex items-center gap-3">
-            <div className="flex size-11 items-center justify-center rounded-full bg-blue-50 text-sm font-semibold text-blue-700">
-              {initials(profileName)}
-            </div>
-            <div className="hidden sm:block">
-              <p className="text-sm font-semibold text-slate-950">{profileName}</p>
-              <p className="text-xs text-slate-500">Doctor</p>
-            </div>
-          </div>
         </div>
       </div>
     </header>

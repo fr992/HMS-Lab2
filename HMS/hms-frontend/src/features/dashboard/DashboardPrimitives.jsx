@@ -8,14 +8,11 @@ import {
   TableSkeleton,
 } from "@/components/dashboard/DashboardSkeletons";
 import QuickAddMenu from "@/features/dashboard/QuickAddMenu";
-import { initials } from "@/features/dashboard/dashboardUtils";
-import NotificationBell from "@/features/notifications/NotificationBell";
 
 export function DashboardFrame({
   title = "Dashboard",
   subtitle,
   userName,
-  userRole,
   search,
   onSearchChange,
   searchPlaceholder = "Search dashboard...",
@@ -31,9 +28,6 @@ export function DashboardFrame({
               <LayoutDashboard className="size-5" />
             </div>
             <div>
-              <h1 className="text-2xl font-semibold leading-tight text-slate-950">
-                {title}
-              </h1>
               <p className="mt-1 text-sm text-slate-500">
                 {subtitle || `Welcome back, ${userName || "User"}.`}
               </p>
@@ -56,19 +50,6 @@ export function DashboardFrame({
 
             <QuickAddMenu actions={quickAddActions} />
 
-            <NotificationBell />
-
-            <div className="flex items-center gap-3">
-              <div className="flex size-11 items-center justify-center rounded-full bg-blue-50 text-sm font-semibold text-blue-700">
-                {initials(userName, userRole || "U")}
-              </div>
-              <div className="hidden sm:block">
-                <p className="text-sm font-semibold text-slate-950">
-                  {userName || "User"}
-                </p>
-                <p className="text-xs text-slate-500">{userRole || "Portal"}</p>
-              </div>
-            </div>
           </div>
         </div>
       </header>

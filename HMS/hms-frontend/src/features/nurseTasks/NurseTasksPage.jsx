@@ -11,6 +11,7 @@ import {
   UserRound,
   X,
 } from "lucide-react";
+import { toast } from "sonner";
 import { useAuth } from "@/auth/AuthContext";
 import { CountUpValue } from "@/features/dashboard/DashboardPrimitives";
 import { MAX_LIST_PAGE_SIZE, PaginationBar, paginateArray } from "@/lib/pagination.jsx";
@@ -94,7 +95,6 @@ export default function NurseTasksPage() {
   const canAssign = auth.hasPermission("NurseTasks.Assign");
   const canComplete = auth.hasPermission("NurseTasks.Complete");
   const canReadNurses = auth.hasPermission("Nurses.Read");
-  const isNurse = auth.hasRole("Nurse") || auth.hasRole("Infermier");
 
   const [items, setItems] = useState([]);
   const [nurses, setNurses] = useState([]);
@@ -102,7 +102,6 @@ export default function NurseTasksPage() {
   const [refreshing, setRefreshing] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
-  const [toast, setToast] = useState(null);
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
   const [priorityFilter, setPriorityFilter] = useState("all");
@@ -112,9 +111,12 @@ export default function NurseTasksPage() {
   const [form, setForm] = useState(EMPTY_FORM);
 
   const showToast = useCallback((message, type = "success") => {
-    setToast({ message, type });
-    window.setTimeout(() => setToast(null), 4200);
+    toast[type === "error" ? "error" : type === "warning" ? "warning" : "success"](message);
   }, []);
+
+  useEffect(() => {
+    if (error) showToast(error, "error");
+  }, [error, showToast]);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -266,21 +268,7 @@ export default function NurseTasksPage() {
 
   return (
     <div className="flex h-full min-h-0 flex-1 flex-col gap-5">
-      <div className="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
-        <div>
-          <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
-            Clinical operations
-          </p>
-          <h1 className="mt-1 text-2xl font-semibold tracking-tight text-slate-900 sm:text-3xl">
-            Nurse Tasks
-          </h1>
-          <p className="mt-1.5 text-sm text-slate-600">
-            {isNurse
-              ? "Track and complete your assigned patient-care work."
-              : "Assign, monitor, and coordinate nursing tasks across encounters."}
-          </p>
-        </div>
-
+      <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-end">
         <div className="flex gap-2">
           {canAssign && (
             <button
@@ -314,22 +302,12 @@ export default function NurseTasksPage() {
       </div>
 
       <section className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
-        <div className="grid gap-3 lg:grid-cols-[1fr_12rem_12rem_auto] lg:items-end">
-          <label className="block">
-            <span className="text-xs font-semibold uppercase tracking-wide text-slate-500">
-              Search
-            </span>
-            <div className="relative mt-1.5">
-              <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-slate-400" />
-              <input
-                type="search"
-                value={search}
-                onChange={(event) => setSearch(event.target.value)}
-                placeholder="Task, patient, nurse, encounter..."
-                className="h-10 w-full rounded-lg border border-slate-200 bg-slate-50 pl-9 pr-3 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-sky-500 focus:bg-white focus:ring-2 focus:ring-sky-500/20"
-              />
-            </div>
-          </label>
+        <div className="grid gap-3 lg:grid-cols-[minmax(16rem,1fr)_12rem_12rem_auto] lg:items-end">
+          <SearchField
+            value={search}
+            onChange={setSearch}
+            placeholder="Search task, patient, encounter..."
+          />
           <SelectField label="Status" value={statusFilter} onChange={setStatusFilter}>
             <option value="all">All statuses</option>
             <option value="pending">Pending</option>
@@ -356,25 +334,6 @@ export default function NurseTasksPage() {
           </button>
         </div>
       </section>
-
-      {toast && (
-        <div
-          role={toast.type === "error" ? "alert" : "status"}
-          className={
-            toast.type === "error"
-              ? "rounded-lg border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-900"
-              : "rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-900"
-          }
-        >
-          {toast.message}
-        </div>
-      )}
-
-      {error && (
-        <div className="rounded-lg border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-900">
-          {error}
-        </div>
-      )}
 
       <div className="scrollbar-none min-h-0 flex-1 overflow-auto rounded-lg border border-slate-200 bg-white shadow-sm">
         {loading ? (
@@ -530,6 +489,26 @@ function SelectField({ label, value, onChange, children }) {
       >
         {children}
       </select>
+    </label>
+  );
+}
+
+function SearchField({ value, onChange, placeholder }) {
+  return (
+    <label className="block">
+      <span className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+        Search
+      </span>
+      <span className="relative mt-1.5 block">
+        <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-slate-400" />
+        <input
+          type="search"
+          value={value}
+          onChange={(event) => onChange(event.target.value)}
+          placeholder={placeholder}
+          className="h-10 w-full rounded-lg border border-slate-200 bg-white pl-9 pr-3 text-sm text-slate-900 shadow-sm outline-none transition placeholder:text-slate-400 focus:border-sky-500 focus:ring-2 focus:ring-sky-500/20"
+        />
+      </span>
     </label>
   );
 }

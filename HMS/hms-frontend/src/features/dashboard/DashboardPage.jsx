@@ -19,7 +19,6 @@ import {
 } from "lucide-react";
 import { useAuth } from "@/auth/AuthContext";
 import QuickAddMenu from "@/features/dashboard/QuickAddMenu";
-import NotificationBell from "@/features/notifications/NotificationBell";
 
 const METRIC_ORDER_KEY = "hms.dashboard.metricOrder";
 const WIDGET_ORDER_KEY = "hms.dashboard.widgetOrder";
@@ -118,17 +117,6 @@ function swapItems(list, fromId, toId) {
   next[fromIndex] = toId;
   next[toIndex] = fromId;
   return next;
-}
-
-function getInitials(name, fallback = "U") {
-  const words = name
-    .split(/\s+/)
-    .map((word) => word.trim())
-    .filter(Boolean);
-
-  if (words.length === 0) return fallback.slice(0, 2).toUpperCase();
-  if (words.length === 1) return words[0].slice(0, 2).toUpperCase();
-  return `${words[0][0]}${words[words.length - 1][0]}`.toUpperCase();
 }
 
 function easeOutCubic(value) {
@@ -272,10 +260,8 @@ export default function AdminDashboard() {
   );
 }
 
-function DashboardHeader({ userName, userRole, search, onSearchChange }) {
+function DashboardHeader({ userName, search, onSearchChange }) {
   const displayName = userName ?? "Administrator";
-  const displayRole = userRole ?? "Portal";
-  const initials = getInitials(displayName, displayRole);
 
   return (
     <header className="sticky top-0 z-30 rounded-t-lg border-b border-slate-200 bg-white/95 backdrop-blur">
@@ -285,9 +271,6 @@ function DashboardHeader({ userName, userRole, search, onSearchChange }) {
             <LayoutDashboard className="size-4" />
           </div>
           <div>
-            <h1 className="text-2xl font-semibold leading-tight text-slate-950">
-              Dashboard
-            </h1>
             <p className="mt-1 text-sm text-slate-500">
               Welcome back, {displayName}.
             </p>
@@ -313,17 +296,6 @@ function DashboardHeader({ userName, userRole, search, onSearchChange }) {
             ]}
           />
 
-          <NotificationBell />
-
-          <div className="flex items-center gap-3">
-            <div className="flex size-11 items-center justify-center rounded-full bg-blue-50 text-sm font-semibold text-blue-700">
-              {initials}
-            </div>
-            <div className="hidden sm:block">
-              <p className="text-sm font-semibold text-slate-950">{displayName}</p>
-              <p className="text-xs text-slate-500">{displayRole}</p>
-            </div>
-          </div>
         </div>
       </div>
     </header>

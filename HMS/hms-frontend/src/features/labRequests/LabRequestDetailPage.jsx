@@ -16,6 +16,7 @@ import {
   UserRound,
   X,
 } from "lucide-react";
+import { toast } from "sonner";
 import { useAuth } from "@/auth/AuthContext";
 import apiClient from "@/api/apiClient";
 import {
@@ -55,6 +56,7 @@ const EMPTY_FORM = {
   referenceRange: "",
   interpretation: "",
   attachment: null,
+  removeAttachment: false,
 };
 
 const compactInputClass =
@@ -240,6 +242,7 @@ function ResultModal({
     resultData: editingResult?.resultData ?? "",
     referenceRange: editingResult?.referenceRange ?? "",
     interpretation: editingResult?.interpretation ?? "",
+    removeAttachment: false,
   }));
 
   useEffect(() => {
@@ -249,6 +252,7 @@ function ResultModal({
       resultData: editingResult?.resultData ?? "",
       referenceRange: editingResult?.referenceRange ?? "",
       interpretation: editingResult?.interpretation ?? "",
+      removeAttachment: false,
     });
   }, [activeItemId, editingResult]);
 
@@ -364,27 +368,49 @@ function ResultModal({
                 />
               </Field>
 
-              {!isEditing && (
-                <Field label="Attachment">
-                  <div className="mt-1 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2">
-                    <input
-                      type="file"
-                      accept="application/pdf,image/jpeg,image/png,image/webp"
-                      onChange={(event) =>
-                        setForm((current) => ({
-                          ...current,
-                          attachment: event.target.files?.[0] ?? null,
-                        }))
-                      }
-                      disabled={saving}
-                      className="block w-full text-xs text-slate-600 file:mr-3 file:h-8 file:rounded-md file:border-0 file:bg-white file:px-3 file:text-xs file:font-medium file:text-slate-700 file:shadow-sm hover:file:bg-slate-100 disabled:opacity-60"
-                    />
-                    <p className="mt-1.5 text-xs text-slate-500">
-                      PDF, JPG, PNG, or WebP up to 10 MB.
-                    </p>
-                  </div>
-                </Field>
-              )}
+              <Field label={isEditing ? "Attachment" : "Attachment"}>
+                <div className="mt-1 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2">
+                  {isEditing && editingResult?.hasAttachment && (
+                    <label className="mb-2 flex items-center justify-between gap-3 rounded-md bg-white px-3 py-2 text-xs text-slate-700 ring-1 ring-slate-200">
+                      <span className="min-w-0 truncate">
+                        {editingResult.attachmentFileName || "Current attachment"}
+                      </span>
+                      <span className="inline-flex items-center gap-2 font-medium text-rose-700">
+                        Remove
+                        <input
+                          type="checkbox"
+                          checked={form.removeAttachment}
+                          onChange={(event) =>
+                            setForm((current) => ({
+                              ...current,
+                              removeAttachment: event.target.checked,
+                              attachment: event.target.checked ? null : current.attachment,
+                            }))
+                          }
+                          disabled={saving}
+                          className="h-4 w-4 rounded border-slate-300 text-rose-600 focus:ring-rose-500"
+                        />
+                      </span>
+                    </label>
+                  )}
+                  <input
+                    type="file"
+                    accept="application/pdf,image/jpeg,image/png,image/webp"
+                    onChange={(event) =>
+                      setForm((current) => ({
+                        ...current,
+                        attachment: event.target.files?.[0] ?? null,
+                        removeAttachment: false,
+                      }))
+                    }
+                    disabled={saving || form.removeAttachment}
+                    className="block w-full text-xs text-slate-600 file:mr-3 file:h-8 file:rounded-md file:border-0 file:bg-white file:px-3 file:text-xs file:font-medium file:text-slate-700 file:shadow-sm hover:file:bg-slate-100 disabled:opacity-60"
+                  />
+                  <p className="mt-1.5 text-xs text-slate-500">
+                    PDF, JPG, PNG, or WebP up to 10 MB.
+                  </p>
+                </div>
+              </Field>
             </div>
           </div>
 
@@ -431,7 +457,6 @@ export default function LabRequestDetailPage() {
   const [request, setRequest] = useState(initialRequest);
   const [loading, setLoading] = useState(!initialRequest);
   const [error, setError] = useState("");
-  const [toast, setToast] = useState(null);
   const [modalItemId, setModalItemId] = useState(null);
   const [editingResult, setEditingResult] = useState(null);
   const [formError, setFormError] = useState("");
@@ -472,9 +497,12 @@ export default function LabRequestDetailPage() {
   }, [load]);
 
   const showToast = useCallback((message, type = "success") => {
-    setToast({ message, type });
-    window.setTimeout(() => setToast(null), 5000);
+    toast[type === "error" ? "error" : type === "warning" ? "warning" : "success"](message);
   }, []);
+
+  useEffect(() => {
+    if (error) showToast(error, "error");
+  }, [error, showToast]);
 
   async function handleSaveResult(form, result) {
     setFormError("");
@@ -494,6 +522,8 @@ export default function LabRequestDetailPage() {
           resultData: form.resultData.trim(),
           referenceRange: form.referenceRange,
           interpretation: form.interpretation,
+          removeAttachment: form.removeAttachment,
+          attachment: form.attachment,
         });
       } else {
         await createLabResult({
@@ -596,28 +626,6 @@ export default function LabRequestDetailPage() {
           </button>
         )}
       </div>
-
-      {toast && (
-        <div
-          role={toast.type === "error" ? "alert" : "status"}
-          className={
-            toast.type === "error"
-              ? "flex items-start justify-between gap-3 rounded-lg border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-900"
-              : "flex items-start justify-between gap-3 rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-900"
-          }
-        >
-          <span>{toast.message}</span>
-          <button type="button" onClick={() => setToast(null)} className="font-medium hover:underline">
-            Dismiss
-          </button>
-        </div>
-      )}
-
-      {error && (
-        <div className="rounded-lg border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-900" role="alert">
-          {error}
-        </div>
-      )}
 
       {request && (
         <>

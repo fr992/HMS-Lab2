@@ -8,7 +8,9 @@ import {
   Wrench,
   X,
 } from "lucide-react";
+import { toast } from "sonner";
 import {
+  createBedAssignmentRequest,
   fetchDoctorDepartmentBeds,
   getApiErrorMessage,
 } from "@/features/beds/api/bedAssignmentsApi";
@@ -90,6 +92,7 @@ export default function DoctorBedView() {
   const [error, setError] = useState("");
   const [search, setSearch] = useState("");
   const [selectedBed, setSelectedBed] = useState(null);
+  const [requesting, setRequesting] = useState(false);
 
   async function loadBeds({ refresh = false } = {}) {
     if (refresh) setRefreshing(true);
@@ -110,6 +113,36 @@ export default function DoctorBedView() {
   useEffect(() => {
     void loadBeds();
   }, []);
+
+  useEffect(() => {
+    if (error) toast.error(error);
+  }, [error]);
+
+  async function requestBedAction(bed, intent) {
+    if (!bed?.encounterId) {
+      toast.error("This bed assignment is not linked to an encounter.");
+      return;
+    }
+
+    setRequesting(true);
+    try {
+      await createBedAssignmentRequest(bed.encounterId, {
+        priority: "routine",
+        preferredWard: bed.ward || bed.departmentName || null,
+        notes:
+          intent === "release"
+            ? `[Bed release request] Please review release for ${bedLocation(bed)}.`
+            : `[Bed change request] Please review reassignment from ${bedLocation(bed)}.`,
+      });
+      toast.success(intent === "release" ? "Bed release request sent." : "Bed change request sent.");
+      setSelectedBed(null);
+      await loadBeds({ refresh: true });
+    } catch (e) {
+      toast.error(getApiErrorMessage(e));
+    } finally {
+      setRequesting(false);
+    }
+  }
 
   const filteredBeds = useMemo(() => {
     const term = normalize(search);
@@ -180,23 +213,24 @@ export default function DoctorBedView() {
     ];
   }, [beds]);
 
-  const departmentName = beds.find((bed) => bed.departmentName)?.departmentName || "My department";
-
   return (
     <div className="flex h-full min-h-0 flex-1 flex-col gap-5">
-      <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
-        <div>
-          <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
-            Department bed board
-          </p>
-          <h1 className="mt-1 text-2xl font-semibold tracking-tight text-slate-900 sm:text-3xl">
-            {departmentName} Beds
-          </h1>
-          <p className="mt-1.5 max-w-2xl text-sm text-slate-600">
-            Review every bed in your department and open a bed to see its current patient assignment.
-          </p>
-        </div>
-
+      <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+        <label className="block lg:w-[24rem]">
+          <span className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+            Search
+          </span>
+          <span className="relative mt-1.5 block">
+            <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-slate-400" />
+            <input
+              type="search"
+              value={search}
+              onChange={(event) => setSearch(event.target.value)}
+              placeholder="Search bed, room, patient..."
+              className="h-10 w-full rounded-lg border border-slate-200 bg-white pl-9 pr-3 text-sm text-slate-900 shadow-sm outline-none transition placeholder:text-slate-400 focus:border-sky-500 focus:ring-2 focus:ring-sky-500/20"
+            />
+          </span>
+        </label>
         <button
           type="button"
           onClick={() => void loadBeds({ refresh: true })}
@@ -213,30 +247,6 @@ export default function DoctorBedView() {
           <SummaryCard key={stat.label} stat={stat} />
         ))}
       </div>
-
-      <section className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
-        <label className="block max-w-xl">
-          <span className="text-xs font-semibold uppercase tracking-wide text-slate-500">
-            Search beds
-          </span>
-          <span className="relative mt-1.5 block">
-            <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-slate-400" />
-            <input
-              type="search"
-              value={search}
-              onChange={(event) => setSearch(event.target.value)}
-              placeholder="Bed, room, patient, encounter"
-              className="h-10 w-full rounded-lg border border-slate-200 bg-white pl-9 pr-3 text-sm text-slate-900 shadow-sm outline-none transition placeholder:text-slate-400 focus:border-sky-500 focus:ring-2 focus:ring-sky-500/20"
-            />
-          </span>
-        </label>
-      </section>
-
-      {error && (
-        <div className="rounded-lg border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-900" role="alert">
-          {error}
-        </div>
-      )}
 
       <section className="min-h-[22rem] rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
         {loading ? (
@@ -255,7 +265,12 @@ export default function DoctorBedView() {
       </section>
 
       {selectedBed && (
-        <BedDetailsModal bed={selectedBed} onClose={() => setSelectedBed(null)} />
+        <BedDetailsModal
+          bed={selectedBed}
+          requesting={requesting}
+          onRequest={requestBedAction}
+          onClose={() => setSelectedBed(null)}
+        />
       )}
     </div>
   );
@@ -331,7 +346,7 @@ function BedButton({ bed, onClick }) {
   );
 }
 
-function BedDetailsModal({ bed, onClose }) {
+function BedDetailsModal({ bed, requesting, onRequest, onClose }) {
   const meta = statusMeta(bed);
   const occupied = Boolean(bed.patientProfileId);
 
@@ -398,7 +413,7 @@ function BedDetailsModal({ bed, onClose }) {
             </div>
           )}
 
-          <div className="flex justify-end border-t border-slate-200 pt-4">
+          <div className="flex flex-wrap justify-end gap-2 border-t border-slate-200 pt-4">
             <button
               type="button"
               onClick={onClose}
@@ -406,6 +421,26 @@ function BedDetailsModal({ bed, onClose }) {
             >
               Close
             </button>
+            {occupied && (
+              <>
+                <button
+                  type="button"
+                  onClick={() => onRequest(bed, "change")}
+                  disabled={requesting}
+                  className="h-10 rounded-lg border border-sky-200 bg-white px-4 text-sm font-medium text-sky-700 transition hover:bg-sky-50 disabled:opacity-60"
+                >
+                  Request bed change
+                </button>
+                <button
+                  type="button"
+                  onClick={() => onRequest(bed, "release")}
+                  disabled={requesting}
+                  className="h-10 rounded-lg bg-sky-600 px-4 text-sm font-medium text-white transition hover:bg-sky-700 disabled:opacity-60"
+                >
+                  Request release
+                </button>
+              </>
+            )}
           </div>
         </div>
       </section>

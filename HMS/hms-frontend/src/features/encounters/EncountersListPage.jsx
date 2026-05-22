@@ -292,7 +292,9 @@ export default function EncountersListPage() {
   const load = useCallback(async () => {
     setError(null);
     try {
-      const res = await apiClient.get("/encounters");
+      const res = await apiClient.get("/encounters", {
+        params: isAdmin && searchTerm.trim() ? { search: searchTerm.trim() } : undefined,
+      });
       setEncounters(Array.isArray(res.data) ? res.data : []);
     } catch (err) {
       console.error("Failed to load encounters", err);
@@ -305,7 +307,7 @@ export default function EncountersListPage() {
       setLoading(false);
       setRefreshing(false);
     }
-  }, []);
+  }, [isAdmin, searchTerm]);
 
   useEffect(() => {
     const timer = window.setTimeout(() => {
@@ -334,9 +336,6 @@ export default function EncountersListPage() {
           <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
             Clinical
           </p>
-          <h1 className="mt-1 text-2xl font-semibold tracking-tight text-slate-900 sm:text-3xl">
-            {isAdmin ? "Doctor Encounters" : "Encounters"}
-          </h1>
         </div>
 
         <button

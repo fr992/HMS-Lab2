@@ -151,37 +151,71 @@ export function printInvoicePdf(invoice, targetWindow) {
 
   return printDocument(
     `Invoice ${invoice.invoiceNumber || invoice.id}`,
-    `<div class="header">
+    `<style>
+      .invoice-hero { display: grid; grid-template-columns: 1fr 15rem; gap: 28px; align-items: start; padding-bottom: 24px; border-bottom: 1px solid #dbe4ee; }
+      .invoice-title { margin-top: 18px; font-size: 34px; letter-spacing: .01em; }
+      .invoice-number { margin-top: 8px; color: #334155; font-size: 14px; }
+      .status-card { border: 1px solid #cbd5e1; border-radius: 12px; padding: 16px; background: #f8fafc; }
+      .status-pill { display: inline-flex; border-radius: 999px; background: #e0f2fe; color: #075985; padding: 6px 10px; font-size: 12px; font-weight: 800; text-transform: uppercase; letter-spacing: .08em; }
+      .invoice-grid { display: grid; grid-template-columns: 1.2fr 1fr; gap: 18px; margin-top: 22px; }
+      .invoice-panel { border: 1px solid #e2e8f0; border-radius: 12px; padding: 16px; background: #fff; }
+      .invoice-panel h2 { margin: 0 0 12px; font-size: 13px; color: #475569; text-transform: uppercase; letter-spacing: .08em; }
+      .invoice-meta { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; }
+      .items-table th { padding: 12px 10px; background: #0f172a; color: #fff; }
+      .items-table td { padding: 12px 10px; }
+      .items-table tbody tr:nth-child(even) { background: #f8fafc; }
+      .totals-card { margin-left: auto; margin-top: 22px; width: min(360px, 100%); border: 1px solid #e2e8f0; border-radius: 12px; padding: 14px 16px; background: #f8fafc; }
+      .total-row { display: flex; justify-content: space-between; gap: 16px; padding: 9px 0; border-bottom: 1px solid #e2e8f0; color: #475569; }
+      .total-row strong { color: #0f172a; }
+      .grand { margin-top: 4px; border-bottom: 0; color: #0f172a; font-size: 20px; font-weight: 900; }
+      .footer-note { margin-top: 34px; border-top: 1px solid #e2e8f0; padding-top: 14px; color: #64748b; font-size: 12px; line-height: 1.5; }
+      @media print {
+        .invoice-hero { grid-template-columns: 1fr 13rem; }
+      }
+    </style>
+    <div class="invoice-hero">
       <div>
         <div class="brand-row">
           <img class="brand-logo" src="${HOSPITAL_LOGO_PATH}" alt="" />
           <div class="brand">${escapeHtml(HOSPITAL_FULL_NAME)}</div>
         </div>
-        <h1>Invoice ${escapeHtml(invoice.invoiceNumber || `#${invoice.id}`)}</h1>
+        <h1 class="invoice-title">Invoice</h1>
+        <p class="invoice-number">${escapeHtml(invoice.invoiceNumber || `#${invoice.id}`)}</p>
+      </div>
+      <div class="status-card">
+        <div class="label">Status</div>
+        <div class="value"><span class="status-pill">${escapeHtml(invoice.status || "-")}</span></div>
         <p class="muted">Generated ${formatDateTime(new Date())}</p>
       </div>
-      <div class="box">
-        <div class="label">Status</div>
-        <div class="value">${escapeHtml(invoice.status || "-")}</div>
-      </div>
     </div>
-    <section class="grid">
-      <div class="box"><div class="label">Patient</div><div class="value">${escapeHtml(invoice.patientName || "-")}</div><p class="muted">${escapeHtml(invoice.patientNumber || "")}</p></div>
-      <div class="box"><div class="label">Encounter</div><div class="value">${escapeHtml(invoice.encounterNumber || "-")}</div></div>
-      <div class="box"><div class="label">Issued</div><div class="value">${formatDateTime(invoice.issuedAt)}</div></div>
-      <div class="box"><div class="label">Due</div><div class="value">${formatDateTime(invoice.dueAt)}</div></div>
+    <section class="invoice-grid">
+      <div class="invoice-panel">
+        <h2>Bill To</h2>
+        <div class="value">${escapeHtml(invoice.patientName || "-")}</div>
+        <p class="muted">${escapeHtml(invoice.patientNumber || "Patient profile")}</p>
+      </div>
+      <div class="invoice-panel">
+        <h2>Invoice Details</h2>
+        <div class="invoice-meta">
+          <div><div class="label">Issued</div><div class="value">${formatDateTime(invoice.issuedAt)}</div></div>
+          <div><div class="label">Due</div><div class="value">${formatDateTime(invoice.dueAt)}</div></div>
+          <div><div class="label">Encounter</div><div class="value">${escapeHtml(invoice.encounterNumber || "-")}</div></div>
+          <div><div class="label">Currency</div><div class="value">${escapeHtml(currency)}</div></div>
+        </div>
+      </div>
     </section>
     <h2>Line Items</h2>
-    <table>
+    <table class="items-table">
       <thead><tr><th>Description</th><th>Source</th><th class="right">Qty</th><th class="right">Unit</th><th class="right">Total</th></tr></thead>
       <tbody>${rows || `<tr><td colspan="5">No line items.</td></tr>`}</tbody>
     </table>
-    <section class="totals">
+    <section class="totals-card">
       <div class="total-row"><span>Subtotal</span><strong>${money(invoice.subtotalAmount, currency)}</strong></div>
       <div class="total-row"><span>Discount</span><strong>${money(invoice.discountAmount, currency)}</strong></div>
       <div class="total-row"><span>Tax</span><strong>${money(invoice.taxAmount, currency)}</strong></div>
       <div class="total-row grand"><span>Total</span><span>${money(invoice.totalAmount, currency)}</span></div>
-    </section>`,
+    </section>
+    <p class="footer-note">Thank you for choosing ${escapeHtml(HOSPITAL_NAME)}. Please reference this invoice number when contacting billing.</p>`,
     targetWindow
   );
 }

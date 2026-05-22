@@ -48,6 +48,9 @@ public sealed class AdminRolePermissionsController : ControllerBase
         if (role is null)
             return NotFound(new { error = "Role not found." });
 
+        if (role.Name == "SuperAdmin")
+            return BadRequest(new { error = "The SuperAdmin role is display-only and cannot be edited." });
+
         var names = (body.PermissionNames ?? new List<string>())
             .Select(n => n.Trim())
             .Where(n => n.Length > 0)

@@ -9,6 +9,7 @@ import { getAccessToken } from "@/auth/session";
  * @param {string[]=} props.allPermissions — user needs every listed permission
  * @param {string=} props.requireRole
  * @param {string[]=} props.anyRole
+ * @param {string[]=} props.blockedRoles
  */
 export default function PermissionRoute({
   children,
@@ -16,6 +17,7 @@ export default function PermissionRoute({
   allPermissions,
   requireRole,
   anyRole,
+  blockedRoles,
 }) {
   const auth = useAuth();
   const token = getAccessToken();
@@ -34,6 +36,10 @@ export default function PermissionRoute({
   if (anyRole && anyRole.length > 0) {
     const ok = anyRole.some((role) => auth.hasRole(role));
     if (!ok) return <Navigate to="/unauthorized" replace />;
+  }
+
+  if (blockedRoles && blockedRoles.some((role) => auth.hasRole(role))) {
+    return <Navigate to="/unauthorized" replace />;
   }
 
   if (anyPermission && anyPermission.length > 0) {

@@ -75,19 +75,48 @@ public sealed class LabResultsWorkflowController : ControllerBase
     }
 
     [HttpPut("{id:int}")]
+    [RequestSizeLimit(MaxAttachmentBytes + 1024 * 1024)]
     [RequirePermission("LabResults.Update")]
     public async Task<ActionResult<LabResultDto>> Update(
         int id,
-        [FromBody] UpdateLabResultDto request,
+        [FromForm] LabResultUpdateFormRequest request,
         CancellationToken cancellationToken)
     {
-        var result = await _labResultService.UpdateAsync(
-            id,
-            request,
-            CurrentUserId(),
-            cancellationToken);
+        string? storedFileName = null;
+        var previousAttachment = await _labResultService.GetAttachmentAsync(id, cancellationToken);
 
-        return Ok(result);
+        try
+        {
+            if (request.Attachment is { Length: > 0 })
+                storedFileName = await SaveAttachmentAsync(request.Attachment, cancellationToken);
+
+            var result = await _labResultService.UpdateAsync(
+                id,
+                new UpdateLabResultDto
+                {
+                    ResultData = request.ResultData,
+                    ReferenceRange = request.ReferenceRange,
+                    Interpretation = request.Interpretation,
+                    RemoveAttachment = request.RemoveAttachment,
+                    FileOriginalName = request.Attachment?.FileName,
+                    FileStoredName = storedFileName,
+                    FileContentType = request.Attachment?.ContentType,
+                    FileSizeBytes = request.Attachment?.Length,
+                    FileStoragePath = storedFileName
+                },
+                CurrentUserId(),
+                cancellationToken);
+
+            if ((storedFileName is not null || request.RemoveAttachment) && previousAttachment is not null)
+                DeleteAttachmentIfPresent(previousAttachment.StoragePath);
+
+            return Ok(result);
+        }
+        catch (Exception)
+        {
+            DeleteAttachmentIfPresent(storedFileName);
+            throw;
+        }
     }
 
     [HttpPost("{id:int}/publish")]
@@ -164,5 +193,14 @@ public sealed class LabResultFormRequest
     public string ResultData { get; set; } = string.Empty;
     public string? ReferenceRange { get; set; }
     public string? Interpretation { get; set; }
+    public IFormFile? Attachment { get; set; }
+}
+
+public sealed class LabResultUpdateFormRequest
+{
+    public string ResultData { get; set; } = string.Empty;
+    public string? ReferenceRange { get; set; }
+    public string? Interpretation { get; set; }
+    public bool RemoveAttachment { get; set; }
     public IFormFile? Attachment { get; set; }
 }

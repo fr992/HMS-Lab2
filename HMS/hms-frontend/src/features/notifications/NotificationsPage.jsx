@@ -245,9 +245,6 @@ export default function NotificationsPage() {
           <p className="text-sm font-medium text-slate-500">
             {unreadCount > 0 ? `${unreadCount} unread` : "All caught up"}
           </p>
-          <h1 className="mt-1 text-2xl font-semibold tracking-normal text-slate-950">
-            Notifications
-          </h1>
         </div>
         <div className="flex flex-wrap gap-2">
           <button

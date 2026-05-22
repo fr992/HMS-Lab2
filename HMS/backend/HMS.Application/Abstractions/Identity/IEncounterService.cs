@@ -9,6 +9,7 @@ public interface IEncounterService
     Task<List<EncounterDto>> GetEncountersAsync(
         int? patientProfileId,
         int? doctorProfileId,
+        string? search,
         int? actorUserId,
         IEnumerable<string> actorRoles,
         CancellationToken cancellationToken);

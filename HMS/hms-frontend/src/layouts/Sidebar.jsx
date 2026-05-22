@@ -383,7 +383,7 @@ export default function Sidebar() {
                 collapsed={collapsed}
               />
             )}
-            {(canReadBeds || canManageBeds) && !isDoctor && (
+            {(canReadBeds || canManageBeds) && !isDoctor && !isNurse && (
               <NavLink
                 to="/bed-management"
                 icon={BedDouble}
@@ -516,19 +516,6 @@ export default function Sidebar() {
       </nav>
 
       <div className="mt-auto border-t border-slate-800 p-3">
-        <div className={collapsed ? "mb-3 flex justify-center" : "mb-3 flex items-center gap-3"}>
-          <div className="flex size-10 items-center justify-center rounded-full bg-blue-950 text-sm font-semibold text-blue-200">
-            {(auth.userName ?? "U").slice(0, 2).toUpperCase()}
-          </div>
-          {!collapsed && (
-            <div className="min-w-0">
-              <p className="truncate text-sm font-semibold text-white">
-                {auth.userName ?? "User"}
-              </p>
-              <p className="text-xs text-slate-400">{auth.userRole ?? "Portal"}</p>
-            </div>
-          )}
-        </div>
         <button
           type="button"
           onClick={handleLogout}

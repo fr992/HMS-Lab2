@@ -20,6 +20,15 @@ public sealed class AppointmentRequestService : IAppointmentRequestService
         CreateAppointmentRequestDto dto,
         CancellationToken ct)
     {
+        var onlineRequestsEnabled = await _db.Settings
+            .AsNoTracking()
+            .Where(setting => setting.Key == "appointments.allowOnlineRequests")
+            .Select(setting => setting.Value)
+            .FirstOrDefaultAsync(ct);
+
+        if (string.Equals(onlineRequestsEnabled, "false", StringComparison.OrdinalIgnoreCase))
+            throw new ForbiddenException("Online appointment requests are currently disabled.");
+
         var today = DateOnly.FromDateTime(DateTime.UtcNow.Date);
 
         if (dto.PreferredDate < today)

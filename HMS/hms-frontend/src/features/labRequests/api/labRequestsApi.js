@@ -63,15 +63,21 @@ export async function createLabResult(body) {
 }
 
 export async function updateLabResult(id, body) {
-  const payload = {
-    resultData: body.resultData,
-    referenceRange: body.referenceRange?.trim()
-      ? body.referenceRange.trim()
-      : null,
-    interpretation: body.interpretation?.trim()
-      ? body.interpretation.trim()
-      : null,
-  };
+  const payload = new FormData();
+  payload.append("ResultData", body.resultData);
+
+  if (body.referenceRange?.trim()) {
+    payload.append("ReferenceRange", body.referenceRange.trim());
+  }
+  if (body.interpretation?.trim()) {
+    payload.append("Interpretation", body.interpretation.trim());
+  }
+  if (body.removeAttachment) {
+    payload.append("RemoveAttachment", "true");
+  }
+  if (body.attachment) {
+    payload.append("Attachment", body.attachment);
+  }
 
   const { data } = await apiClient.put(`/lab/results/${id}`, payload);
   return data;

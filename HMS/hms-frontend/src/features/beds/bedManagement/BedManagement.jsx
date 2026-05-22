@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { BedDouble, Plus, RefreshCw } from "lucide-react";
+import { toast } from "sonner";
 import { useAuth } from "@/auth/AuthContext";
 import {
   createBed,
@@ -11,7 +12,7 @@ import {
 import BedBoard from "@/features/beds/components/BedBoard";
 import BedFilters from "@/features/beds/components/BedFilters";
 import BedFormDialog from "@/features/beds/components/BedFormDialog";
-import { EmptyState, LoadingState, ToastNotice } from "@/features/beds/components/BedPageStates";
+import { EmptyState, LoadingState } from "@/features/beds/components/BedPageStates";
 import BedSummaryCards from "@/features/beds/components/BedSummaryCards";
 import {
   buildBedPayload,
@@ -39,15 +40,17 @@ export default function BedManagement() {
   const [refreshing, setRefreshing] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
-  const [toast, setToast] = useState(null);
   const [filters, setFilters] = useState(EMPTY_FILTERS);
   const [dialog, setDialog] = useState({ bed: null, open: false });
   const [form, setForm] = useState(EMPTY_BED_FORM);
 
   const showToast = useCallback((message, type = "success") => {
-    setToast({ message, type });
-    window.setTimeout(() => setToast(null), 4200);
+    toast[type === "error" ? "error" : type === "warning" ? "warning" : "success"](message);
   }, []);
+
+  useEffect(() => {
+    if (error) showToast(error, "error");
+  }, [error, showToast]);
 
   const loadBeds = useCallback(async ({ refresh = false } = {}) => {
     if (refresh) setRefreshing(true);
@@ -170,9 +173,6 @@ export default function BedManagement() {
           <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
             Facility operations
           </p>
-          <h1 className="mt-1 text-2xl font-semibold tracking-tight text-slate-900 sm:text-3xl">
-            Bed Management
-          </h1>
           <p className="mt-1.5 max-w-2xl text-sm text-slate-600">
             Create and maintain ward beds, rooms, departments, and bed availability.
           </p>
@@ -210,14 +210,6 @@ export default function BedManagement() {
         wardOptions={wardOptions}
         onChange={changeFilters}
         onClear={() => setFilters(EMPTY_FILTERS)}
-      />
-
-      <ToastNotice
-        notice={toast || (error ? { message: error, type: "error" } : null)}
-        onClose={() => {
-          setToast(null);
-          setError("");
-        }}
       />
 
       {loading ? (

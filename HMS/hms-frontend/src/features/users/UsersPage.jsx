@@ -10,6 +10,7 @@ import {
   Users,
   X,
 } from "lucide-react";
+import { toast } from "sonner";
 import apiClient from "@/api/apiClient";
 import { CountUpValue } from "@/features/dashboard/DashboardPrimitives";
 import { getPagedItems, getPagination, PaginationBar } from "@/lib/pagination.jsx";
@@ -59,7 +60,6 @@ export default function UsersPage() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
-  const [toast, setToast] = useState(null);
   const [search, setSearch] = useState("");
   const [page, setPage] = useState(1);
   const [pagination, setPagination] = useState(null);
@@ -71,9 +71,12 @@ export default function UsersPage() {
   const [form, setForm] = useState(emptyForm);
 
   const showToast = useCallback((message, type = "success") => {
-    setToast({ message, type });
-    window.setTimeout(() => setToast(null), 4000);
+    toast[type === "error" ? "error" : type === "warning" ? "warning" : "success"](message);
   }, []);
+
+  useEffect(() => {
+    if (error) showToast(error, "error");
+  }, [error, showToast]);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -110,6 +113,10 @@ export default function UsersPage() {
   }, [load]);
 
   const filteredUsers = users;
+  const assignableRoles = useMemo(
+    () => roles.filter((role) => role.name !== "SuperAdmin"),
+    [roles]
+  );
 
   const stats = useMemo(
     () => [
@@ -146,7 +153,7 @@ export default function UsersPage() {
     setEditingUser(null);
     setForm({
       ...emptyForm,
-      roleName: roles[0]?.name ?? "",
+      roleName: assignableRoles[0]?.name ?? "",
     });
   }
 
@@ -160,7 +167,9 @@ export default function UsersPage() {
       firstName: user.firstName ?? "",
       lastName: user.lastName ?? "",
       phoneNumber: user.phoneNumber ?? "",
-      roleName: user.roleNames?.[0] ?? roles[0]?.name ?? "",
+      roleName: user.roleNames?.[0] === "SuperAdmin"
+        ? ""
+        : user.roleNames?.[0] ?? assignableRoles[0]?.name ?? "",
       isActive: Boolean(user.isActive),
     });
   }
@@ -238,9 +247,6 @@ export default function UsersPage() {
         <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
           Administration
         </p>
-        <h1 className="mt-1 text-2xl font-semibold tracking-tight text-slate-900 sm:text-3xl">
-          Users
-        </h1>
         <p className="mt-1.5 text-sm text-slate-600">
           Manage system users, access, roles, and account status.
         </p>
@@ -316,25 +322,6 @@ export default function UsersPage() {
           </button>
         </div>
       </section>
-
-      {toast && (
-        <div
-          role={toast.type === "error" ? "alert" : "status"}
-          className={
-            toast.type === "error"
-              ? "rounded-lg border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-900"
-              : "rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-900"
-          }
-        >
-          {toast.message}
-        </div>
-      )}
-
-      {error && (
-        <div className="rounded-lg border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-900">
-          {error}
-        </div>
-      )}
 
       <div className="scrollbar-none min-h-0 flex-1 overflow-auto rounded-lg border border-slate-200 bg-white shadow-sm">
         {loading ? (
@@ -422,6 +409,7 @@ export default function UsersPage() {
           user={editingUser}
           form={form}
           roles={roles}
+          assignableRoles={assignableRoles}
           saving={saving}
           onCancel={resetForm}
           onSubmit={submitForm}
@@ -458,7 +446,7 @@ function StatCard({ stat }) {
   );
 }
 
-function UserDialog({ creating, user, form, roles, saving, onCancel, onChange, onSubmit }) {
+function UserDialog({ creating, user, form, assignableRoles, saving, onCancel, onChange, onSubmit }) {
   return (
     <div
       className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/55 p-4"
@@ -545,7 +533,7 @@ function UserDialog({ creating, user, form, roles, saving, onCancel, onChange, o
                   <option value="" disabled>
                     Select role
                   </option>
-                  {roles.map((role) => (
+                  {assignableRoles.map((role) => (
                     <option key={role.id} value={role.name}>
                       {role.name}
                     </option>

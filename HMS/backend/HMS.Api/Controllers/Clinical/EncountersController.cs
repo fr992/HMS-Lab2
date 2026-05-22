@@ -52,6 +52,7 @@ public sealed class EncountersController : ControllerBase
     public async Task<ActionResult<List<EncounterDto>>> GetAll(
         [FromQuery] int? patientProfileId,
         [FromQuery] int? doctorProfileId,
+        [FromQuery] string? search,
         CancellationToken cancellationToken)
     {
         try
@@ -59,6 +60,7 @@ public sealed class EncountersController : ControllerBase
             var result = await _encounterService.GetEncountersAsync(
                 patientProfileId,
                 doctorProfileId,
+                search,
                 CurrentUserId(),
                 CurrentUserRoles(),
                 cancellationToken);

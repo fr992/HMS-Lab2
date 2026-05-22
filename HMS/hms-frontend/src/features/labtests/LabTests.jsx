@@ -1,5 +1,6 @@
 import { Plus, RefreshCw } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
+import { toast } from "sonner";
 import { useAuth } from "@/auth/AuthContext";
 import {
   createLabTest,
@@ -61,7 +62,6 @@ export default function LabTestsPage() {
   const [refreshing, setRefreshing] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
-  const [toast, setToast] = useState(null);
   const [search, setSearch] = useState("");
   const [page, setPage] = useState(1);
   const [pagination, setPagination] = useState(null);
@@ -99,9 +99,12 @@ export default function LabTestsPage() {
   }, [statusFilter, search, page]);
 
   const showToast = useCallback((message, type = "success") => {
-    setToast({ message, type });
-    window.setTimeout(() => setToast(null), 4000);
+    toast[type === "error" ? "error" : type === "warning" ? "warning" : "success"](message);
   }, []);
+
+  useEffect(() => {
+    if (error) showToast(error, "error");
+  }, [error, showToast]);
 
   useEffect(() => {
     const timer = window.setTimeout(() => {
@@ -207,9 +210,6 @@ export default function LabTestsPage() {
           <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
             Clinical catalog
           </p>
-          <h1 className="mt-1 text-2xl font-semibold tracking-tight text-slate-900 sm:text-3xl">
-            Lab tests
-          </h1>
           <p className="mt-1.5 text-sm text-slate-600">
             Manage the lab tests available for ordering and results.
           </p>
@@ -306,25 +306,6 @@ export default function LabTestsPage() {
           </button>
         </div>
       </section>
-
-      {toast && (
-        <div
-          role={toast.type === "error" ? "alert" : "status"}
-          className={
-            toast.type === "error"
-              ? "rounded-lg border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-900"
-              : "rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-900"
-          }
-        >
-          {toast.message}
-        </div>
-      )}
-
-      {error && (
-        <div className="rounded-lg border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-900">
-          {error}
-        </div>
-      )}
 
       <div className="scrollbar-none min-h-0 flex-1 overflow-auto rounded-lg border border-slate-200 bg-white shadow-sm">
         {loading ? (

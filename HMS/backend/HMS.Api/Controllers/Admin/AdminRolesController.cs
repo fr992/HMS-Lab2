@@ -117,6 +117,9 @@ public sealed class AdminRolesController : ControllerBase
         if (role is null)
             return NotFound(new { error = "Role not found." });
 
+        if (role.Name == "SuperAdmin")
+            return BadRequest(new { error = "The SuperAdmin role is display-only and cannot be edited." });
+
         var name = request.Name.Trim();
         if (string.IsNullOrWhiteSpace(name))
             return BadRequest(new { error = "Role name is required." });

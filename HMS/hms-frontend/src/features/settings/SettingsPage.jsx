@@ -1,6 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
-  AlertCircle,
   Bell,
   Building2,
   CalendarDays,
@@ -12,6 +11,7 @@ import {
   SlidersHorizontal,
   Settings,
 } from "lucide-react";
+import { toast } from "sonner";
 import {
   fetchSettings,
   getApiErrorMessage,
@@ -171,7 +171,6 @@ export default function SettingsPage() {
   const [refreshing, setRefreshing] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
-  const [toast, setToast] = useState(null);
   const [search, setSearch] = useState("");
   const [draftValues, setDraftValues] = useState({});
 
@@ -202,9 +201,12 @@ export default function SettingsPage() {
   }, [load]);
 
   const showToast = useCallback((message, type = "success") => {
-    setToast({ message, type });
-    window.setTimeout(() => setToast(null), 4000);
+    toast[type === "error" ? "error" : type === "warning" ? "warning" : "success"](message);
   }, []);
+
+  useEffect(() => {
+    if (error) showToast(error, "error");
+  }, [error, showToast]);
 
   const settingsByKey = useMemo(() => {
     return new Map(items.map((item) => [item.key, item]));
@@ -243,6 +245,15 @@ export default function SettingsPage() {
     const expectedKeys = SETTING_SECTIONS.flatMap((section) => section.keys);
     return expectedKeys.filter((key) => !settingsByKey.has(key)).length;
   }, [settingsByKey]);
+
+  useEffect(() => {
+    if (!loading && !search.trim() && missingPredefinedCount > 0) {
+      showToast(
+        `${missingPredefinedCount} predefined setting${missingPredefinedCount === 1 ? "" : "s"} are missing. Restart the API to run the settings seeder.`,
+        "warning"
+      );
+    }
+  }, [loading, missingPredefinedCount, search, showToast]);
 
   const dirtySettings = useMemo(() => {
     return items.filter((item) => isDirty(item, draftValues));
@@ -308,9 +319,6 @@ export default function SettingsPage() {
           <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
             Administration
           </p>
-          <h1 className="mt-1 text-2xl font-semibold tracking-tight text-slate-900 sm:text-3xl">
-            Settings
-          </h1>
           <p className="mt-1.5 text-sm text-slate-600">
             Manage predefined system configuration values
           </p>
@@ -361,37 +369,6 @@ export default function SettingsPage() {
           </button>
         </div>
       </section>
-
-      {toast && (
-        <div
-          role={toast.type === "error" ? "alert" : "status"}
-          className={
-            toast.type === "error"
-              ? "rounded-lg border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-900"
-              : "rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-900"
-          }
-        >
-          {toast.message}
-        </div>
-      )}
-
-      {error && (
-        <div className="flex items-start gap-2 rounded-lg border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-900">
-          <AlertCircle className="mt-0.5 size-4 shrink-0" aria-hidden />
-          <span>{error}</span>
-        </div>
-      )}
-
-      {!loading && !search.trim() && missingPredefinedCount > 0 && (
-        <div className="flex items-start gap-2 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
-          <AlertCircle className="mt-0.5 size-4 shrink-0" aria-hidden />
-          <span>
-            {missingPredefinedCount} predefined setting
-            {missingPredefinedCount === 1 ? "" : "s"} are missing. Restart the API to run
-            the settings seeder.
-          </span>
-        </div>
-      )}
 
       <div className="scrollbar-none min-h-0 flex-1 overflow-auto pb-20">
         {loading ? (

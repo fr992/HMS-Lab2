@@ -12,6 +12,7 @@ import {
   Search,
   X,
 } from "lucide-react";
+import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -200,7 +201,6 @@ export default function EncounterPanelPage() {
     notes: "",
   });
   const [completingEncounter, setCompletingEncounter] = useState(false);
-  const [completionNotice, setCompletionNotice] = useState(false);
   const [prescriptionPage, setPrescriptionPage] = useState(1);
   const [medications, setMedications] = useState([]);
   const [medicationSearch, setMedicationSearch] = useState("");
@@ -212,7 +212,6 @@ export default function EncounterPanelPage() {
   const [labTestSearch, setLabTestSearch] = useState("");
   const [labTestsLoading, setLabTestsLoading] = useState(false);
   const [labTestsError, setLabTestsError] = useState("");
-  const [toast, setToast] = useState(null);
   const [actionDialog, setActionDialog] = useState(null);
   const [actionSaving, setActionSaving] = useState(false);
   const [nurseTasks, setNurseTasks] = useState([]);
@@ -229,8 +228,7 @@ export default function EncounterPanelPage() {
   }, [encounterId, loadPanel]);
 
   const showToast = useCallback((message, type = "success") => {
-    setToast({ message, type });
-    window.setTimeout(() => setToast(null), 4200);
+    toast[type === "error" ? "error" : type === "warning" ? "warning" : "success"](message);
   }, []);
 
   const loadRelatedEncounterData = useCallback(
@@ -481,8 +479,7 @@ export default function EncounterPanelPage() {
     setCompletingEncounter(true);
     try {
       await closeEncounter(encounterId);
-      setCompletionNotice(true);
-      window.setTimeout(() => setCompletionNotice(false), 3000);
+      showToast("Encounter completed successfully.");
     } finally {
       setCompletingEncounter(false);
     }
@@ -635,28 +632,6 @@ export default function EncounterPanelPage() {
           </Badge>
         </div>
       </div>
-
-      {completionNotice && (
-        <div
-          role="status"
-          className="rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-medium text-emerald-900 shadow-sm animate-in fade-in slide-in-from-top-1"
-        >
-          Encounter completed successfully.
-        </div>
-      )}
-
-      {toast && (
-        <div
-          role={toast.type === "error" ? "alert" : "status"}
-          className={
-            toast.type === "error"
-              ? "rounded-lg border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-900"
-              : "rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-900"
-          }
-        >
-          {toast.message}
-        </div>
-      )}
 
       {(canReadBeds || canReadNurseTasks) && (
         <div className="grid gap-4 lg:grid-cols-2">

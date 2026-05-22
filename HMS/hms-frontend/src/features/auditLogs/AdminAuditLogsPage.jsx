@@ -127,9 +127,6 @@ export default function AdminAuditLogsPage() {
           <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
             Administration
           </p>
-          <h1 className="mt-1 text-2xl font-semibold tracking-tight text-slate-900 sm:text-3xl">
-            Audit Logs
-          </h1>
           <p className="mt-1.5 max-w-3xl text-sm text-slate-600">
             Review Warning, Error, and Fatal events stored in SQL Server.
           </p>

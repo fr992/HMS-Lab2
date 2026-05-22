@@ -144,7 +144,7 @@ function RowActions({ request, onView }) {
         className="inline-flex h-9 items-center justify-center gap-2 rounded-lg border border-slate-200 bg-white px-3 text-sm font-medium text-slate-800 shadow-sm transition hover:bg-slate-50"
       >
         <FileText className="h-4 w-4" aria-hidden />
-        View
+        Manage Results
       </button>
     </div>
   );
@@ -245,9 +245,6 @@ export default function LabRequestsPage() {
           <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
             Laboratory workflow
           </p>
-          <h1 className="mt-1 text-2xl font-semibold tracking-tight text-slate-900 sm:text-3xl">
-            Lab Requests
-          </h1>
           <p className="mt-1.5 max-w-2xl text-sm text-slate-600">
             Review ordered tests and move requests through the lab status flow.
           </p>

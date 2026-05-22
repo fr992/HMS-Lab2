@@ -14,13 +14,14 @@ import {
   Wrench,
   X,
 } from "lucide-react";
+import { toast } from "sonner";
 import { useAuth } from "@/auth/AuthContext";
 import { CountUpValue } from "@/features/dashboard/DashboardPrimitives";
-import { ToastNotice } from "@/features/beds/components/BedPageStates";
 import { fetchPatients } from "@/features/patients/patientsApi";
 import {
   assignBed,
   assignBedAssignmentRequest,
+  createBedAssignmentRequest,
   fetchActiveBedAssignments,
   fetchBedAssignmentRequests,
   fetchBeds,
@@ -184,14 +185,25 @@ function requestPriorityClasses(priority) {
   return "bg-slate-100 text-slate-700 ring-slate-200";
 }
 
+function isBedReleaseRequest(request) {
+  return String(request?.notes ?? "")
+    .toLowerCase()
+    .includes("[bed release request]");
+}
+
 export default function BedAssignmentsPage() {
   const auth = useAuth();
-  const canAssign = auth.hasPermission("Beds.Assign");
-  const canRelease = auth.hasPermission("Beds.Release");
+  const isRequesterOnlyRole =
+    auth.hasRole("Doctor") || auth.hasRole("Nurse") || auth.hasRole("Infermier");
+  const canAssign = !isRequesterOnlyRole && auth.hasPermission("Beds.Assign");
+  const canRelease = !isRequesterOnlyRole && auth.hasPermission("Beds.Release");
   const canReadPatients = auth.hasPermission("Patients.Read");
   const canReadBedRequests = auth.hasPermission("BedAssignmentRequests.Read");
   const canAssignBedRequests = auth.hasPermission("BedAssignmentRequests.Assign");
   const canRejectBedRequests = auth.hasPermission("BedAssignmentRequests.Reject");
+  const canRequestBedChange =
+    auth.hasPermission("BedAssignmentRequests.Create") ||
+    isRequesterOnlyRole;
 
   const [beds, setBeds] = useState([]);
   const [assignments, setAssignments] = useState([]);
@@ -202,7 +214,6 @@ export default function BedAssignmentsPage() {
   const [refreshing, setRefreshing] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
-  const [toast, setToast] = useState(null);
   const [search, setSearch] = useState("");
   const [departmentFilter, setDepartmentFilter] = useState("all");
   const [roomFilter, setRoomFilter] = useState("all");
@@ -216,9 +227,12 @@ export default function BedAssignmentsPage() {
   const [rejectNotes, setRejectNotes] = useState("");
 
   const showToast = useCallback((message, type = "success") => {
-    setToast({ message, type });
-    window.setTimeout(() => setToast(null), 4200);
+    toast[type === "error" ? "error" : type === "warning" ? "warning" : "success"](message);
   }, []);
+
+  useEffect(() => {
+    if (error) showToast(error, "error");
+  }, [error, showToast]);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -415,6 +429,33 @@ export default function BedAssignmentsPage() {
     setDialog({ type: "release", bed, assignment: bed.currentAssignment });
   }
 
+  async function handleRequestBedChange(bed, intent = "change") {
+    const encounterId = bed?.currentAssignment?.encounterId;
+    if (!encounterId) {
+      showToast("This bed assignment is not linked to an encounter.", "error");
+      return;
+    }
+
+    setSaving(true);
+    try {
+      await createBedAssignmentRequest(encounterId, {
+        priority: "routine",
+        preferredWard: bed?.ward || bed?.departmentName || null,
+        notes:
+          intent === "release"
+            ? `[Bed release request] Please review release for ${bedLocation(bed)}.`
+            : `[Bed change request] Please review reassignment from ${bedLocation(bed)}.`,
+      });
+      showToast(intent === "release" ? "Bed release request sent." : "Bed change request sent.");
+      closeDialog();
+      await load();
+    } catch (e) {
+      showToast(getApiErrorMessage(e), "error");
+    } finally {
+      setSaving(false);
+    }
+  }
+
   function closeDialog() {
     setDialog({ type: null, bed: null, assignment: null });
     setRequestDialog({ type: null, request: null });
@@ -488,7 +529,8 @@ export default function BedAssignmentsPage() {
     if (saving || !requestDialog.request) return;
 
     const bedId = Number.parseInt(assignForm.bedId, 10);
-    if (!bedId) {
+    const releaseRequest = isBedReleaseRequest(requestDialog.request);
+    if (!bedId && !releaseRequest) {
       showToast("Available bed is required.", "error");
       return;
     }
@@ -496,10 +538,10 @@ export default function BedAssignmentsPage() {
     setSaving(true);
     try {
       await assignBedAssignmentRequest(requestDialog.request.id, {
-        bedId,
+        bedId: releaseRequest ? 0 : bedId,
         notes: assignForm.notes.trim() || null,
       });
-      showToast("Bed request assigned.");
+      showToast(releaseRequest ? "Bed release request approved." : "Bed request assigned.");
       closeDialog();
       await load();
     } catch (e) {
@@ -529,19 +571,7 @@ export default function BedAssignmentsPage() {
 
   return (
     <div className="flex h-full min-h-0 flex-1 flex-col gap-5">
-      <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
-        <div>
-          <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
-            Patient care operations
-          </p>
-          <h1 className="mt-1 text-2xl font-semibold tracking-tight text-slate-900 sm:text-3xl">
-            Bed Assignments
-          </h1>
-          <p className="mt-1.5 max-w-2xl text-sm text-slate-600">
-            Monitor current bed usage across wards, rooms, and active patient assignments.
-          </p>
-        </div>
-
+      <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-end">
         <div className="flex gap-2">
           {canAssign && (
             <button
@@ -575,22 +605,12 @@ export default function BedAssignmentsPage() {
       </div>
 
       <section className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
-        <div className="grid gap-3 lg:grid-cols-[1fr_12rem_10rem_12rem_13rem_auto] lg:items-end">
-          <label className="block">
-            <span className="text-xs font-semibold uppercase tracking-wide text-slate-500">
-              Search
-            </span>
-            <span className="relative mt-1.5 block">
-              <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-slate-400" />
-              <input
-                type="search"
-                value={search}
-                onChange={(event) => setSearch(event.target.value)}
-                placeholder="Patient, bed, room, ward"
-                className="h-10 w-full rounded-lg border border-slate-200 bg-white pl-9 pr-3 text-sm text-slate-900 shadow-sm outline-none transition placeholder:text-slate-400 focus:border-sky-500 focus:ring-2 focus:ring-sky-500/20"
-              />
-            </span>
-          </label>
+        <div className="grid gap-3 lg:grid-cols-[minmax(16rem,1fr)_12rem_10rem_12rem_13rem_auto] lg:items-end">
+          <SearchField
+            value={search}
+            onChange={setSearch}
+            placeholder="Search bed, room, patient..."
+          />
           <SelectField label="Department/Ward" value={departmentFilter} onChange={setDepartmentFilter}>
             <option value="all">All wards</option>
             {departments.map((department) => (
@@ -642,14 +662,6 @@ export default function BedAssignmentsPage() {
           </button>
         </div>
       </section>
-
-      <ToastNotice
-        notice={toast || (error ? { message: error, type: "error" } : null)}
-        onClose={() => {
-          setToast(null);
-          setError("");
-        }}
-      />
 
       {canReadBedRequests && (
         <section className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
@@ -721,43 +733,6 @@ export default function BedAssignmentsPage() {
         )}
       </section>
 
-      <div className="scrollbar-none min-h-[18rem] flex-1 overflow-auto rounded-lg border border-slate-200 bg-white shadow-sm">
-        {loading ? (
-          <LoadingState label="Loading bed assignments..." />
-        ) : filteredBeds.length === 0 ? (
-          <EmptyState label="No bed assignments found" detail="Try changing the search or filters." />
-        ) : (
-          <table className="min-w-full divide-y divide-slate-200 text-sm">
-            <thead className="bg-slate-50 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">
-              <tr>
-                <th className="px-4 py-3">Patient</th>
-                <th className="px-4 py-3">Patient Number</th>
-                <th className="px-4 py-3">Department/Ward</th>
-                <th className="px-4 py-3">Room</th>
-                <th className="px-4 py-3">Bed</th>
-                <th className="px-4 py-3">Bed Status</th>
-                <th className="px-4 py-3">Assigned Date</th>
-                <th className="px-4 py-3">Assigned By</th>
-                <th className="px-4 py-3 text-right">Actions</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-100 bg-white">
-              {filteredBeds.map((bed) => (
-                <BedRow
-                  key={bed.id}
-                  bed={bed}
-                  canAssign={canAssign}
-                  canRelease={canRelease}
-                  onAssign={openAssign}
-                  onRelease={openRelease}
-                  onView={openView}
-                />
-              ))}
-            </tbody>
-          </table>
-        )}
-      </div>
-
       {dialog.type === "assign" && (
         <AssignBedDialog
           form={assignForm}
@@ -782,6 +757,7 @@ export default function BedAssignmentsPage() {
           availableBeds={availableBeds}
           wardOptions={wardOptions}
           roomOptions={modalRoomOptions}
+          isReleaseRequest={isBedReleaseRequest(requestDialog.request)}
           onChange={(patch) => setAssignForm((current) => ({ ...current, ...patch }))}
           onClose={closeDialog}
           onSubmit={handleAssignRequest}
@@ -816,7 +792,9 @@ export default function BedAssignmentsPage() {
           bed={dialog.bed}
           assignment={dialog.assignment}
           canRelease={canRelease}
+          canRequestBedChange={canRequestBedChange && !canAssign && !canRelease}
           onRelease={openRelease}
+          onRequestBedChange={handleRequestBedChange}
           onClose={closeDialog}
         />
       )}
@@ -919,6 +897,26 @@ function SelectField({ label, value, onChange, children }) {
       >
         {children}
       </select>
+    </label>
+  );
+}
+
+function SearchField({ value, onChange, placeholder }) {
+  return (
+    <label className="block">
+      <span className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+        Search
+      </span>
+      <span className="relative mt-1.5 block">
+        <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-slate-400" />
+        <input
+          type="search"
+          value={value}
+          onChange={(event) => onChange(event.target.value)}
+          placeholder={placeholder}
+          className="h-10 w-full rounded-lg border border-slate-200 bg-white pl-9 pr-3 text-sm text-slate-900 shadow-sm outline-none transition placeholder:text-slate-400 focus:border-sky-500 focus:ring-2 focus:ring-sky-500/20"
+        />
+      </span>
     </label>
   );
 }
@@ -1126,61 +1124,6 @@ function BedTile({ bed, canAssign, canRelease, onAssign, onRelease, onView }) {
 
 }
 
-function BedRow({ bed, canAssign, canRelease, onAssign, onRelease, onView }) {
-  const assignment = bed.currentAssignment;
-  const available = normalize(bed.status) === "available";
-  const occupied = normalize(bed.status) === "occupied";
-  return (
-    <tr className="align-middle transition hover:bg-slate-50/70">
-      <td className="px-4 py-3">
-        <div className="font-medium text-slate-900">{assignment?.patientName || "Unassigned"}</div>
-        {assignment?.encounterNumber && (
-          <div className="mt-1 text-xs text-slate-500">{assignment.encounterNumber}</div>
-        )}
-      </td>
-      <td className="px-4 py-3 text-slate-600">{assignment?.patientNumber || "-"}</td>
-      <td className="px-4 py-3 text-slate-600">{bed.departmentName || bed.ward || "-"}</td>
-      <td className="px-4 py-3 text-slate-600">{bed.roomNumber || "-"}</td>
-      <td className="px-4 py-3 font-medium text-slate-900">{bed.bedNumber || "-"}</td>
-      <td className="px-4 py-3"><StatusBadge status={bed.status} /></td>
-      <td className="px-4 py-3 text-slate-600">{formatDateTime(assignment?.assignedAt)}</td>
-      <td className="px-4 py-3 text-slate-600">{userDisplayName(assignment?.assignedByUserName, assignment?.assignedByUserId)}</td>
-      <td className="px-4 py-3">
-        <div className="flex justify-end gap-2">
-          {occupied && (
-            <button
-              type="button"
-              onClick={() => onView(bed)}
-              className="inline-flex h-8 items-center gap-1.5 rounded-md border border-slate-200 bg-white px-3 text-xs font-medium text-slate-700 transition hover:bg-slate-50"
-            >
-              <Eye className="size-3.5" aria-hidden />
-              View
-            </button>
-          )}
-          {available && canAssign && (
-            <button
-              type="button"
-              onClick={() => onAssign(bed)}
-              className="inline-flex h-8 items-center rounded-md bg-sky-600 px-3 text-xs font-medium text-white transition hover:bg-sky-700"
-            >
-              Assign
-            </button>
-          )}
-          {occupied && canRelease && (
-            <button
-              type="button"
-              onClick={() => onRelease(bed)}
-              className="inline-flex h-8 items-center rounded-md border border-slate-200 bg-white px-3 text-xs font-medium text-slate-700 transition hover:bg-slate-50"
-            >
-              Release
-            </button>
-          )}
-        </div>
-      </td>
-    </tr>
-  );
-}
-
 function AssignBedDialog({
   form,
   saving,
@@ -1344,6 +1287,7 @@ function RequestAssignDialog({
   availableBeds,
   wardOptions,
   roomOptions,
+  isReleaseRequest,
   onChange,
   onClose,
   onSubmit,
@@ -1351,7 +1295,15 @@ function RequestAssignDialog({
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/55 p-4" role="dialog" aria-modal="true">
       <section className="w-full max-w-3xl overflow-hidden rounded-xl border border-slate-200 bg-white shadow-2xl">
-        <DialogHeader title="Assign Bed Request" subtitle="Select an available bed for this pending request." onClose={onClose} />
+        <DialogHeader
+          title={isReleaseRequest ? "Approve Bed Release" : "Assign Bed Request"}
+          subtitle={
+            isReleaseRequest
+              ? "Approve this pending request and release the patient's active bed."
+              : "Select an available bed for this pending request."
+          }
+          onClose={onClose}
+        />
         <form onSubmit={onSubmit} className="space-y-4 bg-slate-50 px-6 py-5">
           <div className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
             <DetailGrid
@@ -1371,50 +1323,52 @@ function RequestAssignDialog({
             )}
           </div>
 
-          <div className="grid gap-4 md:grid-cols-3">
-            <Field label="Ward filter">
-              <select
-                value={form.ward}
-                onChange={(event) =>
-                  onChange({ ward: event.target.value, roomNumber: "all", bedId: "" })
-                }
-                disabled={saving}
-                className="h-11 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm text-slate-900 shadow-sm outline-none transition focus:border-sky-500 focus:ring-2 focus:ring-sky-500/20"
-              >
-                <option value="all">All wards</option>
-                {wardOptions.map((ward) => (
-                  <option key={ward} value={ward}>{ward}</option>
-                ))}
-              </select>
-            </Field>
-            <Field label="Room filter">
-              <select
-                value={form.roomNumber}
-                onChange={(event) => onChange({ roomNumber: event.target.value, bedId: "" })}
-                disabled={saving}
-                className="h-11 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm text-slate-900 shadow-sm outline-none transition focus:border-sky-500 focus:ring-2 focus:ring-sky-500/20"
-              >
-                <option value="all">All rooms</option>
-                {roomOptions.map((room) => (
-                  <option key={room} value={room}>{room}</option>
-                ))}
-              </select>
-            </Field>
-            <Field label="Available bed" required>
-              <select
-                value={form.bedId}
-                onChange={(event) => onChange({ bedId: event.target.value })}
-                disabled={saving}
-                className="h-11 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm text-slate-900 shadow-sm outline-none transition focus:border-sky-500 focus:ring-2 focus:ring-sky-500/20"
-                required
-              >
-                <option value="">Select bed</option>
-                {availableBeds.map((bed) => (
-                  <option key={bed.id} value={bed.id}>{bedLocation(bed)}</option>
-                ))}
-              </select>
-            </Field>
-          </div>
+          {!isReleaseRequest && (
+            <div className="grid gap-4 md:grid-cols-3">
+              <Field label="Ward filter">
+                <select
+                  value={form.ward}
+                  onChange={(event) =>
+                    onChange({ ward: event.target.value, roomNumber: "all", bedId: "" })
+                  }
+                  disabled={saving}
+                  className="h-11 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm text-slate-900 shadow-sm outline-none transition focus:border-sky-500 focus:ring-2 focus:ring-sky-500/20"
+                >
+                  <option value="all">All wards</option>
+                  {wardOptions.map((ward) => (
+                    <option key={ward} value={ward}>{ward}</option>
+                  ))}
+                </select>
+              </Field>
+              <Field label="Room filter">
+                <select
+                  value={form.roomNumber}
+                  onChange={(event) => onChange({ roomNumber: event.target.value, bedId: "" })}
+                  disabled={saving}
+                  className="h-11 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm text-slate-900 shadow-sm outline-none transition focus:border-sky-500 focus:ring-2 focus:ring-sky-500/20"
+                >
+                  <option value="all">All rooms</option>
+                  {roomOptions.map((room) => (
+                    <option key={room} value={room}>{room}</option>
+                  ))}
+                </select>
+              </Field>
+              <Field label="Available bed" required>
+                <select
+                  value={form.bedId}
+                  onChange={(event) => onChange({ bedId: event.target.value })}
+                  disabled={saving}
+                  className="h-11 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm text-slate-900 shadow-sm outline-none transition focus:border-sky-500 focus:ring-2 focus:ring-sky-500/20"
+                  required
+                >
+                  <option value="">Select bed</option>
+                  {availableBeds.map((bed) => (
+                    <option key={bed.id} value={bed.id}>{bedLocation(bed)}</option>
+                  ))}
+                </select>
+              </Field>
+            </div>
+          )}
 
           <Field label="Assignment notes">
             <textarea
@@ -1427,7 +1381,12 @@ function RequestAssignDialog({
             />
           </Field>
 
-          <DialogActions onClose={onClose} saving={saving} submitLabel="Assign Bed" savingLabel="Assigning..." />
+          <DialogActions
+            onClose={onClose}
+            saving={saving}
+            submitLabel={isReleaseRequest ? "Approve Release" : "Assign Bed"}
+            savingLabel={isReleaseRequest ? "Approving..." : "Assigning..."}
+          />
         </form>
       </section>
     </div>
@@ -1515,7 +1474,15 @@ function ReleaseDialog({ bed, assignment, saving, releaseNotes, onReleaseNotes, 
   );
 }
 
-function ViewDialog({ bed, assignment, canRelease, onRelease, onClose }) {
+function ViewDialog({
+  bed,
+  assignment,
+  canRelease,
+  canRequestBedChange,
+  onRelease,
+  onRequestBedChange,
+  onClose,
+}) {
   const meta = statusMeta(bed?.status);
   const activeAssignment = assignment && !assignment.releasedAt && normalize(bed?.status) === "occupied";
   return (
@@ -1601,6 +1568,24 @@ function ViewDialog({ bed, assignment, canRelease, onRelease, onClose }) {
               >
                 Release bed
               </button>
+            )}
+            {activeAssignment && canRequestBedChange && (
+              <>
+                <button
+                  type="button"
+                  onClick={() => onRequestBedChange(bed, "change")}
+                  className="h-10 rounded-lg border border-sky-200 bg-white px-4 text-sm font-medium text-sky-700 transition hover:bg-sky-50"
+                >
+                  Request bed change
+                </button>
+                <button
+                  type="button"
+                  onClick={() => onRequestBedChange(bed, "release")}
+                  className="h-10 rounded-lg bg-sky-600 px-4 text-sm font-medium text-white transition hover:bg-sky-700"
+                >
+                  Request release
+                </button>
+              </>
             )}
           </div>
         </div>

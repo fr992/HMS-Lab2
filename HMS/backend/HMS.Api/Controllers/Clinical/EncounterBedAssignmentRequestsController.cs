@@ -3,6 +3,7 @@ using HMS.Api.Authorization;
 using HMS.Application.Abstractions.Identity;
 using HMS.Application.Exceptions;
 using HMS.Contracts.Identity;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
 namespace HMS.Api.Controllers.Clinical;
@@ -19,7 +20,7 @@ public sealed class EncounterBedAssignmentRequestsController : ControllerBase
     }
 
     [HttpPost]
-    [RequirePermission("BedAssignmentRequests.Create")]
+    [Authorize(Roles = "Doctor,Nurse,Infermier,Admin,SuperAdmin")]
     public async Task<ActionResult<BedAssignmentRequestDto>> Create(
         int encounterId,
         [FromBody] CreateBedAssignmentRequestDto request,

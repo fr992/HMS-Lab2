@@ -44,6 +44,9 @@ public sealed class UserManagementService : IUserManagementService
             .Distinct(StringComparer.OrdinalIgnoreCase)
             .ToList();
 
+        if (roleNames.Any(name => name.Equals("SuperAdmin", StringComparison.OrdinalIgnoreCase)))
+            return (null, "SuperAdmin cannot be assigned from user management.");
+
         var dbRoles = await _db.Roles.ToListAsync(cancellationToken);
         var roles = new List<Role>();
         foreach (var name in roleNames)
@@ -261,6 +264,9 @@ public sealed class UserManagementService : IUserManagementService
 
             if (roleNames.Count == 0)
                 return (null, "At least one role is required.");
+
+            if (roleNames.Any(name => name.Equals("SuperAdmin", StringComparison.OrdinalIgnoreCase)))
+                return (null, "SuperAdmin cannot be assigned from user management.");
 
             var dbRoles = await _db.Roles.ToListAsync(cancellationToken);
             var roles = new List<Role>();

@@ -12,6 +12,7 @@ import {
   Search,
   XCircle,
 } from "lucide-react";
+import { toast } from "sonner";
 import { useAuth } from "@/auth/AuthContext";
 import { CountUpValue } from "@/features/dashboard/DashboardPrimitives";
 import { MAX_LIST_PAGE_SIZE, PaginationBar, paginateArray } from "@/lib/pagination.jsx";
@@ -157,7 +158,6 @@ export default function AppointmentRequestsPage() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState(null);
-  const [toast, setToast] = useState(null);
   const [mutatingId, setMutatingId] = useState(null);
   const [page, setPage] = useState(1);
 
@@ -187,9 +187,12 @@ export default function AppointmentRequestsPage() {
   }, [load]);
 
   const showToast = useCallback((message, type = "success") => {
-    setToast({ message, type });
-    window.setTimeout(() => setToast(null), 5000);
+    toast[type === "error" ? "error" : type === "warning" ? "warning" : "success"](message);
   }, []);
+
+  useEffect(() => {
+    if (error) showToast(error, "error");
+  }, [error, showToast]);
 
   const filteredItems = useMemo(() => {
     const term = search.trim().toLowerCase();
@@ -256,9 +259,6 @@ export default function AppointmentRequestsPage() {
           <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
             Public website
           </p>
-          <h1 className="mt-1 text-2xl font-semibold tracking-tight text-slate-900 sm:text-3xl">
-            Online Requests
-          </h1>
           <p className="mt-1.5 max-w-2xl text-sm text-slate-600">
             Appointment requests submitted from the public booking form.
           </p>
@@ -375,35 +375,6 @@ export default function AppointmentRequestsPage() {
           </button>
         </div>
       </section>
-
-      {toast && (
-        <div
-          role={toast.type === "error" ? "alert" : "status"}
-          className={
-            toast.type === "error"
-              ? "flex items-start justify-between gap-3 rounded-lg border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-900"
-              : "flex items-start justify-between gap-3 rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-900"
-          }
-        >
-          <span>{toast.message}</span>
-          <button
-            type="button"
-            onClick={() => setToast(null)}
-            className="shrink-0 font-medium hover:underline"
-          >
-            Dismiss
-          </button>
-        </div>
-      )}
-
-      {error && (
-        <div
-          className="rounded-lg border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-900"
-          role="alert"
-        >
-          {error}
-        </div>
-      )}
 
       <div className="scrollbar-none min-h-0 flex-1 overflow-auto rounded-lg border border-slate-200 bg-white shadow-sm">
         {loading ? (

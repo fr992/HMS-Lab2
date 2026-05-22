@@ -142,16 +142,57 @@ public sealed class LabResultService : ILabResultService
             throw new BadRequestException("Interpretation cannot exceed 200 characters.");
 
         var labResult = await _db.LabResults
+            .Include(r => r.File)
             .FirstOrDefaultAsync(r => r.Id == id, cancellationToken);
 
         if (labResult == null)
             throw new NotFoundException("Lab result not found.");
+
+        var previousFile = labResult.File;
+        var replacementRequested = !string.IsNullOrWhiteSpace(request.FileStoragePath);
+        HmsFile? replacementFile = null;
+
+        if (replacementRequested)
+        {
+            if (string.IsNullOrWhiteSpace(request.FileOriginalName) ||
+                string.IsNullOrWhiteSpace(request.FileStoredName) ||
+                string.IsNullOrWhiteSpace(request.FileContentType) ||
+                request.FileSizeBytes == null)
+            {
+                throw new BadRequestException("Complete file metadata is required when replacing an attachment.");
+            }
+
+            replacementFile = new HmsFile
+            {
+                OriginalFileName = request.FileOriginalName!.Trim(),
+                StoredFileName = request.FileStoredName!.Trim(),
+                ContentType = request.FileContentType!.Trim(),
+                SizeBytes = request.FileSizeBytes.Value,
+                StoragePath = request.FileStoragePath!.Trim(),
+                CreatedAt = DateTime.UtcNow,
+                UpdatedAt = DateTime.UtcNow,
+                CreatedById = actorUserId,
+                UpdatedById = actorUserId
+            };
+        }
 
         labResult.ResultData = resultData;
         labResult.ReferenceRange = referenceRange;
         labResult.Interpretation = interpretation;
         labResult.UpdatedAt = DateTime.UtcNow;
         labResult.UpdatedById = actorUserId;
+
+        if (replacementFile is not null)
+        {
+            labResult.File = replacementFile;
+            AddAttachmentAudit(labResult.Id, actorUserId, "LabResult.AttachmentReplaced", previousFile, replacementFile);
+        }
+        else if (request.RemoveAttachment && previousFile is not null)
+        {
+            labResult.FileId = null;
+            labResult.File = null;
+            AddAttachmentAudit(labResult.Id, actorUserId, "LabResult.AttachmentDeleted", previousFile, null);
+        }
 
         await _db.SaveChangesAsync(cancellationToken);
 
@@ -317,5 +358,30 @@ public sealed class LabResultService : ILabResultService
             return null;
 
         return value.Trim();
+    }
+
+    private void AddAttachmentAudit(
+        int labResultId,
+        int? actorUserId,
+        string action,
+        HmsFile? previousFile,
+        HmsFile? replacementFile)
+    {
+        var now = DateTime.UtcNow;
+        _db.AuditLogs.Add(new AuditLog
+        {
+            UserId = actorUserId,
+            Action = action,
+            Entity = "LabResult",
+            EntityId = labResultId,
+            OldValue = previousFile is null
+                ? null
+                : $"{previousFile.OriginalFileName} ({previousFile.StoredFileName})",
+            NewValue = replacementFile is null
+                ? null
+                : $"{replacementFile.OriginalFileName} ({replacementFile.StoredFileName})",
+            CreatedAt = now,
+            UpdatedAt = now
+        });
     }
 }

@@ -122,19 +122,28 @@ public sealed class EncounterService : IEncounterService
     public async Task<List<EncounterDto>> GetEncountersAsync(
         int? patientProfileId,
         int? doctorProfileId,
+        string? search,
         int? actorUserId,
         IEnumerable<string> actorRoles,
         CancellationToken cancellationToken)
     {
+        var roleList = actorRoles as IList<string> ?? actorRoles.ToList();
         var effectiveDoctorProfileId = await ResolveEffectiveDoctorProfileIdAsync(
             doctorProfileId,
             actorUserId,
-            actorRoles,
+            roleList,
             cancellationToken);
 
         var query = _db.Encounters
             .AsNoTracking()
             .AsQueryable();
+
+        var normalizedSearch = string.IsNullOrWhiteSpace(search) ? null : search.Trim();
+        if ((HasRole(roleList, "Admin") || HasRole(roleList, "SuperAdmin")) && normalizedSearch is null)
+        {
+            var recentThreshold = DateTime.UtcNow.AddDays(-30);
+            query = query.Where(e => e.StartedAt >= recentThreshold);
+        }
 
         if (patientProfileId.HasValue)
         {
@@ -146,6 +155,16 @@ public sealed class EncounterService : IEncounterService
         {
             query = query.Where(e =>
                 e.DoctorProfileId == effectiveDoctorProfileId.Value);
+        }
+
+        if (normalizedSearch is not null)
+        {
+            query = query.Where(e =>
+                e.EncounterNumber.Contains(normalizedSearch)
+                || e.PatientProfile.Person.FirstName.Contains(normalizedSearch)
+                || e.PatientProfile.Person.LastName.Contains(normalizedSearch)
+                || e.DoctorProfile.StaffProfile.Person.FirstName.Contains(normalizedSearch)
+                || e.DoctorProfile.StaffProfile.Person.LastName.Contains(normalizedSearch));
         }
 
         return await query
