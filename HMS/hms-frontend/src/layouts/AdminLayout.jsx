@@ -13,6 +13,10 @@ const TITLE_BY_PREFIX = [
   ["/doctor/dashboard", "Dashboard"],
   ["/nurse/dashboard", "Dashboard"],
   ["/patient/dashboard", "Dashboard"],
+  ["/patient/appointments", "My Appointments"],
+  ["/patient/payments", "My Payments"],
+  ["/patient/invoices", "My Payments"],
+  ["/patient/lab-results", "My Lab Results"],
   ["/admin/users", "Users"],
   ["/admin/staff", "Staff Management"],
   ["/admin/roles", "Roles"],
@@ -61,6 +65,10 @@ const ROUTES_WITH_LOCAL_SEARCH = [
   "/notifications",
   "/doctor/dashboard",
   "/patient/dashboard",
+  "/patient/appointments",
+  "/patient/payments",
+  "/patient/invoices",
+  "/patient/lab-results",
   "/staff/dashboard",
 ];
 

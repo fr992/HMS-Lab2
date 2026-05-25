@@ -137,6 +137,8 @@ public sealed class PaymentService : IPaymentService
         if (status == PaymentStatus.Paid && !payment.PaidAt.HasValue)
             payment.PaidAt = payment.UpdatedAt;
 
+        await _db.SaveChangesAsync(cancellationToken);
+
         await SyncInvoiceStatusAsync(payment.InvoiceId, actorUserId, payment.UpdatedAt, cancellationToken);
         await _db.SaveChangesAsync(cancellationToken);
 
@@ -169,6 +171,8 @@ public sealed class PaymentService : IPaymentService
         payment.ReceivedByUserId = actorUserId;
         payment.UpdatedAt = now;
         payment.UpdatedById = actorUserId;
+
+        await _db.SaveChangesAsync(cancellationToken);
 
         await SyncInvoiceStatusAsync(payment.InvoiceId, actorUserId, payment.UpdatedAt, cancellationToken);
         await _db.SaveChangesAsync(cancellationToken);

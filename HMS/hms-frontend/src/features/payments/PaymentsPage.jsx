@@ -6,6 +6,7 @@ import {
   CheckCircle2,
   Clock3,
   CreditCard,
+  ExternalLink,
   Eye,
   FileText,
   MoreHorizontal,
@@ -21,11 +22,13 @@ import { useAuth } from "@/auth/AuthContext";
 import { CountUpValue } from "@/features/dashboard/DashboardPrimitives";
 import {
   confirmCashPayment,
+  createStripeCheckout,
   createPayment,
   getApiErrorMessage,
   getPayment,
   listPayments,
   PAYMENT_METHOD,
+  rememberPaymentReturnPath,
   PAYMENT_STATUS,
   updatePaymentStatus,
 } from "@/api/paymentService";
@@ -122,6 +125,16 @@ function canConfirmCash(payment, hasPermission) {
   );
 }
 
+function canStartStripeCheckout(payment, hasPermission) {
+  const status = keyOf(payment.status);
+  const method = normalize(payment.paymentMethod);
+  return (
+    hasPermission &&
+    status === PAYMENT_STATUS.PENDING &&
+    [PAYMENT_METHOD.ONLINE, PAYMENT_METHOD.CARD].includes(method)
+  );
+}
+
 function statusChoicesFor(currentStatus) {
   const current = keyOf(currentStatus);
   if (current === PAYMENT_STATUS.PAID) {
@@ -150,6 +163,7 @@ export default function PaymentsPage() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [checkoutPaymentId, setCheckoutPaymentId] = useState(null);
   const [error, setError] = useState("");
   const [dialog, setDialog] = useState({ type: null, payment: null });
   const [paymentForm, setPaymentForm] = useState(EMPTY_PAYMENT_FORM);
@@ -310,6 +324,24 @@ export default function PaymentsPage() {
     }
   }
 
+  async function handleStripeCheckout(payment) {
+    if (checkoutPaymentId) return;
+
+    setCheckoutPaymentId(payment.id);
+    setError("");
+    try {
+      const data = await createStripeCheckout(payment.id);
+      if (!data?.url) {
+        throw new Error("Stripe did not return a checkout URL.");
+      }
+      rememberPaymentReturnPath();
+      window.location.assign(data.url);
+    } catch (err) {
+      setError(getApiErrorMessage(err));
+      setCheckoutPaymentId(null);
+    }
+  }
+
   return (
     <div className="flex h-full min-h-0 flex-1 flex-col gap-5">
       <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
@@ -402,9 +434,12 @@ export default function PaymentsPage() {
             items={items}
             canUpdateStatus={canUpdateStatus}
             canConfirmCashPayment={canConfirmCashPayment}
+            canCreate={canCreate}
             onView={openDetails}
             onStatus={openStatus}
             onConfirmCash={openConfirm}
+            onStripeCheckout={handleStripeCheckout}
+            checkoutPaymentId={checkoutPaymentId}
           />
         )}
         <PaginationBar pagination={pagination} loading={loading} onPageChange={setPage} />
@@ -515,9 +550,12 @@ function PaymentsTable({
   items,
   canUpdateStatus,
   canConfirmCashPayment,
+  canCreate,
+  checkoutPaymentId,
   onView,
   onStatus,
   onConfirmCash,
+  onStripeCheckout,
 }) {
   return (
     <table className="min-w-full divide-y divide-slate-200 text-sm">
@@ -555,9 +593,12 @@ function PaymentsTable({
                 payment={payment}
                 canUpdateStatus={canUpdateStatus}
                 canConfirmCashPayment={canConfirmCashPayment}
+                canCreate={canCreate}
                 onView={onView}
                 onStatus={onStatus}
                 onConfirmCash={onConfirmCash}
+                onStripeCheckout={onStripeCheckout}
+                checkoutPaymentId={checkoutPaymentId}
               />
             </td>
           </tr>
@@ -571,9 +612,12 @@ function PaymentActionsMenu({
   payment,
   canUpdateStatus,
   canConfirmCashPayment,
+  canCreate,
+  checkoutPaymentId,
   onView,
   onStatus,
   onConfirmCash,
+  onStripeCheckout,
 }) {
   const [open, setOpen] = useState(false);
   const [position, setPosition] = useState(null);
@@ -609,8 +653,27 @@ function PaymentActionsMenu({
       });
     }
 
+    if (canStartStripeCheckout(payment, canCreate)) {
+      next.push({
+        key: "checkout",
+        label: checkoutPaymentId === payment.id ? "Opening Stripe..." : "Pay with Stripe",
+        icon: ExternalLink,
+        onClick: () => onStripeCheckout(payment),
+      });
+    }
+
     return next;
-  }, [canConfirmCashPayment, canUpdateStatus, onConfirmCash, onStatus, onView, payment]);
+  }, [
+    canConfirmCashPayment,
+    canCreate,
+    canUpdateStatus,
+    checkoutPaymentId,
+    onConfirmCash,
+    onStatus,
+    onStripeCheckout,
+    onView,
+    payment,
+  ]);
 
   useLayoutEffect(() => {
     if (!open) {

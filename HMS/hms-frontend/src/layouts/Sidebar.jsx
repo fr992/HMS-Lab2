@@ -32,7 +32,7 @@ export default function Sidebar() {
     typeof window === "undefined" ? false : window.innerWidth < 900
   );
   const auth = useAuth();
-  const { pathname } = useLocation();
+  const { pathname, hash } = useLocation();
   const navigate = useNavigate();
   const canReadPatients = auth.hasPermission("Patients.Read");
   const canReadAppointments = auth.hasPermission("Appointments.Read");
@@ -54,9 +54,9 @@ export default function Sidebar() {
   const canReadAuditLogs = auth.hasPermission("AuditLogs.Read");
   const isSuperAdmin = auth.hasRole("SuperAdmin");
   const isAdmin = auth.hasRole("Admin") || isSuperAdmin;
-  const isDoctor = auth.userRole === "Doctor";
+  const isDoctor = auth.hasRole("Doctor");
   const isNurse = auth.hasRole("Nurse") || auth.hasRole("Infermier");
-  const isPatient = auth.userRole === "Patient";
+  const isPatient = auth.hasRole("Patient");
   const isOperationalStaff = !isAdmin && !isDoctor && !isNurse && !isPatient;
   const canAccessBedManagement = canManageBeds && !isDoctor && !isNurse;
   const canAccessBeds = canReadBeds || canReadBedRequests || canAccessBedManagement;
@@ -72,7 +72,11 @@ export default function Sidebar() {
   );
 
   const linkClass = (to) => {
-    const on = pathname === to || (to !== "/admin" && pathname.startsWith(to));
+    const current = `${pathname}${hash}`;
+    const hasHash = to.includes("#");
+    const on = hasHash
+      ? current === to
+      : pathname === to || (to !== "/admin" && pathname.startsWith(to));
     return [
       "flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition",
       collapsed ? "justify-center" : "",
@@ -378,28 +382,28 @@ export default function Sidebar() {
             )}
             {isPatient && (
               <NavLink
-                to="/patient/dashboard#appointments"
+                to="/patient/appointments"
                 icon={CalendarDays}
                 label="My Appointments"
-                className={linkClass("/patient/dashboard#appointments")}
+                className={linkClass("/patient/appointments")}
                 collapsed={collapsed}
               />
             )}
             {isPatient && (
               <NavLink
-                to="/patient/dashboard#invoices"
+                to="/patient/payments"
                 icon={ReceiptText}
-                label="My Invoices"
-                className={linkClass("/patient/dashboard#invoices")}
+                label="My Payments"
+                className={linkClass("/patient/payments")}
                 collapsed={collapsed}
               />
             )}
             {isPatient && (
               <NavLink
-                to="/patient/dashboard#lab-results"
+                to="/patient/lab-results"
                 icon={FlaskConical}
                 label="My Lab Results"
-                className={linkClass("/patient/dashboard#lab-results")}
+                className={linkClass("/patient/lab-results")}
                 collapsed={collapsed}
               />
             )}

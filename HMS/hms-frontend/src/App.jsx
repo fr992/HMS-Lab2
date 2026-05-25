@@ -5,6 +5,9 @@ import MainLayout from "@/layouts/MainLayout";
 import DoctorDashboardPage from "@/features/dashboard/DoctorDashboardPage";
 import AdminOverviewDashboard from "@/features/dashboard/AdminOverviewDashboard";
 import PatientDashboardPage from "@/features/dashboard/PatientDashboardPage";
+import PatientAppointmentsPage from "@/features/patientPortal/PatientAppointmentsPage";
+import PatientInvoicesPage from "@/features/patientPortal/PatientInvoicesPage";
+import PatientLabResultsPage from "@/features/patientPortal/PatientLabResultsPage";
 import NurseDashboardPage from "@/features/dashboard/NurseDashboardPage";
 import UsersPage from "@/features/users/UsersPage";
 import RolesPage from "@/features/roles/RolesPage";
@@ -35,6 +38,7 @@ import StaffManagementPage from "@/features/staff/StaffManagementPage";
 import InvoicesListPage from "@/features/invoices/InvoicesListPage";
 import InvoiceDetailPage from "@/features/invoices/InvoiceDetailPage";
 import PaymentsPage from "@/features/payments/PaymentsPage";
+import PaymentResultPage from "@/features/payments/PaymentResultPage";
 import SettingsPage from "@/features/settings/SettingsPage";
 import NotificationsPage from "@/features/notifications/NotificationsPage";
 import AdminAuditLogsPage from "@/features/auditLogs/AdminAuditLogsPage";
@@ -51,6 +55,8 @@ export default function App() {
           </Route>
           <Route path="/login" element={<LoginPage />} />
           <Route path="/unauthorized" element={<UnauthorizedPage />} />
+          <Route path="/payment-success" element={<PaymentResultPage status="success" />} />
+          <Route path="/payment-cancel" element={<PaymentResultPage status="cancel" />} />
 
           <Route
             path="/notifications"
@@ -391,6 +397,10 @@ export default function App() {
               }
             >
               <Route path="dashboard" element={<PatientDashboardPage />} />
+              <Route path="appointments" element={<PatientAppointmentsPage />} />
+              <Route path="invoices" element={<PatientInvoicesPage />} />
+              <Route path="payments" element={<PatientInvoicesPage />} />
+              <Route path="lab-results" element={<PatientLabResultsPage />} />
               <Route path="encounters" element={<PatientEncountersListPage />} />
               <Route
                 path="encounters/:encounterId/diagnoses"

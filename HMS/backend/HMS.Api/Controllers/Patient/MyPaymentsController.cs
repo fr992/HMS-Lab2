@@ -1,4 +1,8 @@
+using System.Security.Claims;
 using HMS.Api.Authorization;
+using HMS.Application.Abstractions.Identity;
+using HMS.Application.Exceptions;
+using HMS.Contracts.Identity;
 using Microsoft.AspNetCore.Mvc;
 
 namespace HMS.Api.Controllers.Patient;
@@ -7,10 +11,35 @@ namespace HMS.Api.Controllers.Patient;
 [Route("api/me/payments")]
 public sealed class MyPaymentsController : ControllerBase
 {
+    private readonly IStripeService _stripeService;
+
+    public MyPaymentsController(IStripeService stripeService)
+    {
+        _stripeService = stripeService;
+    }
+
     [HttpPost("pay-online")]
     [RequirePermission("Own.Payments.PayOnline")]
-    public IActionResult PayOnline([FromBody] object? request)
+    public async Task<IActionResult> PayOnline(
+        [FromBody] CreateStripeCheckoutDto request,
+        CancellationToken cancellationToken)
     {
-        return Ok(new { paid = false, note = "Online payments not implemented yet." });
+        var url = await _stripeService.CreatePatientCheckoutSessionAsync(
+            request.InvoiceId,
+            CurrentUserId(),
+            cancellationToken);
+
+        return Ok(new { url });
+    }
+
+    private int CurrentUserId()
+    {
+        var value = User.FindFirstValue(ClaimTypes.NameIdentifier)
+            ?? User.FindFirstValue("sub");
+
+        if (!int.TryParse(value, out var userId))
+            throw new UnauthorizedException("Invalid authenticated user.");
+
+        return userId;
     }
 }

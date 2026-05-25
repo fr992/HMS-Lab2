@@ -1,10 +1,13 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { useLocation } from "react-router-dom";
 import {
   CalendarDays,
   CheckCircle2,
   Clock3,
+  CreditCard,
   FileText,
   FlaskConical,
+  Loader2,
   ReceiptText,
   Stethoscope,
 } from "lucide-react";
@@ -18,6 +21,7 @@ import {
   MetricCard,
 } from "@/features/dashboard/DashboardPrimitives";
 import { fetchPatientDashboardData } from "@/features/dashboard/roleDashboardApi";
+import { payInvoiceOnline, rememberPaymentReturnPath } from "@/api/paymentService";
 import {
   formatDateTime,
   formatMoney,
@@ -30,7 +34,9 @@ import {
 
 export default function PatientDashboardPage() {
   const auth = useAuth();
+  const location = useLocation();
   const [state, setState] = useState({ status: "loading", data: {}, error: "" });
+  const [payingInvoiceId, setPayingInvoiceId] = useState(null);
 
   const load = useCallback(async () => {
     setState((current) => ({ ...current, status: "loading", error: "" }));
@@ -46,7 +52,41 @@ export default function PatientDashboardPage() {
     void load();
   }, [load]);
 
+  useEffect(() => {
+    if (state.status !== "ready" || !location.hash) return;
+
+    const id = location.hash.slice(1);
+    window.requestAnimationFrame(() => {
+      document.getElementById(id)?.scrollIntoView({
+        behavior: "smooth",
+        block: "start",
+      });
+    });
+  }, [location.hash, state.status]);
+
   const dashboard = useMemo(() => buildPatientDashboard(state.data), [state.data]);
+
+  async function handlePayInvoice(invoice) {
+    if (payingInvoiceId) return;
+
+    setPayingInvoiceId(invoice.id);
+    setState((current) => ({ ...current, error: "" }));
+    try {
+      const data = await payInvoiceOnline(invoice.id);
+      if (!data?.url) {
+        throw new Error("Stripe did not return a checkout URL.");
+      }
+      rememberPaymentReturnPath();
+      window.location.assign(data.url);
+    } catch (error) {
+      setPayingInvoiceId(null);
+      setState((current) => ({
+        ...current,
+        status: "ready",
+        error: getApiErrorMessage(error),
+      }));
+    }
+  }
 
   return (
     <DashboardFrame
@@ -59,6 +99,9 @@ export default function PatientDashboardPage() {
         <LoadingDashboard statCount={4} cardCount={4} columns="lg:grid-cols-4" />
       )}
       {state.status === "error" && <ErrorBanner message={state.error} onRetry={() => void load()} />}
+      {state.status === "ready" && state.error && (
+        <ErrorBanner message={state.error} onRetry={() => void load()} />
+      )}
 
       {state.status === "ready" && (
         <>
@@ -94,19 +137,23 @@ export default function PatientDashboardPage() {
           </section>
 
           <section className="grid gap-4 xl:grid-cols-[minmax(0,1.15fr)_minmax(22rem,0.85fr)]">
-            <CardShell title="Upcoming Appointments">
+            <CardShell id="appointments" title="Upcoming Appointments">
               <PatientAppointments items={dashboard.upcomingAppointments.slice(0, 6)} />
             </CardShell>
-            <CardShell title="Invoices">
-              <PatientInvoices items={dashboard.invoices.slice(0, 6)} />
+            <CardShell id="invoices" title="Invoices">
+              <PatientInvoices
+                items={dashboard.invoices.slice(0, 6)}
+                payingInvoiceId={payingInvoiceId}
+                onPay={handlePayInvoice}
+              />
             </CardShell>
           </section>
 
           <section className="grid gap-4 xl:grid-cols-2">
-            <CardShell title="Recent Encounters">
+            <CardShell id="encounters" title="Recent Encounters">
               <PatientEncounters items={dashboard.encounters.slice(0, 5)} />
             </CardShell>
-            <CardShell title="Recent Lab Results">
+            <CardShell id="lab-results" title="Recent Lab Results">
               <PatientLabResults items={dashboard.labResults.slice(0, 5)} />
             </CardShell>
           </section>
@@ -162,19 +209,60 @@ function PatientAppointments({ items }) {
   );
 }
 
-function PatientInvoices({ items }) {
+function PatientInvoices({ items, payingInvoiceId, onPay }) {
   if (!items.length) return <EmptyState>No invoices available.</EmptyState>;
   return (
     <div className="divide-y divide-slate-100">
       {items.map((item) => (
-        <Row
+        <InvoiceRow
           key={item.id}
-          icon={<FileText className="size-4" />}
-          title={item.invoiceNumber}
-          detail={[titleCase(item.status), item.dueAt ? `Due ${formatDateTime(item.dueAt)}` : null].filter(Boolean).join(" - ")}
-          value={formatMoney(item.totalAmount, item.currency)}
+          item={item}
+          paying={payingInvoiceId === item.id}
+          onPay={() => onPay(item)}
         />
       ))}
+    </div>
+  );
+}
+
+function InvoiceRow({ item, paying, onPay }) {
+  const canPay = ["draft", "issued", "partially_paid"].includes(keyOf(item.status));
+
+  return (
+    <div className="grid gap-3 py-3 sm:grid-cols-[1fr_auto] sm:items-center">
+      <div className="flex min-w-0 items-center gap-3">
+        <span className="inline-flex size-9 shrink-0 items-center justify-center rounded-lg bg-slate-100 text-slate-500">
+          <FileText className="size-4" />
+        </span>
+        <div className="min-w-0">
+          <p className="truncate font-semibold text-slate-950">{item.invoiceNumber || "-"}</p>
+          <p className="mt-1 truncate text-sm text-slate-500">
+            {[titleCase(item.status), item.dueAt ? `Due ${formatDateTime(item.dueAt)}` : null]
+              .filter(Boolean)
+              .join(" - ")}
+          </p>
+        </div>
+      </div>
+      <div className="flex flex-wrap items-center justify-start gap-2 sm:justify-end">
+        <p className="text-sm font-semibold text-slate-800">
+          {formatMoney(item.totalAmount, item.currency)}
+        </p>
+        {canPay && (
+          <button
+            type="button"
+            onClick={onPay}
+            disabled={paying}
+            className="inline-flex h-9 items-center justify-center gap-2 rounded-lg bg-sky-600 px-3 text-sm font-medium text-white shadow-sm transition hover:bg-sky-700 disabled:cursor-not-allowed disabled:opacity-60"
+          >
+            {paying ? (
+              <Loader2 className="size-4 animate-spin" aria-hidden />
+            ) : (
+              <CreditCard className="size-4" aria-hidden />
+            )}
+            {paying ? "Opening..." : "Pay"}
+          </button>
+        )}
+      </div>
     </div>
   );
 }

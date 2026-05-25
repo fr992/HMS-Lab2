@@ -106,9 +106,9 @@ export function MetricCard({
   );
 }
 
-export function CardShell({ title, action, children }) {
+export function CardShell({ title, action, children, id }) {
   return (
-    <section className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
+    <section id={id} className="scroll-mt-24 rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
       <div className="mb-5 flex items-start justify-between gap-4">
         <h2 className="text-lg font-semibold text-slate-950">{title}</h2>
         {action}

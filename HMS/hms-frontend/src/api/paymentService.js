@@ -16,6 +16,13 @@ export const PAYMENT_METHOD = {
   ONLINE: "online",
 };
 
+export const PAYMENT_RETURN_TO_KEY = "hms.payment.returnTo";
+
+export function rememberPaymentReturnPath() {
+  const path = `${window.location.pathname}${window.location.search}${window.location.hash}`;
+  window.sessionStorage.setItem(PAYMENT_RETURN_TO_KEY, path);
+}
+
 export async function listPayments({
   search,
   status,
@@ -54,6 +61,23 @@ export async function updatePaymentStatus(id, payload) {
 
 export async function confirmCashPayment(id) {
   const response = await apiClient.post(`/payments/${id}/confirm-cash`);
+  return response.data;
+}
+
+export async function createStripeCheckout(paymentId) {
+  const response = await apiClient.post(`/stripe/checkout/${paymentId}`);
+  return response.data;
+}
+
+export async function payInvoiceOnline(invoiceId) {
+  const response = await apiClient.post("/me/payments/pay-online", { invoiceId });
+  return response.data;
+}
+
+export async function confirmStripeCheckout(sessionId) {
+  const response = await apiClient.post("/stripe/checkout/confirm", null, {
+    params: { sessionId },
+  });
   return response.data;
 }
 
