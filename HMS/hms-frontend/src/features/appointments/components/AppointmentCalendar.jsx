@@ -1,6 +1,10 @@
-import { useMemo } from "react";
+import { memo, useMemo } from "react";
 import { CalendarDays, CalendarPlus, Clock3, Eye, Pencil } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { APPOINTMENT_STATUS } from "@/features/appointments/appointmentConstants";
+import { cn } from "@/lib/utils";
 
 const STATUS_META = {
   [APPOINTMENT_STATUS.SCHEDULED]: {
@@ -260,11 +264,12 @@ function statusMeta(status) {
 function CompactStatusBadge({ status }) {
   const meta = statusMeta(status);
   return (
-    <span
-      className={`inline-flex max-w-full items-center rounded-full px-2 py-0.5 text-[11px] font-semibold leading-4 ring-1 ring-inset ${meta.badge}`}
+    <Badge
+      variant="outline"
+      className={cn("h-5 max-w-full rounded-full px-2 text-[11px] font-semibold leading-4", meta.badge)}
     >
       <span className="truncate">{meta.label}</span>
-    </span>
+    </Badge>
   );
 }
 
@@ -289,7 +294,7 @@ function useAppointmentsByDay(appointments) {
   }, [appointments]);
 }
 
-function ScheduleAppointmentCard({
+const ScheduleAppointmentCard = memo(function ScheduleAppointmentCard({
   appointment,
   onAppointmentClick,
   onView,
@@ -302,7 +307,11 @@ function ScheduleAppointmentCard({
   return (
     <article
       onClick={() => onAppointmentClick(appointment)}
-      className={`group relative z-10 h-full min-h-[2.45rem] w-full max-w-full cursor-pointer overflow-hidden rounded-md border ${meta.border} ${meta.bg} px-2.5 py-2 text-left shadow-sm transition hover:z-20 hover:-translate-y-0.5 hover:border-sky-300 hover:bg-white hover:shadow-md`}
+      className={cn(
+        "group relative z-10 h-full min-h-[2.45rem] w-full max-w-full cursor-pointer overflow-hidden rounded-lg border px-2.5 py-2 text-left shadow-sm transition will-change-transform hover:z-20 hover:-translate-y-0.5 hover:border-sky-300 hover:bg-white hover:shadow-md",
+        meta.border,
+        meta.bg
+      )}
     >
       <span className={`absolute inset-y-1.5 left-0 w-1 rounded-r-full ${meta.line}`} />
       <div className="block min-w-0 max-w-full pl-2">
@@ -340,36 +349,40 @@ function ScheduleAppointmentCard({
       </div>
 
       <div className="absolute right-1.5 top-1.5 hidden items-center gap-1 rounded-md bg-white/95 p-1 shadow-sm ring-1 ring-slate-200 group-hover:flex">
-        <button
+        <Button
           type="button"
+          variant="ghost"
+          size="icon-xs"
           onClick={(event) => {
             event.stopPropagation();
             onView(appointment);
           }}
-          className="inline-flex h-6 w-6 items-center justify-center rounded text-slate-500 transition hover:bg-slate-100 hover:text-slate-900"
+          className="text-slate-500 hover:text-slate-900"
           aria-label={`View appointment for ${appointment.patientName}`}
         >
           <Eye className="h-3.5 w-3.5" aria-hidden />
-        </button>
+        </Button>
         {canEdit && (
-          <button
+          <Button
             type="button"
+            variant="ghost"
+            size="icon-xs"
             onClick={(event) => {
               event.stopPropagation();
               onEdit(appointment);
             }}
-            className="inline-flex h-6 w-6 items-center justify-center rounded text-slate-500 transition hover:bg-slate-100 hover:text-slate-900"
+            className="text-slate-500 hover:text-slate-900"
             aria-label={`Edit appointment for ${appointment.patientName}`}
           >
             <Pencil className="h-3.5 w-3.5" aria-hidden />
-          </button>
+          </Button>
         )}
       </div>
     </article>
   );
-}
+});
 
-function AppointmentDayColumn({
+const AppointmentDayColumn = memo(function AppointmentDayColumn({
   day,
   items,
   today,
@@ -389,8 +402,8 @@ function AppointmentDayColumn({
   return (
     <section
       className={[
-        "relative min-w-0 border-r border-slate-100 last:border-r-0",
-        isToday ? "bg-sky-50/40 border-sky-200" : "bg-white",
+        "relative min-w-0 border-r border-slate-100 [contain:layout_paint] last:border-r-0",
+        isToday ? "border-sky-200 bg-sky-50/50" : "bg-white",
       ]
         .filter(Boolean)
         .join(" ")}
@@ -407,7 +420,7 @@ function AppointmentDayColumn({
             type="button"
             onClick={() => canCreate && onSlotClick(day, TIME_SLOTS[index])}
             disabled={!canCreate}
-            className="group relative min-h-0 border-b border-slate-100 bg-transparent transition hover:bg-sky-50/70 disabled:cursor-default"
+            className="group relative min-h-0 border-b border-slate-100 bg-transparent transition hover:bg-sky-50/80 disabled:cursor-default"
             aria-label={`Create appointment on ${formatDay(day)} at ${TIME_SLOTS[index]}`}
           >
             {canCreate && (
@@ -463,9 +476,9 @@ function AppointmentDayColumn({
       )}
     </section>
   );
-}
+});
 
-function WeekAppointmentCard({
+const WeekAppointmentCard = memo(function WeekAppointmentCard({
   appointment,
   onAppointmentClick,
   onView,
@@ -477,7 +490,11 @@ function WeekAppointmentCard({
   return (
     <article
       onClick={() => onAppointmentClick(appointment)}
-      className={`group flex w-full cursor-pointer flex-col gap-2 rounded-lg border border-l-4 ${meta.border} ${meta.bg} p-3 text-left shadow-sm transition hover:-translate-y-0.5 hover:border-sky-300 hover:bg-white hover:shadow-md`}
+      className={cn(
+        "group flex w-full cursor-pointer flex-col gap-2 rounded-lg border border-l-4 p-3 text-left shadow-sm transition will-change-transform hover:-translate-y-0.5 hover:border-sky-300 hover:bg-white hover:shadow-md",
+        meta.border,
+        meta.bg
+      )}
       style={{ borderLeftColor: meta.accentColor }}
     >
       <div className="flex min-w-0 items-center justify-between gap-2">
@@ -500,36 +517,40 @@ function WeekAppointmentCard({
       </div>
 
       <div className="flex flex-wrap items-center gap-1 pt-1 opacity-0 transition group-hover:opacity-100 group-focus-within:opacity-100">
-        <button
+        <Button
           type="button"
+          variant="outline"
+          size="sm"
           onClick={(event) => {
             event.stopPropagation();
             onView(appointment);
           }}
-          className="inline-flex h-7 items-center gap-1 rounded-md border border-slate-200 bg-white px-2 text-xs font-semibold text-slate-700 transition hover:bg-slate-50"
+          className="h-7 text-xs"
         >
           <Eye className="h-3.5 w-3.5" aria-hidden />
           View
-        </button>
+        </Button>
         {canEdit && (
-          <button
+          <Button
             type="button"
+            variant="outline"
+            size="sm"
             onClick={(event) => {
               event.stopPropagation();
               onEdit(appointment);
             }}
-            className="inline-flex h-7 items-center gap-1 rounded-md border border-slate-200 bg-white px-2 text-xs font-semibold text-slate-700 transition hover:bg-slate-50"
+            className="h-7 text-xs"
           >
             <Pencil className="h-3.5 w-3.5" aria-hidden />
             Edit
-          </button>
+          </Button>
         )}
       </div>
     </article>
   );
-}
+});
 
-function WeekDayCard({
+const WeekDayCard = memo(function WeekDayCard({
   day,
   items,
   today,
@@ -549,13 +570,14 @@ function WeekDayCard({
     });
 
   return (
-    <section
-      className={[
-        "flex min-w-[16.25rem] flex-col rounded-xl border bg-white shadow-sm",
-        isToday ? "border-sky-200 bg-sky-50/50" : "border-slate-200",
-      ].join(" ")}
+    <Card
+      size="sm"
+      className={cn(
+        "flex min-w-[16.25rem] flex-col gap-0 rounded-lg py-0 shadow-sm",
+        isToday ? "ring-sky-200 bg-sky-50/50" : "bg-white"
+      )}
     >
-      <div className="flex items-start justify-between gap-2 border-b border-slate-100 px-3 py-3">
+      <CardHeader className="flex flex-row items-start justify-between gap-2 border-b border-slate-100 px-3 py-3">
         <button
           type="button"
           onClick={() => onDayClick(day)}
@@ -573,24 +595,26 @@ function WeekDayCard({
         </button>
         <div className="flex shrink-0 items-center gap-1.5">
           {isToday && (
-            <span className="rounded-full bg-sky-600 px-2 py-0.5 text-[11px] font-semibold text-white">
+            <Badge className="rounded-full bg-sky-600 px-2 py-0.5 text-[11px] font-semibold text-white">
               Today
-            </span>
+            </Badge>
           )}
           {canCreate && (
-            <button
+            <Button
               type="button"
+              variant="outline"
+              size="icon"
               onClick={createForDay}
-              className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-sky-200 bg-white text-sky-700 shadow-sm transition hover:bg-sky-50"
+              className="border-sky-200 bg-white text-sky-700 shadow-sm hover:bg-sky-50"
               aria-label={`Add appointment on ${formatWeekDayHeading(day)}`}
             >
               <CalendarPlus className="h-4 w-4" aria-hidden />
-            </button>
+            </Button>
           )}
         </div>
-      </div>
+      </CardHeader>
 
-      <div className="flex flex-col gap-2 p-3">
+      <CardContent className="flex flex-col gap-2 p-3">
         {items.length === 0 ? (
           <button
             type="button"
@@ -613,10 +637,10 @@ function WeekDayCard({
             />
           ))
         )}
-      </div>
-    </section>
+      </CardContent>
+    </Card>
   );
-}
+});
 
 function WeekCalendar({
   days,
@@ -631,7 +655,7 @@ function WeekCalendar({
   onAppointmentEdit,
 }) {
   return (
-    <div className="rounded-xl border border-slate-200 bg-white p-3 shadow-sm">
+    <Card className="rounded-lg bg-white p-0 shadow-sm">
       <div className="grid grid-cols-[repeat(7,minmax(260px,1fr))] gap-3 overflow-x-auto pb-1">
         {days.map((day) => (
           <WeekDayCard
@@ -649,7 +673,7 @@ function WeekCalendar({
           />
         ))}
       </div>
-    </div>
+    </Card>
   );
 }
 
@@ -675,7 +699,7 @@ function MonthCalendar({ focusDate, onDayClick, appointmentsByDay, today }) {
   }
 
   return (
-    <div className="overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm">
+    <Card className="overflow-hidden rounded-lg bg-white p-0 shadow-sm">
       <div className="grid grid-cols-7 border-b border-slate-200 bg-slate-50">
         {WEEKDAY_LABELS.map((label) => (
           <div
@@ -708,30 +732,48 @@ function MonthCalendar({ focusDate, onDayClick, appointmentsByDay, today }) {
               type="button"
               onClick={() => onDayClick(date)}
               className={[
-                "flex min-h-[5.5rem] min-w-0 flex-col items-stretch border-0 p-1.5 text-left transition hover:bg-sky-50/80",
+                "flex min-h-[6.25rem] min-w-0 flex-col items-stretch border-0 p-2 text-left transition hover:bg-sky-50/80",
                 isToday ? "bg-sky-50" : "bg-white",
               ].join(" ")}
             >
-              <span
-                className={[
-                  "inline-flex h-6 w-6 items-center justify-center rounded-full text-xs font-semibold",
-                  isToday
-                    ? "bg-sky-600 text-white"
-                    : "text-slate-800",
-                ].join(" ")}
-              >
-                {date.getDate()}
+              <span className="flex items-center justify-between gap-1">
+                <span
+                  className={[
+                    "inline-flex h-6 w-6 items-center justify-center rounded-full text-xs font-semibold",
+                    isToday ? "bg-sky-600 text-white" : "text-slate-800",
+                  ].join(" ")}
+                >
+                  {date.getDate()}
+                </span>
+                {items.length > 0 && (
+                  <Badge variant="outline" className="h-5 rounded-full bg-white/80 px-1.5 text-[10px] text-slate-600">
+                    {items.length}
+                  </Badge>
+                )}
               </span>
-              <span className="mt-1 line-clamp-2 text-[10px] font-medium text-slate-500">
-                {items.length === 0
-                  ? " "
-                  : `${items.length} ${items.length === 1 ? "visit" : "visits"}`}
+              <span className="mt-2 flex min-w-0 flex-col gap-1">
+                {items.slice(0, 2).map((appointment) => {
+                  const meta = statusMeta(appointment.status);
+                  return (
+                    <span
+                      key={appointment.id}
+                      className={cn("block truncate rounded-md px-1.5 py-1 text-[10px] font-semibold leading-none text-slate-700", meta.bg)}
+                    >
+                      {formatTime(appointment.scheduledStart)} {appointment.patientName}
+                    </span>
+                  );
+                })}
+                {items.length > 2 && (
+                  <span className="text-[10px] font-semibold text-slate-500">
+                    +{items.length - 2} more
+                  </span>
+                )}
               </span>
             </button>
           );
         })}
       </div>
-    </div>
+    </Card>
   );
 }
 
@@ -813,7 +855,7 @@ export default function AppointmentCalendar({
   };
 
   return (
-    <div className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
+    <Card className="overflow-hidden rounded-lg bg-white p-0 shadow-sm">
       <div className="scrollbar-none overflow-x-auto">
         <div
           className={`sticky top-0 z-30 grid ${minWidth} border-b border-slate-200 bg-white`}
@@ -835,7 +877,7 @@ export default function AppointmentCalendar({
                 onClick={() => onDayClick(day)}
                 className={[
                   "min-w-0 border-r border-slate-200 bg-white px-3 py-3 text-left transition last:border-r-0 hover:bg-slate-50",
-                  isToday ? "bg-sky-50/70 border-sky-200" : "",
+                  isToday ? "border-sky-200 bg-sky-50/70" : "",
                 ]
                   .filter(Boolean)
                   .join(" ")}
@@ -858,9 +900,9 @@ export default function AppointmentCalendar({
                     </span>
                   </span>
                   {isToday && (
-                    <span className="shrink-0 rounded-full bg-sky-600 px-2 py-0.5 text-[11px] font-semibold text-white">
+                    <Badge className="shrink-0 rounded-full bg-sky-600 px-2 py-0.5 text-[11px] font-semibold text-white">
                       Today
-                    </span>
+                    </Badge>
                   )}
                 </span>
               </button>
@@ -915,6 +957,6 @@ export default function AppointmentCalendar({
           })}
         </div>
       </div>
-    </div>
+    </Card>
   );
 }

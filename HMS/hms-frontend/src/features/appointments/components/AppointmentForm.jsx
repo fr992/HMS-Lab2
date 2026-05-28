@@ -2,6 +2,8 @@ import { useEffect, useId, useMemo, useRef, useState } from "react";
 import {
   CalendarDays,
   Check,
+  ChevronLeft,
+  ChevronRight,
   ChevronsUpDown,
   Clock3,
   FileText,
@@ -39,6 +41,20 @@ const DURATION_OPTIONS = [
   { label: "45 min", value: 45 },
   { label: "60 min", value: 60 },
   { label: "Custom", value: "custom" },
+];
+const MONTH_SHORT_LABELS = [
+  "Jan",
+  "Feb",
+  "Mar",
+  "Apr",
+  "May",
+  "Jun",
+  "Jul",
+  "Aug",
+  "Sep",
+  "Oct",
+  "Nov",
+  "Dec",
 ];
 
 function FieldErr({ id, message }) {
@@ -229,6 +245,263 @@ function formatDate(date) {
     day: "numeric",
     year: "numeric",
   });
+}
+
+function dateInputValue(date) {
+  return [
+    date.getFullYear(),
+    String(date.getMonth() + 1).padStart(2, "0"),
+    String(date.getDate()).padStart(2, "0"),
+  ].join("-");
+}
+
+function parseDateInput(value) {
+  if (!value) return null;
+  const date = new Date(`${value}T00:00`);
+  return Number.isNaN(date.getTime()) ? null : date;
+}
+
+function startOfMonth(date) {
+  const next = new Date(date);
+  next.setHours(0, 0, 0, 0);
+  next.setDate(1);
+  return next;
+}
+
+function addMonths(date, amount) {
+  const next = new Date(date);
+  next.setMonth(next.getMonth() + amount);
+  return startOfMonth(next);
+}
+
+function addYears(date, amount) {
+  const next = new Date(date);
+  next.setFullYear(next.getFullYear() + amount);
+  return startOfMonth(next);
+}
+
+function isSameDay(a, b) {
+  return (
+    a.getFullYear() === b.getFullYear() &&
+    a.getMonth() === b.getMonth() &&
+    a.getDate() === b.getDate()
+  );
+}
+
+function DatePickerField({ id, label, value, disabled, fieldError, onChange }) {
+  const [open, setOpen] = useState(false);
+  const [viewMonth, setViewMonth] = useState(() =>
+    startOfMonth(parseDateInput(value) || new Date())
+  );
+  const rootRef = useRef(null);
+  const selectedDate = parseDateInput(value);
+  const today = useMemo(() => {
+    const date = new Date();
+    date.setHours(0, 0, 0, 0);
+    return date;
+  }, []);
+
+  useEffect(() => {
+    const parsed = parseDateInput(value);
+    if (parsed) setViewMonth(startOfMonth(parsed));
+  }, [value]);
+
+  useEffect(() => {
+    function handlePointerDown(event) {
+      if (!rootRef.current?.contains(event.target)) setOpen(false);
+    }
+    document.addEventListener("pointerdown", handlePointerDown);
+    return () => document.removeEventListener("pointerdown", handlePointerDown);
+  }, []);
+
+  const monthLabel = viewMonth.toLocaleDateString(undefined, {
+    month: "long",
+    year: "numeric",
+  });
+  const monthStart = startOfMonth(viewMonth);
+  const gridStart = new Date(monthStart);
+  gridStart.setDate(monthStart.getDate() - monthStart.getDay());
+  const days = Array.from({ length: 42 }, (_, index) => {
+    const day = new Date(gridStart);
+    day.setDate(gridStart.getDate() + index);
+    return day;
+  });
+
+  const selectDate = (date) => {
+    onChange(dateInputValue(date));
+    setOpen(false);
+  };
+
+  return (
+    <div ref={rootRef} className="relative">
+      <label className={labelCls} htmlFor={id}>
+        {label}
+      </label>
+      <button
+        id={id}
+        type="button"
+        disabled={disabled}
+        onClick={() => !disabled && setOpen((next) => !next)}
+        className={[
+          "mt-1.5 flex h-10 w-full items-center justify-between gap-3 rounded-lg border bg-white px-3 text-left text-sm text-slate-900 shadow-sm outline-none transition focus:border-sky-500 focus:ring-2 focus:ring-sky-500/20 disabled:cursor-not-allowed disabled:opacity-50",
+          fieldError ? "border-rose-400" : "border-slate-200",
+        ].join(" ")}
+        aria-expanded={open}
+        aria-haspopup="dialog"
+      >
+        <span className={value ? "font-medium" : "text-slate-400"}>
+          {value ? formatDate(value) : "Select appointment date"}
+        </span>
+        <CalendarDays className="h-4 w-4 shrink-0 text-slate-400" aria-hidden />
+      </button>
+
+      {open && !disabled && (
+        <div
+          className="absolute left-0 z-40 mt-2 w-[min(19.5rem,calc(100vw-3rem))] overflow-hidden rounded-xl border border-slate-200 bg-white p-2.5 shadow-2xl ring-1 ring-slate-950/5"
+          role="dialog"
+          aria-label="Choose appointment date"
+        >
+          <div className="flex items-center justify-between gap-2">
+            <button
+              type="button"
+              onClick={() => setViewMonth((current) => addMonths(current, -1))}
+              className="inline-flex h-7 w-7 items-center justify-center rounded-lg text-slate-500 transition hover:bg-slate-100 hover:text-slate-950"
+              aria-label="Previous month"
+            >
+              <ChevronLeft className="h-4 w-4" aria-hidden />
+            </button>
+            <div className="text-sm font-semibold text-slate-950">{monthLabel}</div>
+            <button
+              type="button"
+              onClick={() => setViewMonth((current) => addMonths(current, 1))}
+              className="inline-flex h-7 w-7 items-center justify-center rounded-lg text-slate-500 transition hover:bg-slate-100 hover:text-slate-950"
+              aria-label="Next month"
+            >
+              <ChevronRight className="h-4 w-4" aria-hidden />
+            </button>
+          </div>
+
+          <div className="mt-2 grid grid-cols-[auto_1fr_auto] items-center gap-1.5 rounded-lg border border-slate-100 bg-slate-50 p-1">
+            <button
+              type="button"
+              onClick={() => setViewMonth((current) => addYears(current, -1))}
+              className="inline-flex h-7 items-center justify-center rounded-md px-1.5 text-[11px] font-semibold text-slate-600 transition hover:bg-white hover:text-slate-950 hover:shadow-sm"
+            >
+              -1 year
+            </button>
+            <select
+              value={viewMonth.getFullYear()}
+              onChange={(event) => {
+                const next = new Date(viewMonth);
+                next.setFullYear(Number(event.target.value));
+                setViewMonth(startOfMonth(next));
+              }}
+              className="h-7 rounded-md border border-slate-200 bg-white px-2 text-center text-xs font-semibold text-slate-900 outline-none transition focus:border-sky-500 focus:ring-2 focus:ring-sky-500/20"
+              aria-label="Select year"
+            >
+              {Array.from({ length: 21 }, (_, index) => today.getFullYear() - 10 + index).map((year) => (
+                <option key={year} value={year}>
+                  {year}
+                </option>
+              ))}
+            </select>
+            <button
+              type="button"
+              onClick={() => setViewMonth((current) => addYears(current, 1))}
+              className="inline-flex h-7 items-center justify-center rounded-md px-1.5 text-[11px] font-semibold text-slate-600 transition hover:bg-white hover:text-slate-950 hover:shadow-sm"
+            >
+              +1 year
+            </button>
+          </div>
+
+          <div className="mt-1.5 grid grid-cols-6 gap-1">
+            {MONTH_SHORT_LABELS.map((month, index) => {
+              const active = index === viewMonth.getMonth();
+              return (
+                <button
+                  key={month}
+                  type="button"
+                  onClick={() => {
+                    const next = new Date(viewMonth);
+                    next.setMonth(index);
+                    setViewMonth(startOfMonth(next));
+                  }}
+                  className={[
+                    "h-6 rounded-md text-[11px] font-semibold transition",
+                    active
+                      ? "bg-sky-600 text-white shadow-sm"
+                      : "text-slate-500 hover:bg-slate-100 hover:text-slate-950",
+                  ].join(" ")}
+                >
+                  {month}
+                </button>
+              );
+            })}
+          </div>
+
+          <div className="mt-2 grid grid-cols-7 gap-1 text-center text-[10px] font-semibold uppercase tracking-wide text-slate-400">
+            {["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].map((day) => (
+              <div key={day} className="py-0.5">
+                {day}
+              </div>
+            ))}
+          </div>
+
+          <div className="mt-1 grid grid-cols-7 gap-1">
+            {days.map((day) => {
+              const selected = selectedDate && isSameDay(day, selectedDate);
+              const isToday = isSameDay(day, today);
+              const isMuted = day.getMonth() !== viewMonth.getMonth();
+
+              return (
+                <button
+                  key={dateInputValue(day)}
+                  type="button"
+                  onClick={() => selectDate(day)}
+                  className={[
+                    "flex h-8 items-center justify-center rounded-md text-sm font-semibold transition",
+                    selected
+                      ? "bg-sky-600 text-white shadow-sm hover:bg-sky-700"
+                      : isToday
+                        ? "bg-sky-50 text-sky-700 ring-1 ring-sky-200 hover:bg-sky-100"
+                        : "text-slate-700 hover:bg-slate-100",
+                    isMuted && !selected
+                      ? "!font-medium !text-slate-300 hover:!text-slate-400 hover:bg-slate-50"
+                      : "",
+                  ].join(" ")}
+                  aria-pressed={Boolean(selected)}
+                >
+                  {day.getDate()}
+                </button>
+              );
+            })}
+          </div>
+
+          <div className="mt-2.5 flex items-center justify-between border-t border-slate-100 pt-2.5">
+            <button
+              type="button"
+              onClick={() => onChange("")}
+              className="h-7 rounded-lg px-2 text-sm font-semibold text-slate-500 transition hover:bg-slate-100 hover:text-slate-900"
+            >
+              Clear
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setViewMonth(startOfMonth(today));
+                selectDate(today);
+              }}
+              className="h-7 rounded-lg bg-slate-900 px-3 text-sm font-semibold text-white transition hover:bg-slate-800"
+            >
+              Today
+            </button>
+          </div>
+        </div>
+      )}
+
+      <FieldErr id={`${id}-err`} message={fieldError} />
+    </div>
+  );
 }
 
 function buildPayload(form) {
@@ -566,20 +839,14 @@ export default function AppointmentForm({
 
             <Section icon={<CalendarDays className="h-4 w-4" aria-hidden />} title="Schedule">
               <div className="grid gap-4 md:grid-cols-2">
-                <div>
-                  <label className={labelCls} htmlFor={`${formId}-date`}>
-                    Date
-                  </label>
-                  <input
-                    id={`${formId}-date`}
-                    type="date"
-                    value={form.date}
-                    onChange={(event) => setField("date", event.target.value)}
-                    disabled={submitting}
-                    className={`${inputCls} mt-1.5 ${err.date ? "border-rose-400" : ""}`}
-                  />
-                  <FieldErr id={`${formId}-date-err`} message={err.date} />
-                </div>
+                <DatePickerField
+                  id={`${formId}-date`}
+                  label="Date"
+                  value={form.date}
+                  disabled={submitting}
+                  fieldError={err.date}
+                  onChange={(value) => setField("date", value)}
+                />
                 <div>
                   <label className={labelCls} htmlFor={`${formId}-start-time`}>
                     Start time
