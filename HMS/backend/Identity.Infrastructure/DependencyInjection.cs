@@ -1,4 +1,5 @@
 using System.Text;
+using System.Security.Claims;
 using HMS.Application.Abstractions.Identity;
 using Identity.Domain.Entities;
 using Identity.Infrastructure.Jwt;
@@ -9,6 +10,7 @@ using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
 using Microsoft.IdentityModel.Tokens;
 
 namespace Identity.Infrastructure;
@@ -60,6 +62,53 @@ public static class DependencyInjection
                         {
                             context.Token = accessToken;
                         }
+
+                        return Task.CompletedTask;
+                    },
+                    OnAuthenticationFailed = context =>
+                    {
+                        var logger = context.HttpContext.RequestServices
+                            .GetRequiredService<ILoggerFactory>()
+                            .CreateLogger("HMS.IAM.JwtBearer");
+
+                        using var scope = logger.BeginScope(new Dictionary<string, object?>
+                        {
+                            ["Signal"] = "IAM",
+                            ["IamEvent"] = "JwtAuthenticationFailed",
+                            ["TraceId"] = context.HttpContext.TraceIdentifier,
+                            ["RequestPath"] = context.HttpContext.Request.Path.Value,
+                            ["RemoteIpAddress"] = context.HttpContext.Connection.RemoteIpAddress?.ToString()
+                        });
+
+                        logger.LogWarning(
+                            "IAM JWT authentication failed with exception type {ExceptionType} for {RequestPath}.",
+                            context.Exception.GetType().Name,
+                            context.HttpContext.Request.Path.Value);
+
+                        return Task.CompletedTask;
+                    },
+                    OnTokenValidated = context =>
+                    {
+                        var logger = context.HttpContext.RequestServices
+                            .GetRequiredService<ILoggerFactory>()
+                            .CreateLogger("HMS.IAM.JwtBearer");
+
+                        var actorUserId = context.Principal?.FindFirstValue(System.Security.Claims.ClaimTypes.NameIdentifier)
+                            ?? context.Principal?.FindFirstValue(System.IdentityModel.Tokens.Jwt.JwtRegisteredClaimNames.Sub);
+
+                        using var scope = logger.BeginScope(new Dictionary<string, object?>
+                        {
+                            ["Signal"] = "IAM",
+                            ["IamEvent"] = "JwtTokenValidated",
+                            ["ActorUserId"] = actorUserId,
+                            ["TraceId"] = context.HttpContext.TraceIdentifier,
+                            ["RequestPath"] = context.HttpContext.Request.Path.Value,
+                            ["RemoteIpAddress"] = context.HttpContext.Connection.RemoteIpAddress?.ToString()
+                        });
+
+                        logger.LogInformation(
+                            "IAM JWT token validated for user {ActorUserId}.",
+                            actorUserId ?? "anonymous");
 
                         return Task.CompletedTask;
                     }

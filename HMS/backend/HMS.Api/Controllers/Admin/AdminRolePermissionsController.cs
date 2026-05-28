@@ -1,9 +1,11 @@
 using HMS.Api.Authorization;
+using HMS.Api.Logging;
 using HMS.Persistence;
 using Identity.Domain.Entities;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using System.Security.Claims;
 
 namespace HMS.Api.Controllers.Admin;
 
@@ -18,8 +20,13 @@ public sealed class SetRolePermissionsRequest
 public sealed class AdminRolePermissionsController : ControllerBase
 {
     private readonly HmsDbContext _db;
+    private readonly ILogger<AdminRolePermissionsController> _logger;
 
-    public AdminRolePermissionsController(HmsDbContext db) => _db = db;
+    public AdminRolePermissionsController(HmsDbContext db, ILogger<AdminRolePermissionsController> logger)
+    {
+        _db = db;
+        _logger = logger;
+    }
 
     [HttpGet("{roleId:int}")]
     [RequirePermission("RolePermissions.Manage")]
@@ -87,6 +94,36 @@ public sealed class AdminRolePermissionsController : ControllerBase
         }
 
         await _db.SaveChangesAsync(cancellationToken);
+
+        using (BeginRolePermissionsScope(roleId))
+        {
+            _logger.LogInformation(
+                "IAM role permissions updated by user {ActorUserId}. Role {RoleId}; permission count: {PermissionCount}.",
+                CurrentUserId(),
+                roleId,
+                permissions.Count);
+        }
+
         return NoContent();
+    }
+
+    private IDisposable? BeginRolePermissionsScope(int roleId)
+    {
+        return _logger.BeginScope(new Dictionary<string, object?>
+        {
+            ["Signal"] = LogSignals.IAM,
+            ["IamEvent"] = "RolePermissionsUpdated",
+            ["ActorUserId"] = CurrentUserId(),
+            ["RoleId"] = roleId,
+            ["TraceId"] = HttpContext.TraceIdentifier,
+            ["RequestPath"] = HttpContext.Request.Path.Value,
+            ["RemoteIpAddress"] = HttpContext.Connection.RemoteIpAddress?.ToString()
+        });
+    }
+
+    private string? CurrentUserId()
+    {
+        return User.FindFirstValue(ClaimTypes.NameIdentifier)
+            ?? User.FindFirstValue("sub");
     }
 }

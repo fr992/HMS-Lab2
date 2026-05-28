@@ -1,5 +1,6 @@
 using HMS.Api.Authorization;
 using HMS.Api.Hubs;
+using HMS.Api.Logging;
 using HMS.Api.Middleware;
 using HMS.Api.Notifications;
 using HMS.Api.Security;
@@ -19,8 +20,10 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.OpenApi.Models;
 using Stripe;
 using Serilog;
+using Serilog.Context;
 using Serilog.Events;
 using Serilog.Sinks.MSSqlServer;
+using System.Security.Claims;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -45,6 +48,7 @@ builder.Services.AddCors(options =>
 
 builder.Services.AddControllers();
 builder.Services.AddSignalR();
+builder.Services.AddHttpContextAccessor();
 
 
 builder.Services.AddEndpointsApiExplorer();
@@ -123,7 +127,44 @@ if (!EF.IsDesignTime)
 }
 
 app.UseHttpsRedirection();
-app.UseSerilogRequestLogging();
+app.UseSerilogRequestLogging(options =>
+{
+    options.GetLevel = (httpContext, elapsed, exception) =>
+    {
+        if (exception is not null || httpContext.Response.StatusCode >= StatusCodes.Status500InternalServerError)
+            return LogEventLevel.Error;
+
+        if (httpContext.Response.StatusCode >= StatusCodes.Status400BadRequest)
+            return LogEventLevel.Warning;
+
+        return LogEventLevel.Information;
+    };
+
+    options.EnrichDiagnosticContext = (diagnosticContext, httpContext) =>
+    {
+        var endpoint = httpContext.GetEndpoint();
+
+        diagnosticContext.Set("Signal", LogSignals.WebApp);
+        diagnosticContext.Set("TraceId", httpContext.TraceIdentifier);
+        diagnosticContext.Set("RequestHost", httpContext.Request.Host.Value);
+        diagnosticContext.Set("RequestScheme", httpContext.Request.Scheme);
+        diagnosticContext.Set("EndpointName", endpoint?.DisplayName);
+        diagnosticContext.Set("Authenticated", httpContext.User.Identity?.IsAuthenticated == true);
+        diagnosticContext.Set("ActorUserId", CurrentUserId(httpContext.User));
+        diagnosticContext.Set("RemoteIpAddress", httpContext.Connection.RemoteIpAddress?.ToString());
+
+        if (httpContext.Request.ContentLength.HasValue)
+            diagnosticContext.Set("RequestContentLength", httpContext.Request.ContentLength.Value);
+    };
+});
+app.Use(async (context, next) =>
+{
+    using (LogContext.PushProperty("TraceId", context.TraceIdentifier))
+    using (LogContext.PushProperty("Signal", LogSignals.WebApp))
+    {
+        await next();
+    }
+});
 app.UseMiddleware<ExceptionHandlingMiddleware>();
 app.UseCors("frontend");
 app.UseAuthentication();
@@ -165,6 +206,8 @@ static void ConfigureSerilog(
     loggerConfiguration
         .ReadFrom.Services(services)
         .MinimumLevel.Verbose()
+        .MinimumLevel.Override("Microsoft.AspNetCore.Authentication", LogEventLevel.Information)
+        .MinimumLevel.Override("Microsoft.AspNetCore.Authorization", LogEventLevel.Information)
         .MinimumLevel.Override("Microsoft", LogEventLevel.Warning)
         .MinimumLevel.Override("System", LogEventLevel.Warning)
         .Enrich.FromLogContext()
@@ -186,4 +229,10 @@ static string GetRequiredConfigurationValue(IConfiguration configuration, string
     }
 
     return value;
+}
+
+static string? CurrentUserId(ClaimsPrincipal user)
+{
+    return user.FindFirstValue(ClaimTypes.NameIdentifier)
+        ?? user.FindFirstValue("sub");
 }

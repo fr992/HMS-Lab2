@@ -1,4 +1,5 @@
 using HMS.Api.Authorization;
+using HMS.Api.Logging;
 using HMS.Contracts.Identity;
 using Identity.Infrastructure.Common;
 using HMS.Persistence;
@@ -6,6 +7,7 @@ using Identity.Domain.Entities;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using System.Security.Claims;
 
 namespace HMS.Api.Controllers.Admin;
 
@@ -22,8 +24,13 @@ public sealed class RoleUpsertRequest
 public sealed class AdminRolesController : ControllerBase
 {
     private readonly HmsDbContext _db;
+    private readonly ILogger<AdminRolesController> _logger;
 
-    public AdminRolesController(HmsDbContext db) => _db = db;
+    public AdminRolesController(HmsDbContext db, ILogger<AdminRolesController> logger)
+    {
+        _db = db;
+        _logger = logger;
+    }
 
     [HttpGet]
     [RequirePermission("Roles.Read")]
@@ -91,6 +98,16 @@ public sealed class AdminRolesController : ControllerBase
         AddRolePermissions(role.Id, permissions, now);
         await _db.SaveChangesAsync(cancellationToken);
 
+        using (BeginRoleManagementScope("RoleCreated", role.Id))
+        {
+            _logger.LogInformation(
+                "IAM role {RoleId} created by user {ActorUserId}. Role name: {RoleName}; permission count: {PermissionCount}.",
+                role.Id,
+                CurrentUserId(),
+                role.Name,
+                permissions.Count);
+        }
+
         return Created($"/api/admin/roles/{role.Id}", new
         {
             role.Id,
@@ -143,6 +160,16 @@ public sealed class AdminRolesController : ControllerBase
         AddRolePermissions(role.Id, permissions, now);
         await _db.SaveChangesAsync(cancellationToken);
 
+        using (BeginRoleManagementScope("RoleUpdated", role.Id))
+        {
+            _logger.LogInformation(
+                "IAM role {RoleId} updated by user {ActorUserId}. Role name: {RoleName}; permission count: {PermissionCount}.",
+                role.Id,
+                CurrentUserId(),
+                role.Name,
+                permissions.Count);
+        }
+
         return Ok(new
         {
             role.Id,
@@ -171,6 +198,16 @@ public sealed class AdminRolesController : ControllerBase
 
         _db.Roles.Remove(role);
         await _db.SaveChangesAsync(cancellationToken);
+
+        using (BeginRoleManagementScope("RoleDeleted", id))
+        {
+            _logger.LogWarning(
+                "IAM role {RoleId} deleted by user {ActorUserId}. Role name: {RoleName}.",
+                id,
+                CurrentUserId(),
+                role.Name);
+        }
+
         return NoContent();
     }
 
@@ -211,5 +248,25 @@ public sealed class AdminRolesController : ControllerBase
                 UpdatedAt = timestamp
             });
         }
+    }
+
+    private IDisposable? BeginRoleManagementScope(string iamEvent, int roleId)
+    {
+        return _logger.BeginScope(new Dictionary<string, object?>
+        {
+            ["Signal"] = LogSignals.IAM,
+            ["IamEvent"] = iamEvent,
+            ["ActorUserId"] = CurrentUserId(),
+            ["RoleId"] = roleId,
+            ["TraceId"] = HttpContext.TraceIdentifier,
+            ["RequestPath"] = HttpContext.Request.Path.Value,
+            ["RemoteIpAddress"] = HttpContext.Connection.RemoteIpAddress?.ToString()
+        });
+    }
+
+    private string? CurrentUserId()
+    {
+        return User.FindFirstValue(ClaimTypes.NameIdentifier)
+            ?? User.FindFirstValue("sub");
     }
 }

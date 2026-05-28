@@ -1,4 +1,5 @@
 using HMS.Application.Exceptions;
+using HMS.Api.Logging;
 
 namespace HMS.Api.Middleware;
 
@@ -39,13 +40,28 @@ public sealed class ExceptionHandlingMiddleware
         if (isExpected)
         {
             _logger.LogInformation(
-                exception,
-                "Handled expected application error with status code {StatusCode}.",
-                statusCode);
+                "Handled expected application error type {ExceptionType} with status code {StatusCode} for {RequestMethod} {RequestPath}.",
+                exception.GetType().Name,
+                statusCode,
+                context.Request.Method,
+                context.Request.Path.Value);
         }
         else
         {
-            _logger.LogError(exception, "Unhandled API exception.");
+            using var scope = _logger.BeginScope(new Dictionary<string, object?>
+            {
+                ["Signal"] = LogSignals.ApiError,
+                ["TraceId"] = context.TraceIdentifier,
+                ["RequestMethod"] = context.Request.Method,
+                ["RequestPath"] = context.Request.Path.Value,
+                ["StatusCode"] = statusCode
+            });
+
+            _logger.LogError(
+                "Unhandled API exception type {ExceptionType} for {RequestMethod} {RequestPath}.",
+                exception.GetType().Name,
+                context.Request.Method,
+                context.Request.Path.Value);
         }
 
         context.Response.Clear();
