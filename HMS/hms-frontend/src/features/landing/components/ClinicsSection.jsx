@@ -8,7 +8,9 @@ import {
   ScanLine,
   Sparkles,
 } from "lucide-react";
-import { CLINICS } from "@/features/landing/landingData";
+import { useState } from "react";
+import { useQuery } from "@tanstack/react-query";
+import { fetchLandingDepartments } from "@/features/landing/api/landingDepartmentsApi";
 
 const CLINIC_ICONS = {
   heart: HeartPulse,
@@ -28,7 +30,46 @@ const CLINIC_TONES = [
   "bg-cyan-50 text-cyan-700 ring-cyan-100",
 ];
 
+const PREVIEW_COUNT = 6;
+const DEFAULT_SERVICES = ["Appointments", "Specialists", "Follow-up"];
+
+const ICON_MATCHERS = [
+  { icon: "heart", pattern: /cardio|heart/i },
+  { icon: "brain", pattern: /neuro|brain/i },
+  { icon: "activity", pattern: /onco|cancer|internal|emergency/i },
+  { icon: "sparkles", pattern: /pedia|child|family/i },
+  { icon: "bone", pattern: /ortho|bone|spine|trauma/i },
+  { icon: "scan", pattern: /radio|imaging|scan|diagnostic/i },
+];
+
+function normalizeDepartment(department) {
+  const name = department?.name ?? department?.Name ?? "Clinic";
+  const icon = ICON_MATCHERS.find((item) => item.pattern.test(name))?.icon ?? "heart";
+
+  return {
+    id: department?.id ?? department?.Id ?? name,
+    name,
+    icon,
+    description:
+      department?.description ??
+      department?.Description ??
+      "Coordinated care supported by appointments, specialists, and connected records.",
+    services: DEFAULT_SERVICES,
+  };
+}
+
 export default function ClinicsSection() {
+  const [showAll, setShowAll] = useState(false);
+  const { data, isError, isFetching, isPending } = useQuery({
+    queryKey: ["landing-departments", showAll],
+    queryFn: () => fetchLandingDepartments({ pageSize: PREVIEW_COUNT, all: showAll }),
+    staleTime: 5 * 60 * 1000,
+    keepPreviousData: true,
+  });
+  const clinics = (data?.items ?? data?.Items ?? []).map(normalizeDepartment);
+  const totalCount = data?.totalCount ?? data?.TotalCount ?? clinics.length;
+  const hasMore = totalCount > clinics.length;
+
   return (
     <section id="clinics" className="bg-cyan-50/60 py-20 sm:py-24">
       <div className="mx-auto max-w-7xl px-6 lg:px-8">
@@ -52,11 +93,41 @@ export default function ClinicsSection() {
           </a>
         </div>
 
-        <div className="mt-10 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {CLINICS.map((clinic, i) => (
-            <ClinicCard key={clinic.id} clinic={clinic} tone={CLINIC_TONES[i % CLINIC_TONES.length]} index={i} />
-          ))}
-        </div>
+        {isError ? (
+          <p className="mt-10 rounded-md border border-rose-100 bg-white px-4 py-3 text-sm font-medium text-rose-700">
+            Departments could not be loaded right now.
+          </p>
+        ) : null}
+
+        {!isPending && !isError && clinics.length === 0 ? (
+          <p className="mt-10 rounded-md border border-cyan-100 bg-white px-4 py-3 text-sm font-medium text-cyan-800">
+            No departments are available yet.
+          </p>
+        ) : null}
+
+        {clinics.length > 0 ? (
+          <>
+            <div className="mt-10 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+              {clinics.map((clinic, i) => (
+                <ClinicCard key={clinic.id} clinic={clinic} tone={CLINIC_TONES[i % CLINIC_TONES.length]} index={i} />
+              ))}
+            </div>
+
+            {hasMore ? (
+              <div className="mt-8 flex justify-center">
+                <button
+                  type="button"
+                  onClick={() => setShowAll(true)}
+                  disabled={isFetching}
+                  className="inline-flex h-10 items-center gap-2 rounded-md border border-cyan-200 bg-white px-4 text-sm font-semibold text-cyan-950 shadow-sm transition hover:-translate-y-0.5 hover:border-blue-200 hover:bg-blue-50 disabled:cursor-not-allowed disabled:opacity-70"
+                >
+                  {isFetching ? "Loading..." : `See all ${totalCount} departments`}
+                  <ArrowUpRight className="size-4" />
+                </button>
+              </div>
+            ) : null}
+          </>
+        ) : null}
       </div>
     </section>
   );
