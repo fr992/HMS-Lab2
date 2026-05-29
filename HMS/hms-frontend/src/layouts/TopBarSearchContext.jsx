@@ -6,7 +6,6 @@ export const TopBarSearchContext = createContext({
   clearSearch: () => {},
 });
 
-// eslint-disable-next-line react-refresh/only-export-components
 export function useTopBarSearch() {
   return useContext(TopBarSearchContext);
 }

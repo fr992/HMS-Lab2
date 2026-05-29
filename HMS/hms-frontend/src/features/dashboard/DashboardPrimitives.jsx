@@ -28,6 +28,9 @@ export function DashboardFrame({
               <LayoutDashboard className="size-5" />
             </div>
             <div>
+              <h1 className="text-xl font-semibold text-slate-950 sm:text-2xl">
+                {title}
+              </h1>
               <p className="mt-1 text-sm text-slate-500">
                 {subtitle || `Welcome back, ${userName || "User"}.`}
               </p>

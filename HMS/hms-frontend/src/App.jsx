@@ -43,6 +43,7 @@ import SettingsPage from "@/features/settings/SettingsPage";
 import NotificationsPage from "@/features/notifications/NotificationsPage";
 import AdminAuditLogsPage from "@/features/auditLogs/AdminAuditLogsPage";
 import BedManagement from "@/features/beds/bedManagement/BedManagement";
+import ProfilePage from "@/features/profile/ProfilePage";
 
 
 export default function App() {
@@ -57,6 +58,17 @@ export default function App() {
           <Route path="/unauthorized" element={<UnauthorizedPage />} />
           <Route path="/payment-success" element={<PaymentResultPage status="success" />} />
           <Route path="/payment-cancel" element={<PaymentResultPage status="cancel" />} />
+
+          <Route
+            path="/profile"
+            element={
+              <PermissionRoute>
+                <AdminLayout />
+              </PermissionRoute>
+            }
+          >
+            <Route index element={<ProfilePage />} />
+          </Route>
 
           <Route
             path="/notifications"

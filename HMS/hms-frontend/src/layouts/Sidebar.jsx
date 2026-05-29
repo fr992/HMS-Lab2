@@ -559,6 +559,13 @@ export default function Sidebar() {
       </nav>
 
       <div className="mt-auto border-t border-slate-800 p-3">
+        <NavLink
+          to="/profile"
+          icon={UserRound}
+          label="Profile"
+          className={`${linkClass("/profile")} mb-1 w-full`}
+          collapsed={collapsed}
+        />
         <button
           type="button"
           onClick={handleLogout}

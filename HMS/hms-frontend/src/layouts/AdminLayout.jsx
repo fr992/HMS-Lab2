@@ -1,6 +1,6 @@
-import { useEffect, useState } from "react";
-import { Outlet, useLocation } from "react-router-dom";
-import { Search } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
+import { Link, Outlet, useLocation, useNavigate } from "react-router-dom";
+import { LogOut, Search, UserRound } from "lucide-react";
 import { useAuth } from "@/auth/AuthContext";
 import Sidebar from "@/layouts/Sidebar";
 import { TopBarSearchContext } from "@/layouts/TopBarSearchContext";
@@ -39,6 +39,7 @@ const TITLE_BY_PREFIX = [
   ["/invoices", "Invoices"],
   ["/payments", "Payments"],
   ["/notifications", "Notifications"],
+  ["/profile", "Profile"],
 ];
 
 const ROUTES_WITH_LOCAL_SEARCH = [
@@ -95,8 +96,11 @@ export default function AdminLayout() {
   useNotificationRealtime();
 
   const auth = useAuth();
+  const navigate = useNavigate();
   const { pathname } = useLocation();
   const [search, setSearch] = useState("");
+  const [userMenuOpen, setUserMenuOpen] = useState(false);
+  const userMenuRef = useRef(null);
   const showTopBarSearch = !hasLocalSearch(pathname);
   const isDashboard =
     pathname === "/admin" ||
@@ -106,7 +110,23 @@ export default function AdminLayout() {
 
   useEffect(() => {
     setSearch("");
+    setUserMenuOpen(false);
   }, [pathname]);
+
+  useEffect(() => {
+    function handlePointerDown(event) {
+      if (!userMenuRef.current?.contains(event.target)) setUserMenuOpen(false);
+    }
+
+    document.addEventListener("pointerdown", handlePointerDown);
+    return () => document.removeEventListener("pointerdown", handlePointerDown);
+  }, []);
+
+  const handleLogout = () => {
+    window.sessionStorage.setItem("hms.logout.redirect", "/");
+    auth.logout();
+    navigate("/", { replace: true });
+  };
 
   return (
     <TopBarSearchContext.Provider
@@ -139,16 +159,49 @@ export default function AdminLayout() {
                 </label>
               )}
               <NotificationBell />
-              <div className="flex items-center gap-3 rounded-lg px-1 py-1">
-                <div className="flex size-9 items-center justify-center rounded-full bg-blue-50 text-sm font-semibold text-blue-700">
-                  {initials(auth.userName)}
-                </div>
-                <div className="hidden min-w-0 sm:block">
-                  <p className="truncate text-sm font-semibold text-slate-950">
-                    {auth.userName ?? "User"}
-                  </p>
-                  <p className="truncate text-xs text-slate-500">{auth.userRole ?? "Portal"}</p>
-                </div>
+              <div ref={userMenuRef} className="relative">
+                <button
+                  type="button"
+                  onClick={() => setUserMenuOpen((open) => !open)}
+                  className="flex items-center gap-3 rounded-lg px-1 py-1 text-left transition hover:bg-slate-100"
+                  aria-haspopup="menu"
+                  aria-expanded={userMenuOpen}
+                >
+                  <div className="flex size-9 items-center justify-center rounded-full bg-blue-50 text-sm font-semibold text-blue-700">
+                    {initials(auth.userName)}
+                  </div>
+                  <div className="hidden min-w-0 sm:block">
+                    <p className="truncate text-sm font-semibold text-slate-950">
+                      {auth.userName ?? "User"}
+                    </p>
+                    <p className="truncate text-xs text-slate-500">{auth.userRole ?? "Portal"}</p>
+                  </div>
+                </button>
+
+                {userMenuOpen && (
+                  <div
+                    className="absolute right-0 z-[120] mt-2 w-44 overflow-hidden rounded-lg border border-slate-200 bg-white p-1.5 shadow-xl ring-1 ring-slate-950/5"
+                    role="menu"
+                  >
+                    <Link
+                      to="/profile"
+                      className="flex items-center gap-2 rounded-md px-3 py-2 text-sm font-semibold text-slate-700 transition hover:bg-slate-100 hover:text-slate-950"
+                      role="menuitem"
+                    >
+                      <UserRound className="size-4" aria-hidden />
+                      Profile
+                    </Link>
+                    <button
+                      type="button"
+                      onClick={handleLogout}
+                      className="flex w-full items-center gap-2 rounded-md px-3 py-2 text-left text-sm font-semibold text-rose-700 transition hover:bg-rose-50"
+                      role="menuitem"
+                    >
+                      <LogOut className="size-4" aria-hidden />
+                      Logout
+                    </button>
+                  </div>
+                )}
               </div>
             </div>
           </div>
