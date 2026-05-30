@@ -1,9 +1,13 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { useAuth } from "@/auth/AuthContext";
 import {
   AlertCircle,
+  AtSign,
   BadgeCheck,
   BriefcaseMedical,
   CalendarDays,
+  Eye,
+  EyeOff,
   IdCard,
   KeyRound,
   Mail,
@@ -25,12 +29,12 @@ import {
 
 const labelClass = "text-xs font-semibold uppercase tracking-wide text-slate-500";
 const inputClass =
-  "h-10 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm text-slate-900 shadow-sm outline-none transition placeholder:text-slate-400 focus:border-sky-500 focus:ring-2 focus:ring-sky-500/20 disabled:cursor-not-allowed disabled:bg-slate-50 disabled:text-slate-500";
+  "h-11 w-full rounded-lg border border-slate-200 bg-slate-50 px-3 text-sm font-medium text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-sky-500 focus:bg-white focus:ring-4 focus:ring-sky-100 disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-500";
 
 function formatDate(value, withTime = false) {
-  if (!value) return "Not provided";
+  if (!value) return null;
   const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return "Not provided";
+  if (Number.isNaN(date.getTime())) return null;
   return date.toLocaleDateString(undefined, {
     year: "numeric",
     month: "short",
@@ -53,17 +57,23 @@ function hasValue(value) {
   return value != null && String(value).trim() !== "";
 }
 
-function valueOrDash(value) {
-  return hasValue(value) ? value : "Not provided";
+function displayValue(value) {
+  return hasValue(value) ? value : null;
+}
+
+function hasAnyValue(items) {
+  return items.some((item) => hasValue(item.value));
 }
 
 export default function ProfilePage() {
+  const auth = useAuth();
   const [profile, setProfile] = useState(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState(null);
   const [form, setForm] = useState({ name: "", password: "" });
+  const [showPassword, setShowPassword] = useState(false);
 
   const loadProfile = useCallback(async ({ silent = false } = {}) => {
     if (silent) setRefreshing(true);
@@ -89,6 +99,9 @@ export default function ProfilePage() {
   }, [loadProfile]);
 
   const profileName = profile?.name || "";
+  const profileEmail = profile?.email || auth.userEmail || "";
+  const profileUsername = auth.userName || profileEmail || "";
+  const accountStatus = profile?.employmentStatus || "Active";
   const trimmedName = form.name.trim();
   const trimmedPassword = form.password.trim();
   const passwordError =
@@ -106,18 +119,30 @@ export default function ProfilePage() {
 
   const identityItems = useMemo(
     () => [
+      { icon: UserRound, label: "Full name", value: profile?.name },
       { icon: IdCard, label: "Personal number", value: profile?.personalNumber },
       { icon: CalendarDays, label: "Date of birth", value: formatDate(profile?.dateOfBirth) },
       { icon: BadgeCheck, label: "Gender", value: profile?.gender },
-      { icon: Phone, label: "Phone", value: profile?.phoneNumber },
-      { icon: MapPin, label: "Address", value: profile?.fullAddress, wide: true },
-      {
-        icon: CalendarDays,
-        label: "Last login",
-        value: formatDate(profile?.lastLoginAt, true),
-      },
     ],
     [profile]
+  );
+
+  const contactItems = useMemo(
+    () => [
+      { icon: Mail, label: "Email", value: profileEmail },
+      { icon: Phone, label: "Phone", value: profile?.phoneNumber },
+      { icon: MapPin, label: "Address", value: profile?.fullAddress, wide: true },
+    ],
+    [profile, profileEmail]
+  );
+
+  const accountItems = useMemo(
+    () => [
+      { icon: AtSign, label: "Username", value: profileUsername },
+      { icon: ShieldCheck, label: "Assigned roles", value: profile?.role },
+      { icon: BadgeCheck, label: "Account status", value: accountStatus },
+    ],
+    [profile, profileUsername, accountStatus]
   );
 
   const patientItems = useMemo(
@@ -141,14 +166,8 @@ export default function ProfilePage() {
     [profile]
   );
 
-  const visiblePatientItems = patientItems.filter((item) => hasValue(item.value));
-  const visibleStaffItems = staffItems.filter((item) => hasValue(item.value));
-  const completeness = [
-    { label: "Identity", done: hasValue(profile?.name) && hasValue(profile?.email) },
-    { label: "Contact", done: hasValue(profile?.phoneNumber) || hasValue(profile?.fullAddress) },
-    { label: "Role data", done: visiblePatientItems.length > 0 || visibleStaffItems.length > 0 },
-  ];
-
+  const hasPatientProfile = hasAnyValue(patientItems);
+  const hasStaffProfile = hasAnyValue(staffItems);
   async function handleSave(event) {
     event.preventDefault();
 
@@ -173,9 +192,13 @@ export default function ProfilePage() {
 
   if (loading) {
     return (
-      <div className="grid gap-4 lg:grid-cols-[1fr_22rem]">
-        <div className="h-64 animate-pulse rounded-lg border border-slate-200 bg-white" />
-        <div className="h-64 animate-pulse rounded-lg border border-slate-200 bg-white" />
+      <div className="space-y-5">
+        <div className="h-44 animate-pulse rounded-lg border border-slate-200 bg-white" />
+        <div className="grid gap-4 lg:grid-cols-3">
+          <div className="h-48 animate-pulse rounded-lg border border-slate-200 bg-white" />
+          <div className="h-48 animate-pulse rounded-lg border border-slate-200 bg-white" />
+          <div className="h-48 animate-pulse rounded-lg border border-slate-200 bg-white" />
+        </div>
       </div>
     );
   }
@@ -203,101 +226,115 @@ export default function ProfilePage() {
   }
 
   return (
-    <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_22rem]">
-      <div className="space-y-5">
-        <section className="overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm">
-          <div className="border-b border-slate-100 bg-white px-5 py-5">
-            <div className="flex flex-wrap items-center gap-4">
-              <div className="flex size-16 items-center justify-center rounded-lg bg-sky-600 text-xl font-semibold text-white shadow-sm">
-                {initials(profile?.name || profile?.email)}
+    <div className="space-y-5">
+      <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6 lg:p-8">
+        <div className="flex flex-col gap-5 md:flex-row md:items-center md:justify-between">
+          <div className="flex min-w-0 flex-col gap-4 sm:flex-row sm:items-center">
+            <div className="flex size-20 shrink-0 items-center justify-center rounded-full bg-sky-600 text-2xl font-bold text-white shadow-sm">
+              {initials(profile?.name || profileEmail)}
+            </div>
+            <div className="min-w-0">
+              <h1 className="truncate text-3xl font-bold leading-tight text-slate-950">
+                {displayValue(profile?.name) || "Unnamed profile"}
+              </h1>
+              <p className="mt-1 text-sm font-medium text-slate-500">
+                {displayValue(profile?.role) || "Role unavailable"}
+              </p>
+              <div className="mt-4 flex flex-wrap items-center gap-x-2 gap-y-1 text-sm font-medium text-slate-600">
+                <span className="truncate">{displayValue(profileEmail) || "Email unavailable"}</span>
+                <span className="text-slate-300" aria-hidden>|</span>
+                <span className="truncate">{displayValue(profileUsername) || "Username unavailable"}</span>
+                <span className="text-slate-300" aria-hidden>|</span>
+                <span className="inline-flex items-center gap-1.5">
+                  <span className="size-2 rounded-full bg-emerald-500" aria-hidden />
+                  {displayValue(accountStatus) || "Status unavailable"}
+                </span>
+                <span className="text-slate-300" aria-hidden>|</span>
+                <span className="inline-flex items-center gap-1.5">
+                  <CalendarDays className="size-4 text-slate-400" aria-hidden />
+                  Last login: {displayValue(formatDate(profile?.lastLoginAt, true)) || "Not provided"}
+                </span>
               </div>
-              <div className="min-w-0">
-                <div className="flex flex-wrap items-center gap-2">
-                  <h2 className="truncate text-xl font-semibold text-slate-950">
-                    {valueOrDash(profile?.name)}
-                  </h2>
-                  {profile?.role && (
-                    <span className="inline-flex items-center gap-1 rounded-full bg-sky-50 px-2.5 py-1 text-xs font-semibold text-sky-700 ring-1 ring-sky-100">
-                      <ShieldCheck className="size-3.5" aria-hidden />
-                      {profile.role}
-                    </span>
-                  )}
-                </div>
-                <p className="mt-2 flex items-center gap-2 text-sm text-slate-500">
-                  <Mail className="size-4" aria-hidden />
-                  {valueOrDash(profile?.email)}
-                </p>
-              </div>
-              <button
-                type="button"
-                onClick={() => void loadProfile({ silent: true })}
-                disabled={refreshing}
-                className="ml-auto inline-flex h-9 items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 text-sm font-semibold text-slate-700 shadow-sm transition hover:bg-slate-50 disabled:opacity-60"
-              >
-                <RefreshCw
-                  className={`size-4 ${refreshing ? "animate-spin" : ""}`}
-                  aria-hidden
-                />
-                Refresh
-              </button>
             </div>
           </div>
+            <button
+              type="button"
+              onClick={() => void loadProfile({ silent: true })}
+              disabled={refreshing}
+              className="inline-flex h-10 w-full shrink-0 items-center justify-center gap-2 rounded-lg border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-700 shadow-sm transition hover:border-sky-200 hover:bg-sky-50 hover:text-sky-700 disabled:opacity-60 sm:w-auto"
+            >
+              <RefreshCw className={`size-4 ${refreshing ? "animate-spin" : ""}`} aria-hidden />
+              Refresh
+            </button>
+        </div>
+      </section>
 
-          <InfoGrid items={identityItems} />
-        </section>
-
-        {visiblePatientItems.length > 0 && (
+      <section className="grid gap-4 lg:grid-cols-2">
+        <InformationCard icon={UserRound} title="Personal Information" items={identityItems} />
+        <InformationCard icon={Phone} title="Contact Information" items={contactItems} />
+        <InformationCard icon={ShieldCheck} title="Role & Account Information" items={accountItems} />
+        {hasPatientProfile && (
           <ProfileSection icon={UserRound} title="Patient Profile">
-            <InfoGrid items={visiblePatientItems} compact />
+            <InfoGrid items={patientItems} compact />
           </ProfileSection>
         )}
-
-        {visibleStaffItems.length > 0 && (
-          <ProfileSection icon={BriefcaseMedical} title="Staff Profile">
-            <InfoGrid items={visibleStaffItems} compact />
+        {hasStaffProfile && (
+          <ProfileSection icon={BriefcaseMedical} title="Employment Information">
+            <InfoGrid items={staffItems} compact />
           </ProfileSection>
         )}
+      </section>
 
-        {contacts.length > 0 && (
+      {contacts.length > 0 && (
+        <section className="grid gap-4 lg:grid-cols-2">
           <ProfileSection icon={UsersRound} title="Emergency Contacts">
             <div className="divide-y divide-slate-100">
-              {contacts.map((contact) => (
+              {contacts.map((contact, index) => (
                 <div
-                  key={`${contact.name}-${contact.phone}`}
+                  key={`${contact.name || "contact"}-${contact.phone || index}`}
                   className="flex flex-col gap-2 py-3 first:pt-0 last:pb-0 sm:flex-row sm:items-center sm:justify-between"
                 >
                   <div>
                     <div className="flex flex-wrap items-center gap-2">
-                      <p className="font-semibold text-slate-950">{contact.name}</p>
+                      <p className="font-semibold text-slate-950">
+                        {displayValue(contact.name) || "Not provided"}
+                      </p>
                       {contact.isPrimary && (
                         <span className="rounded-full bg-emerald-50 px-2 py-0.5 text-xs font-semibold text-emerald-700 ring-1 ring-emerald-100">
                           Primary
                         </span>
                       )}
                     </div>
-                    <p className="mt-1 text-sm text-slate-500">{contact.relationship}</p>
+                    <p className="mt-1 text-sm text-slate-500">
+                      {displayValue(contact.relationship) || "Relationship not provided"}
+                    </p>
                   </div>
                   <div className="text-sm sm:text-right">
-                    <p className="font-semibold text-slate-800">{contact.phone}</p>
-                    {contact.email && <p className="mt-1 text-slate-500">{contact.email}</p>}
+                    <p className="font-semibold text-slate-800">
+                      {displayValue(contact.phone) || "Phone not provided"}
+                    </p>
+                    <p className="mt-1 text-slate-500">
+                      {displayValue(contact.email) || "Email not provided"}
+                    </p>
                   </div>
                 </div>
               ))}
             </div>
           </ProfileSection>
-        )}
-      </div>
+        </section>
+      )}
 
-      <aside className="space-y-5 xl:sticky xl:top-0 xl:self-start">
+      <section>
         <form
+          id="account-settings"
           onSubmit={handleSave}
-          className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm"
+          className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm sm:p-6"
         >
           <SectionTitle icon={KeyRound} title="Account Settings" />
           <p className="mt-2 text-sm text-slate-500">
             Update your display name or set a new password.
           </p>
-          <div className="mt-4 space-y-4">
+          <div className="mt-5 grid gap-4 lg:grid-cols-2">
             <label className="block">
               <span className={labelClass}>Display name</span>
               <input
@@ -311,53 +348,61 @@ export default function ProfilePage() {
             </label>
             <label className="block">
               <span className={labelClass}>New password</span>
-              <input
-                type="password"
-                value={form.password}
-                onChange={(event) =>
-                  setForm((current) => ({ ...current, password: event.target.value }))
-                }
-                disabled={saving}
-                placeholder="Leave blank to keep current"
-                className={`${inputClass} mt-1.5 ${passwordError ? "border-rose-300 focus:border-rose-400 focus:ring-rose-500/20" : ""}`}
-              />
+              <span className="relative mt-1.5 block">
+                <input
+                  type={showPassword ? "text" : "password"}
+                  value={form.password}
+                  onChange={(event) =>
+                    setForm((current) => ({ ...current, password: event.target.value }))
+                  }
+                  disabled={saving}
+                  placeholder="Leave blank to keep current"
+                  className={`${inputClass} pr-11 ${
+                    passwordError ? "border-rose-300 focus:border-rose-400 focus:ring-rose-100" : ""
+                  }`}
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword((current) => !current)}
+                  className="absolute right-2 top-1/2 inline-flex size-8 -translate-y-1/2 items-center justify-center rounded-md text-slate-500 transition hover:bg-slate-100 hover:text-slate-700"
+                  aria-label={showPassword ? "Hide password" : "Show password"}
+                >
+                  {showPassword ? (
+                    <EyeOff className="size-4" aria-hidden />
+                  ) : (
+                    <Eye className="size-4" aria-hidden />
+                  )}
+                </button>
+              </span>
               {passwordError && (
                 <p className="mt-1.5 text-xs font-medium text-rose-600">{passwordError}</p>
               )}
             </label>
+          </div>
+          <div className="mt-5 flex justify-end">
             <button
               type="submit"
               disabled={!canSave}
-              className="inline-flex h-10 w-full items-center justify-center gap-2 rounded-lg bg-sky-600 px-4 text-sm font-semibold text-white shadow-sm transition hover:bg-sky-700 disabled:cursor-not-allowed disabled:opacity-60"
+              className="inline-flex h-10 w-full items-center justify-center gap-2 rounded-lg bg-sky-600 px-4 text-sm font-semibold text-white shadow-sm transition hover:bg-sky-700 disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto"
             >
               <Save className="size-4" aria-hidden />
               {saving ? "Saving..." : "Save changes"}
             </button>
           </div>
         </form>
-
-        <section className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
-          <SectionTitle icon={ShieldCheck} title="Profile Checks" />
-          <div className="mt-4 space-y-3">
-            {completeness.map((item) => (
-              <div key={item.label} className="flex items-center justify-between gap-3">
-                <span className="text-sm font-medium text-slate-700">{item.label}</span>
-                <span
-                  className={[
-                    "rounded-full px-2 py-0.5 text-xs font-semibold ring-1",
-                    item.done
-                      ? "bg-emerald-50 text-emerald-700 ring-emerald-100"
-                      : "bg-slate-50 text-slate-500 ring-slate-200",
-                  ].join(" ")}
-                >
-                  {item.done ? "Ready" : "Missing"}
-                </span>
-              </div>
-            ))}
-          </div>
-        </section>
-      </aside>
+      </section>
     </div>
+  );
+}
+
+function InformationCard({ icon, title, items }) {
+  return (
+    <section className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
+      <SectionTitle icon={icon} title={title} />
+      <div className="mt-4">
+        <InfoGrid items={items} compact />
+      </div>
+    </section>
   );
 }
 
@@ -385,7 +430,7 @@ function SectionTitle({ icon, title }) {
 
 function InfoGrid({ items, compact = false }) {
   return (
-    <dl className={compact ? "grid gap-4 md:grid-cols-2" : "grid gap-4 p-5 md:grid-cols-2"}>
+    <dl className={compact ? "grid gap-3" : "grid gap-4 p-5 md:grid-cols-2"}>
       {items.map((item) => (
         <InfoItem
           key={item.label}
@@ -401,15 +446,21 @@ function InfoGrid({ items, compact = false }) {
 
 function InfoItem({ icon, label, value, wide }) {
   const IconComponent = icon;
+  const visibleValue = displayValue(value);
 
   return (
-    <div className={wide ? "md:col-span-2" : ""}>
+    <div className={`rounded-lg border border-slate-200 bg-slate-50 px-3 py-3 ${wide ? "md:col-span-2" : ""}`}>
       <dt className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-slate-500">
         <IconComponent className="size-3.5" aria-hidden />
         {label}
       </dt>
-      <dd className="mt-1 text-sm font-semibold text-slate-950">
-        {valueOrDash(value)}
+      <dd
+        className={[
+          "mt-1 text-sm font-semibold",
+          visibleValue ? "text-slate-950" : "text-slate-400",
+        ].join(" ")}
+      >
+        {visibleValue || "Not provided"}
       </dd>
     </div>
   );

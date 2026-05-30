@@ -59,6 +59,9 @@ public sealed class AuthService : IAuthService
         if (result == PasswordVerificationResult.Failed)
             return null;
 
+        user.LastLoginAt = DateTime.UtcNow;
+        user.UpdatedAt = DateTime.UtcNow;
+
         var roles = user.UserRoles.Select(ur => ur.Role.Name).ToList();
         var roleIds = user.UserRoles.Select(ur => ur.RoleId).ToList();
         var permissions = await GetDistinctPermissionNamesForRolesAsync(roleIds, cancellationToken);
