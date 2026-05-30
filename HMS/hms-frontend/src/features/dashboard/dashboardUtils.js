@@ -1,10 +1,7 @@
+import { getFriendlyApiErrorMessage } from "@/api/apiClient";
+
 export function getApiErrorMessage(error) {
-  const data = error?.response?.data;
-  if (typeof data === "string") return data;
-  if (typeof data?.error === "string") return data.error;
-  if (typeof data?.message === "string") return data.message;
-  if (typeof data?.title === "string") return data.title;
-  return error?.message || "Request failed";
+  return getFriendlyApiErrorMessage(error);
 }
 
 export function getPagedItems(data) {

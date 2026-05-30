@@ -1,4 +1,4 @@
-import apiClient from "@/api/apiClient";
+import apiClient, { getFriendlyApiErrorMessage } from "@/api/apiClient";
 
 export async function createLabTest(body) {
   const payload = {
@@ -46,11 +46,6 @@ export async function deactivateLabTest(id) {
 }
 
 export function getApiErrorMessage(err) {
-  const d = err.response?.data;
-  if (d && typeof d === "object" && "error" in d && d.error) {
-    return String(d.error);
-  }
-  if (err.message) return err.message;
-  return "Request failed";
+  return getFriendlyApiErrorMessage(err);
 }
 

@@ -11,6 +11,7 @@ import {
 } from "lucide-react";
 import { login } from "@/auth/authService";
 import { useAuth } from "@/auth/AuthContext";
+import { getFriendlyApiErrorMessage } from "@/api/apiClient";
 import { HOSPITAL_FULL_NAME, HOSPITAL_LOGO_PATH, HOSPITAL_NAME } from "@/config/branding";
 import {
   getPrimaryRoleFromToken,
@@ -70,9 +71,9 @@ export default function LoginPage() {
     } catch (err) {
       const status = err.response?.status;
       setError(
-        status
-          ? `Incorrect credentials. Please try again. (Error ${status}) duhet me hek kete status`
-          : "Sign-in failed. Please try again."
+        status === 401
+          ? "Incorrect username or password. Please check your credentials and try again."
+          : getFriendlyApiErrorMessage(err, "Sign-in failed. Please try again.")
       );
     } finally {
       setSubmitting(false);

@@ -1,12 +1,7 @@
-import api from "@/api/apiClient";
+import api, { getFriendlyApiErrorMessage } from "@/api/apiClient";
 
 export function getApiErrorMessage(error) {
-  return (
-    error?.response?.data?.message ||
-    error?.response?.data?.error ||
-    error?.message ||
-    "Something went wrong."
-  );
+  return getFriendlyApiErrorMessage(error);
 }
 
 export async function fetchUserProfile() {

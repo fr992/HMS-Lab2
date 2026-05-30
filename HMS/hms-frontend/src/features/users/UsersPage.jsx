@@ -12,6 +12,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import apiClient from "@/api/apiClient";
+import { getFriendlyApiErrorMessage } from "@/api/apiClient";
 import { CountUpValue } from "@/features/dashboard/DashboardPrimitives";
 import { getPagedItems, getPagination, PaginationBar } from "@/lib/pagination.jsx";
 
@@ -27,7 +28,7 @@ const emptyForm = {
 };
 
 function apiError(error) {
-  return error?.response?.data?.error ?? error?.message ?? "Something went wrong.";
+  return getFriendlyApiErrorMessage(error);
 }
 
 function fullName(user) {

@@ -1,4 +1,4 @@
-import apiClient from "@/api/apiClient";
+import apiClient, { getFriendlyApiErrorMessage } from "@/api/apiClient";
 
 export const INVOICE_STATUS = {
   DRAFT: "draft",
@@ -32,9 +32,5 @@ export async function createInvoice(payload) {
 }
 
 export function getApiErrorMessage(error) {
-  const data = error?.response?.data;
-  if (typeof data === "string") return data;
-  if (typeof data?.message === "string") return data.message;
-  if (typeof data?.title === "string") return data.title;
-  return error?.message || "Something went wrong. Please try again.";
+  return getFriendlyApiErrorMessage(error);
 }

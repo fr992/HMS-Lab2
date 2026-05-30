@@ -1,14 +1,7 @@
-import api from "@/api/apiClient";
+import api, { getFriendlyApiErrorMessage } from "@/api/apiClient";
 
 export function getApiErrorMessage(err) {
-  const data = err.response?.data;
-  if (data && typeof data === "object") {
-    if (data.message) return String(data.message);
-    if (data.error) return String(data.error);
-    if (data.title) return String(data.title);
-  }
-  if (err.message) return err.message;
-  return "Request failed";
+  return getFriendlyApiErrorMessage(err);
 }
 
 export async function fetchSettings(params = {}) {

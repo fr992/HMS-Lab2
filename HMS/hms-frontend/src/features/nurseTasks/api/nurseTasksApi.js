@@ -1,9 +1,7 @@
-import apiClient from "@/api/apiClient";
+import apiClient, { getFriendlyApiErrorMessage } from "@/api/apiClient";
 
 export function getApiErrorMessage(error) {
-  const data = error?.response?.data;
-  if (data && typeof data === "object" && data.error) return String(data.error);
-  return error?.message || "Request failed";
+  return getFriendlyApiErrorMessage(error);
 }
 
 export async function fetchNurseTasks() {

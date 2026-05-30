@@ -72,19 +72,6 @@ const EMPTY_FORM = {
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 function apiError(error) {
-  const data = error?.response?.data;
-  if (data && typeof data === "object") {
-    if (data.error) return String(data.error);
-    if (data.title && data.errors && typeof data.errors === "object") {
-      const messages = Object.values(data.errors).flat().filter(Boolean);
-      if (messages.length > 0) return messages.join(" ");
-      return String(data.title);
-    }
-    if (data.errors && typeof data.errors === "object") {
-      const messages = Object.values(data.errors).flat().filter(Boolean);
-      if (messages.length > 0) return messages.join(" ");
-    }
-  }
   return getApiErrorMessage(error);
 }
 

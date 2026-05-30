@@ -1,15 +1,10 @@
-import api from "@/api/apiClient";
+import api, { getFriendlyApiErrorMessage } from "@/api/apiClient";
 
 /**
  * @param {import("axios").AxiosError} err
  */
 export function getApiErrorMessage(err) {
-  const d = err.response?.data;
-  if (d && typeof d === "object" && "error" in d && d.error) {
-    return String(d.error);
-  }
-  if (err.message) return err.message;
-  return "Request failed";
+  return getFriendlyApiErrorMessage(err);
 }
 
 export async function fetchPatients() {

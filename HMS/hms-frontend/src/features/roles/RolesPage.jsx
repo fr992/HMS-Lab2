@@ -17,6 +17,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import apiClient from "@/api/apiClient";
+import { getFriendlyApiErrorMessage } from "@/api/apiClient";
 import { CountUpValue } from "@/features/dashboard/DashboardPrimitives";
 import { MAX_LIST_PAGE_SIZE, PaginationBar, getPagedItems, paginateArray } from "@/lib/pagination.jsx";
 
@@ -37,7 +38,7 @@ const emptyForm = {
 };
 
 function apiError(error) {
-  return error?.response?.data?.error ?? error?.message ?? "Something went wrong.";
+  return getFriendlyApiErrorMessage(error);
 }
 
 function RoleIcon({ roleName, className }) {
