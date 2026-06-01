@@ -738,7 +738,13 @@ export default function AdminOverviewDashboard() {
           <CardHeader className="pb-3">
             <div className="flex items-center justify-between">
               <CardTitle className="text-sm font-semibold">Live Alerts</CardTitle>
-              <button className="text-xs font-medium text-blue-600 hover:underline">View all</button>
+              <button
+                type="button"
+                onClick={() => navigate("/admin/staff-overview")}
+                className="text-xs font-medium text-blue-600 hover:underline"
+              >
+                View all
+              </button>
             </div>
           </CardHeader>
           <CardContent className="space-y-3">

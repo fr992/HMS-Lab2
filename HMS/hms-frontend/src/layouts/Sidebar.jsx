@@ -3,6 +3,7 @@ import { useAuth } from "@/auth/AuthContext";
 import {
   CalendarDays,
   BedDouble,
+  Bell,
   ChevronDown,
   ClipboardCheck,
   ClipboardList,
@@ -199,6 +200,15 @@ export default function Sidebar() {
               className={linkClass("/admin/dashboard")}
               collapsed={collapsed}
             />
+            {isSuperAdmin && (
+              <NavLink
+                to="/admin/staff-overview"
+                icon={Bell}
+                label="Staff Overview"
+                className={linkClass("/admin/staff-overview")}
+                collapsed={collapsed}
+              />
+            )}
           </Section>
         )}
 

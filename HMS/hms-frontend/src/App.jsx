@@ -44,6 +44,7 @@ import NotificationsPage from "@/features/notifications/NotificationsPage";
 import AdminAuditLogsPage from "@/features/auditLogs/AdminAuditLogsPage";
 import BedManagement from "@/features/beds/bedManagement/BedManagement";
 import ProfilePage from "@/features/profile/ProfilePage";
+import StaffOverviewPage from "@/features/staffOverview/OverviewPage";
 
 
 export default function App() {
@@ -90,6 +91,14 @@ export default function App() {
             }
           >
             <Route path="dashboard" element={<AdminOverviewDashboard />} />
+            <Route
+              path="staff-overview"
+              element={
+                <PermissionRoute requireRole="SuperAdmin">
+                  <StaffOverviewPage />
+                </PermissionRoute>
+              }
+            />
             <Route
               path="users"
               element={

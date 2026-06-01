@@ -18,6 +18,7 @@ const TITLE_BY_PREFIX = [
   ["/patient/invoices", "My Payments"],
   ["/patient/lab-results", "My Lab Results"],
   ["/admin/users", "Users"],
+  ["/admin/staff-overview", "Staff Overview"],
   ["/admin/staff", "Staff Management"],
   ["/admin/roles", "Roles"],
   ["/admin/settings", "Settings"],
