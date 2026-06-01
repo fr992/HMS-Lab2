@@ -50,7 +50,7 @@ public sealed class BedAssignmentRequestService : IBedAssignmentRequestService
             if (requestedByDoctorId != encounter.DoctorProfileId)
                 throw new ForbiddenException("Doctor can only request beds for their own encounters.");
         }
-        else if (HasRole(roleList, "Nurse") || HasRole(roleList, "Infermier"))
+        else if (HasRole(roleList, "Nurse"))
         {
             requestedByDoctorId = encounter.DoctorProfileId;
         }

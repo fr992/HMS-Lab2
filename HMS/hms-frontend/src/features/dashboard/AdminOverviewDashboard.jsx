@@ -37,6 +37,7 @@ import { useAuth } from "@/auth/AuthContext";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { getPagedItems, getTotalCount, keyOf } from "@/features/dashboard/dashboardUtils";
+import { useNavigate } from "react-router-dom";
 
 const tooltipStyle = {
   borderRadius: "8px",
@@ -287,6 +288,7 @@ function appointmentIsUpcoming(appointment) {
 }
 
 export default function AdminOverviewDashboard() {
+  const navigate = useNavigate();
   const auth = useAuth();
   const [stats, setStats] = useState([]);
   const [patientData, setPatientData] = useState([]);
@@ -777,7 +779,7 @@ export default function AdminOverviewDashboard() {
           <CardHeader className="pb-3">
             <div className="flex items-center justify-between">
               <CardTitle className="text-sm font-semibold">Recent Patients</CardTitle>
-              <button className="flex items-center gap-1 text-xs font-medium text-blue-600 hover:underline">
+              <button  className="flex items-center gap-1 text-xs font-medium text-blue-600 hover:text-blue-900 hover:cursor-pointer" onClick={() => navigate("/patients")}>
                 View All <ArrowUpRight className="h-3 w-3" />
               </button>
             </div>
@@ -826,7 +828,7 @@ export default function AdminOverviewDashboard() {
           <CardHeader className="pb-3">
             <div className="flex items-center justify-between">
               <CardTitle className="text-sm font-semibold">Today's Schedule</CardTitle>
-              <button className="flex items-center gap-1 text-xs font-medium text-blue-600 hover:underline">
+              <button  className="flex items-center gap-1 text-xs font-medium text-blue-600 hover:text-blue-900 hover:cursor-pointer" onClick={() => navigate("/appointments")}>
                 View <ArrowUpRight className="h-3 w-3" />
               </button>
             </div>
@@ -883,7 +885,7 @@ export default function AdminOverviewDashboard() {
               )}
             </div>
           </div>
-          <button className="flex items-center gap-1 text-xs font-medium text-blue-600 hover:underline">
+          <button className="flex items-center gap-1 text-xs font-medium text-blue-600 hover:text-blue-900 hover:cursor-pointer" onClick={() => navigate("/bed-management")}>
             Manage Beds <ArrowUpRight className="h-3 w-3" />
           </button>
         </CardContent>

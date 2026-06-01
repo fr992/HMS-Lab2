@@ -20,7 +20,7 @@ public sealed class EncounterBedAssignmentRequestsController : ControllerBase
     }
 
     [HttpPost]
-    [Authorize(Roles = "Doctor,Nurse,Infermier,Admin,SuperAdmin")]
+    [Authorize(Roles = "Doctor,Nurse,Admin,SuperAdmin")]
     public async Task<ActionResult<BedAssignmentRequestDto>> Create(
         int encounterId,
         [FromBody] CreateBedAssignmentRequestDto request,

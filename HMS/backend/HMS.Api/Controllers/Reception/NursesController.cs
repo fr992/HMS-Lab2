@@ -29,7 +29,7 @@ public sealed class NursesController : ControllerBase
                 n.IsActive &&
                 n.StaffProfile.Person.User != null &&
                 n.StaffProfile.Person.User.IsActive &&
-                n.StaffProfile.Person.User.UserRoles.Any(ur => ur.Role.Name == "Nurse" || ur.Role.Name == "Infermier"))
+                n.StaffProfile.Person.User.UserRoles.Any(ur => ur.Role.Name == "Nurse"))
             .OrderBy(n => n.StaffProfile.Person.LastName)
             .ThenBy(n => n.StaffProfile.Person.FirstName)
             .Select(n => new NurseProfileDto

@@ -157,10 +157,10 @@ public sealed class IdentityDataSeeder
         [
             "NurseTasks.Read", "NurseTasks.Complete", "Beds.Read", "BedAssignmentRequests.Create"
         ]),
-        ("Infermier",
-        [
-            "NurseTasks.Read", "NurseTasks.Complete", "Beds.Read", "BedAssignmentRequests.Create"
-        ]),
+        //("Infermier",
+        //[
+        //    "NurseTasks.Read", "NurseTasks.Complete", "Beds.Read", "BedAssignmentRequests.Create"
+        //]),
         ("Laboratorant",
         [
             "LabTests.Read",
@@ -368,7 +368,7 @@ public sealed class IdentityDataSeeder
                 _db.RolePermissions.RemoveRange(directBedAssignLinks);
         }
 
-        foreach (var nurseRoleName in new[] { "Nurse", "Infermier" })
+        foreach (var nurseRoleName in new[] { "Nurse" })
         {
             if (!roles.TryGetValue(nurseRoleName, out var nurseRoleId))
                 continue;
