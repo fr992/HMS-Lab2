@@ -79,6 +79,14 @@ export async function fetchBedAssignmentRequests(filters = {}) {
   };
 }
 
+export async function fetchEncounters(filters = {}) {
+  const params = {};
+  if (filters.search) params.search = filters.search;
+  if (filters.patientProfileId) params.patientProfileId = filters.patientProfileId;
+  const { data } = await api.get("/encounters", { params });
+  return Array.isArray(data) ? data : [];
+}
+
 export async function assignBedAssignmentRequest(requestId, body) {
   const { data } = await api.post(`/bed-assignment-requests/${requestId}/assign`, body);
   return data;

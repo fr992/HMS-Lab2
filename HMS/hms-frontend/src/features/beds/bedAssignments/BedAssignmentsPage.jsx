@@ -28,6 +28,7 @@ import {
   fetchBedAssignmentRequests,
   fetchBeds,
   fetchDepartmentsList,
+  fetchEncounters,
   getApiErrorMessage,
   rejectBedAssignmentRequest,
   releaseBed,
@@ -110,6 +111,17 @@ function formatDateTime(value) {
 function patientLabel(patient) {
   const name = [patient.firstName, patient.lastName].filter(Boolean).join(" ");
   return name || patient.patientName || "Patient";
+}
+
+function patientSearchLabel(patient) {
+  if (!patient) return "";
+  return `${patientLabel(patient)}${patient.patientNumber ? ` - ${patient.patientNumber}` : ""}`;
+}
+
+function encounterLabel(encounter) {
+  if (!encounter) return "";
+  const number = encounter.encounterNumber || `Encounter #${encounter.id}`;
+  return [number, encounter.patientName].filter(Boolean).join(" - ");
 }
 
 function userDisplayName(name, userId) {
@@ -224,14 +236,6 @@ function isBedReleaseRequest(request) {
     .includes("[bed release request]");
 }
 
-function isToday(value) {
-  if (!value) return false;
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return false;
-  const today = new Date();
-  return date.toDateString() === today.toDateString();
-}
-
 function currentBedFromRequest(request) {
   if (request?.assignedBedLabel) return request.assignedBedLabel;
   const notes = String(request?.notes ?? "");
@@ -276,6 +280,7 @@ export default function BedAssignmentsPage({ readOnly = false, requestsOnly = fa
   const [requestPagination, setRequestPagination] = useState(EMPTY_REQUEST_PAGINATION);
   const [departments, setDepartments] = useState([]);
   const [patients, setPatients] = useState([]);
+  const [encounters, setEncounters] = useState([]);
   const [loading, setLoading] = useState(true);
   const [requestLoading, setRequestLoading] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
@@ -290,6 +295,7 @@ export default function BedAssignmentsPage({ readOnly = false, requestsOnly = fa
   const [requestDialog, setRequestDialog] = useState({ type: null, request: null });
   const [assignForm, setAssignForm] = useState(EMPTY_ASSIGN_FORM);
   const [patientSearch, setPatientSearch] = useState("");
+  const [encounterSearch, setEncounterSearch] = useState("");
   const [releaseNotes, setReleaseNotes] = useState("");
   const [rejectNotes, setRejectNotes] = useState("");
   const [requestSearch, setRequestSearch] = useState("");
@@ -312,22 +318,25 @@ export default function BedAssignmentsPage({ readOnly = false, requestsOnly = fa
     setLoading(true);
     setError("");
     try {
-      const [bedData, assignmentData, departmentData, patientData] = await Promise.all([
+      const [bedData, assignmentData, departmentData, patientData, encounterData] = await Promise.all([
         fetchBeds({
           departmentId: departmentFilter,
         }),
         fetchActiveBedAssignments(),
         canLoadAssignmentOptions ? fetchDepartmentsList() : Promise.resolve([]),
         canLoadAssignmentOptions ? fetchPatients() : Promise.resolve([]),
+        canLoadAssignmentOptions ? fetchEncounters().catch(() => []) : Promise.resolve([]),
       ]);
       setBeds(bedData);
       setAssignments(assignmentData);
       setDepartments(departmentData);
       setPatients(Array.isArray(patientData) ? patientData : []);
+      setEncounters(Array.isArray(encounterData) ? encounterData : []);
     } catch (e) {
       setError(getApiErrorMessage(e));
       setBeds([]);
       setAssignments([]);
+      setEncounters([]);
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -426,6 +435,19 @@ export default function BedAssignmentsPage({ readOnly = false, requestsOnly = fa
       return isAvailable && matchesWard && matchesRoom;
     });
   }, [assignForm.roomNumber, assignForm.ward, beds]);
+
+  const assignedPatientIds = useMemo(() => {
+    const ids = new Set();
+    for (const assignment of assignments) {
+      const patientId = Number(assignment.patientProfileId);
+      if (Number.isFinite(patientId) && patientId > 0) ids.add(patientId);
+    }
+    for (const bed of beds) {
+      const patientId = Number(bed.currentAssignment?.patientProfileId);
+      if (Number.isFinite(patientId) && patientId > 0) ids.add(patientId);
+    }
+    return ids;
+  }, [assignments, beds]);
 
   const filteredBeds = useMemo(() => {
     const term = normalize(search);
@@ -661,6 +683,7 @@ export default function BedAssignmentsPage({ readOnly = false, requestsOnly = fa
   function openAssign(bed = null) {
     setDialog({ type: "assign", bed, assignment: null });
     setPatientSearch("");
+    setEncounterSearch("");
     setAssignForm({
       ...EMPTY_ASSIGN_FORM,
       ward: bed?.ward || "all",
@@ -725,6 +748,8 @@ export default function BedAssignmentsPage({ readOnly = false, requestsOnly = fa
     setDialog({ type: null, bed: null, assignment: null });
     setRequestDialog({ type: null, request: null });
     setAssignForm(EMPTY_ASSIGN_FORM);
+    setPatientSearch("");
+    setEncounterSearch("");
     setReleaseNotes("");
     setRejectNotes("");
   }
@@ -743,8 +768,16 @@ export default function BedAssignmentsPage({ readOnly = false, requestsOnly = fa
       showToast("Patient and available bed are required.", "error");
       return;
     }
+    if (assignedPatientIds.has(patientProfileId)) {
+      showToast("This patient already has an active bed assignment.", "error");
+      return;
+    }
     if (assignForm.encounterId && !encounterId) {
       showToast("Encounter ID must be a valid number.", "error");
+      return;
+    }
+    if (encounterSearch.trim() && !encounterId) {
+      showToast("Select an encounter from the list.", "error");
       return;
     }
 
@@ -1128,11 +1161,15 @@ export default function BedAssignmentsPage({ readOnly = false, requestsOnly = fa
           form={assignForm}
           saving={saving}
           patients={patients}
+          encounters={encounters}
+          assignedPatientIds={assignedPatientIds}
           patientSearch={patientSearch}
+          encounterSearch={encounterSearch}
           availableBeds={availableBeds}
           wardOptions={wardOptions}
           roomOptions={modalRoomOptions}
           onPatientSearch={setPatientSearch}
+          onEncounterSearch={setEncounterSearch}
           onChange={(patch) => setAssignForm((current) => ({ ...current, ...patch }))}
           onClose={closeDialog}
           onSubmit={handleAssign}
@@ -1723,18 +1760,25 @@ function AssignBedDialog({
   form,
   saving,
   patients,
+  encounters,
+  assignedPatientIds,
   patientSearch,
+  encounterSearch,
   availableBeds,
   wardOptions,
   roomOptions,
   onPatientSearch,
+  onEncounterSearch,
   onChange,
   onClose,
   onSubmit,
 }) {
   const selectedPatient = patients.find((patient) => String(patient.id) === String(form.patientProfileId));
+  const selectedEncounter = encounters.find((encounter) => String(encounter.id) === String(form.encounterId));
+  const [encounterPickerOpen, setEncounterPickerOpen] = useState(false);
   const visiblePatients = patients
     .filter((patient) => {
+      if (assignedPatientIds.has(Number(patient.id))) return false;
       const term = normalize(patientSearch);
       const haystack = [
         patientLabel(patient),
@@ -1748,12 +1792,40 @@ function AssignBedDialog({
       return !term || haystack.includes(term);
     })
     .slice(0, 8);
+  const visibleEncounters = encounters
+    .filter((encounter) => {
+      if (assignedPatientIds.has(Number(encounter.patientProfileId))) return false;
+      const term = normalize(encounterSearch);
+      const haystack = [
+        encounter.encounterNumber,
+        encounter.id,
+        encounter.patientName,
+        encounter.patientNumber,
+        encounter.encounterType,
+        encounter.status,
+      ]
+        .filter(Boolean)
+        .join(" ")
+        .toLowerCase();
+      return !term || haystack.includes(term);
+    })
+    .slice(0, 8);
 
   function choosePatient(patient) {
-    onChange({ patientProfileId: String(patient.id) });
-    onPatientSearch(
-      `${patientLabel(patient)}${patient.patientNumber ? ` - ${patient.patientNumber}` : ""}`
-    );
+    onChange({ patientProfileId: String(patient.id), encounterId: "" });
+    onPatientSearch(patientSearchLabel(patient));
+    onEncounterSearch("");
+  }
+
+  function chooseEncounter(encounter) {
+    const matchingPatient = patients.find((patient) => String(patient.id) === String(encounter.patientProfileId));
+    onChange({
+      encounterId: String(encounter.id),
+      patientProfileId: String(encounter.patientProfileId || ""),
+    });
+    onEncounterSearch(encounterLabel(encounter));
+    onPatientSearch(patientSearchLabel(matchingPatient) || encounter.patientName || "");
+    setEncounterPickerOpen(false);
   }
 
   return (
@@ -1762,6 +1834,55 @@ function AssignBedDialog({
         <DialogHeader title="Assign bed" subtitle="Select a patient and an available bed." onClose={onClose} />
         <form onSubmit={onSubmit} className="space-y-4 bg-slate-50 px-6 py-5">
           <div className="grid gap-4 md:grid-cols-2">
+            <Field label="Encounter">
+              <div className="relative">
+                <input
+                  type="search"
+                  value={encounterSearch}
+                  onChange={(event) => {
+                    onEncounterSearch(event.target.value);
+                    onChange({ encounterId: "" });
+                    setEncounterPickerOpen(true);
+                  }}
+                  onFocus={() => setEncounterPickerOpen(true)}
+                  disabled={saving}
+                  placeholder="Search and select encounter"
+                  className="h-11 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm text-slate-900 shadow-sm outline-none transition placeholder:text-slate-400 focus:border-sky-500 focus:ring-2 focus:ring-sky-500/20"
+                />
+                {encounterPickerOpen && !form.encounterId && (
+                  <div className="absolute z-20 mt-1 max-h-56 w-full overflow-auto rounded-lg border border-slate-200 bg-white py-1 shadow-lg">
+                    {visibleEncounters.length > 0 ? (
+                      visibleEncounters.map((encounter) => (
+                        <button
+                          key={encounter.id}
+                          type="button"
+                          onClick={() => chooseEncounter(encounter)}
+                          className="flex w-full items-center justify-between gap-3 px-3 py-2 text-left text-sm transition hover:bg-slate-50"
+                        >
+                          <span className="min-w-0">
+                            <span className="block truncate font-medium text-slate-900">
+                              {encounter.encounterNumber || `Encounter #${encounter.id}`}
+                            </span>
+                            <span className="block truncate text-xs text-slate-500">
+                              {[encounter.patientName, encounter.patientNumber, encounter.status]
+                                .filter(Boolean)
+                                .join(" - ") || "No patient details"}
+                            </span>
+                          </span>
+                        </button>
+                      ))
+                    ) : (
+                      <p className="px-3 py-2 text-sm text-slate-500">No encounters found.</p>
+                    )}
+                  </div>
+                )}
+              </div>
+              {selectedEncounter && (
+                <p className="mt-1.5 text-xs font-medium text-slate-500">
+                  Selected: {encounterLabel(selectedEncounter)}
+                </p>
+              )}
+            </Field>
             <Field label="Patient" required>
               <div className="relative">
                 <input
@@ -1769,7 +1890,8 @@ function AssignBedDialog({
                   value={patientSearch}
                   onChange={(event) => {
                     onPatientSearch(event.target.value);
-                    onChange({ patientProfileId: "" });
+                    onChange({ patientProfileId: "", encounterId: "" });
+                    onEncounterSearch("");
                   }}
                   disabled={saving}
                   placeholder="Search and select patient"
@@ -1845,17 +1967,6 @@ function AssignBedDialog({
                   <option key={bed.id} value={bed.id}>{bedLocation(bed)}</option>
                 ))}
               </select>
-            </Field>
-            <Field label="Encounter ID">
-              <input
-                type="number"
-                min="1"
-                value={form.encounterId}
-                onChange={(event) => onChange({ encounterId: event.target.value })}
-                disabled={saving}
-                placeholder="Optional"
-                className="h-11 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm text-slate-900 shadow-sm outline-none transition placeholder:text-slate-400 focus:border-sky-500 focus:ring-2 focus:ring-sky-500/20"
-              />
             </Field>
           </div>
           <Field label="Notes">
