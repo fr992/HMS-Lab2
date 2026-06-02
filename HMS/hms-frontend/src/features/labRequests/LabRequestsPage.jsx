@@ -20,6 +20,7 @@ import {
 import { CountUpValue } from "@/features/dashboard/DashboardPrimitives";
 import { getPagedItems, getPagination, PaginationBar } from "@/lib/pagination.jsx";
 import { printLabRequestSummaryPdf } from "@/lib/pdfPrint";
+import DataTransferMenu from "@/features/dataTransfer/DataTransferMenu";
 
 const STATUS_OPTIONS = [
   { value: "all", label: "All statuses" },
@@ -250,21 +251,31 @@ export default function LabRequestsPage() {
           </p>
         </div>
 
-        <button
-          type="button"
-          onClick={() => {
-            setRefreshing(true);
-            void load();
-          }}
-          disabled={refreshing || loading}
-          className="inline-flex h-10 items-center justify-center gap-2 rounded-lg border border-slate-200 bg-white px-4 text-sm font-medium text-slate-800 shadow-sm transition hover:bg-slate-50 disabled:opacity-60"
-        >
-          <RefreshCw
-            className={`h-4 w-4 ${refreshing ? "animate-spin" : ""}`}
-            aria-hidden
+        <div className="flex flex-wrap gap-2">
+          <DataTransferMenu
+            endpoint="/data-transfer/lab-requests"
+            exportParams={{
+              status: statusFilter === "all" ? undefined : statusFilter,
+              search: search.trim() || undefined,
+            }}
+            canImport={false}
           />
-          Refresh
-        </button>
+          <button
+            type="button"
+            onClick={() => {
+              setRefreshing(true);
+              void load();
+            }}
+            disabled={refreshing || loading}
+            className="inline-flex h-10 items-center justify-center gap-2 rounded-lg border border-slate-200 bg-white px-4 text-sm font-medium text-slate-800 shadow-sm transition hover:bg-slate-50 disabled:opacity-60"
+          >
+            <RefreshCw
+              className={`h-4 w-4 ${refreshing ? "animate-spin" : ""}`}
+              aria-hidden
+            />
+            Refresh
+          </button>
+        </div>
       </div>
 
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">

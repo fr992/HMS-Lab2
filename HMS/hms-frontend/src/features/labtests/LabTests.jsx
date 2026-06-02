@@ -10,6 +10,7 @@ import {
   updateLabTest,
 } from "@/features/labtests/api/labTests";
 import { getPagedItems, getPagination, PaginationBar } from "@/lib/pagination.jsx";
+import DataTransferMenu from "@/features/dataTransfer/DataTransferMenu";
 
 const FILTER_OPTIONS = [
   { value: "all", label: "All" },
@@ -216,6 +217,15 @@ export default function LabTestsPage() {
         </div>
 
         <div className="flex gap-2">
+          <DataTransferMenu
+            endpoint="/data-transfer/lab-tests"
+            exportParams={{
+              isActive: toFilterParam(statusFilter) === "all" ? undefined : toFilterParam(statusFilter),
+              search: search.trim() || undefined,
+            }}
+            canImport={canCreate}
+            onImported={load}
+          />
           {canCreate && (
             <button
               type="button"

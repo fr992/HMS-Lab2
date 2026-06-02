@@ -11,10 +11,12 @@ namespace HMS.Api.Controllers.Admin;
 public sealed class MedicationsController : ControllerBase
 {
     private readonly IMedicationsService _medicationsService;
+    private readonly IDataTransferService _dataTransferService;
 
-    public MedicationsController(IMedicationsService medicationsService)
+    public MedicationsController(IMedicationsService medicationsService, IDataTransferService dataTransferService)
     {
         _medicationsService = medicationsService;
+        _dataTransferService = dataTransferService;
     }
 
     [HttpPost]
@@ -62,6 +64,49 @@ public sealed class MedicationsController : ControllerBase
         return Ok(result);
     }
 
+    [HttpGet("export/{format}")]
+    [RequirePermission("Medications.Read")]
+    public async Task<IActionResult> Export(
+        string format,
+        [FromQuery] bool? isActive,
+        [FromQuery] string? search,
+        CancellationToken cancellationToken)
+    {
+        var export = await _dataTransferService.ExportAsync(
+            "medications",
+            format,
+            new Dictionary<string, string?>
+            {
+                ["isActive"] = isActive?.ToString(),
+                ["search"] = search
+            },
+            CurrentUserId() ?? 0,
+            CurrentPermissions(),
+            cancellationToken);
+
+        return File(export.Content, export.ContentType, export.FileName);
+    }
+
+    [HttpPost("import/{format}")]
+    [RequirePermission("Medications.Create")]
+    public async Task<ActionResult<DataImportResultDto>> Import(
+        string format,
+        IFormFile file,
+        CancellationToken cancellationToken)
+    {
+        await using var stream = file.OpenReadStream();
+        var result = await _dataTransferService.ImportAsync(
+            "medications",
+            format,
+            file.FileName,
+            stream,
+            file.Length,
+            CurrentUserId() ?? 0,
+            cancellationToken);
+
+        return Ok(result);
+    }
+
     [HttpPut("{id:int}")]
     [RequirePermission("Medications.Update")]
     public async Task<ActionResult<MedicationDto>> Update(
@@ -96,5 +141,13 @@ public sealed class MedicationsController : ControllerBase
     {
         var value = User.FindFirstValue(ClaimTypes.NameIdentifier);
         return int.TryParse(value, out var id) ? id : null;
+    }
+
+    private IReadOnlyCollection<string> CurrentPermissions()
+    {
+        return User.Claims
+            .Where(c => c.Type == "permission")
+            .Select(c => c.Value)
+            .ToArray();
     }
 }

@@ -13,7 +13,6 @@ import {
 import { getPagedItems, getPagination, PaginationBar } from "@/lib/pagination.jsx";
 import {
   notificationQueryKeys,
-  useNotifications,
   useUnreadNotificationCount,
 } from "@/features/notifications/hooks";
 import {

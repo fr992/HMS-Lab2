@@ -12,10 +12,12 @@ namespace HMS.Api.Controllers.Admin;
 public sealed class LabTestsController : ControllerBase
 {
     private readonly ILabTestService _labTestService;
+    private readonly IDataTransferService _dataTransferService;
 
-    public LabTestsController(ILabTestService labTestService)
+    public LabTestsController(ILabTestService labTestService, IDataTransferService dataTransferService)
     {
         _labTestService = labTestService;
+        _dataTransferService = dataTransferService;
     }
 
     [HttpGet]
@@ -40,6 +42,49 @@ public sealed class LabTestsController : ControllerBase
 
         if (result == null)
             return NotFound();
+
+        return Ok(result);
+    }
+
+    [HttpGet("export/{format}")]
+    [RequirePermission("LabTests.Read")]
+    public async Task<IActionResult> Export(
+        string format,
+        [FromQuery] bool? isActive,
+        [FromQuery] string? search,
+        CancellationToken cancellationToken)
+    {
+        var export = await _dataTransferService.ExportAsync(
+            "lab-tests",
+            format,
+            new Dictionary<string, string?>
+            {
+                ["isActive"] = isActive?.ToString(),
+                ["search"] = search
+            },
+            CurrentUserId() ?? 0,
+            CurrentPermissions(),
+            cancellationToken);
+
+        return File(export.Content, export.ContentType, export.FileName);
+    }
+
+    [HttpPost("import/{format}")]
+    [RequirePermission("LabTests.Create")]
+    public async Task<ActionResult<DataImportResultDto>> Import(
+        string format,
+        IFormFile file,
+        CancellationToken cancellationToken)
+    {
+        await using var stream = file.OpenReadStream();
+        var result = await _dataTransferService.ImportAsync(
+            "lab-tests",
+            format,
+            file.FileName,
+            stream,
+            file.Length,
+            CurrentUserId() ?? 0,
+            cancellationToken);
 
         return Ok(result);
     }
@@ -123,5 +168,13 @@ public sealed class LabTestsController : ControllerBase
             ?? User.FindFirstValue("sub");
 
         return int.TryParse(value, out var id) ? id : null;
+    }
+
+    private IReadOnlyCollection<string> CurrentPermissions()
+    {
+        return User.Claims
+            .Where(c => c.Type == "permission")
+            .Select(c => c.Value)
+            .ToArray();
     }
 }

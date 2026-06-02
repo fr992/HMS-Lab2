@@ -134,6 +134,7 @@ public static class DependencyInjection
         services.AddScoped<IInvoiceService, InvoiceService>();
         services.AddScoped<IPaymentService, PaymentService>();
         services.AddScoped<IMedicationsService, MedicationsService>();
+        services.AddScoped<IDataTransferService, DataTransferService>();
         services.AddScoped<ISettingsService, SettingsService>();
         services.AddScoped<INotificationService, MongoNotificationService>();
         return services;

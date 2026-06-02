@@ -10,6 +10,7 @@ import {
   updateMedication,
 } from "@/features/medications/api/medicationsApi";
 import { getPagedItems, getPagination, PaginationBar } from "@/lib/pagination.jsx";
+import DataTransferMenu from "@/features/dataTransfer/DataTransferMenu";
 
 const FILTER_OPTIONS = [
   { value: "all", label: "All" },
@@ -183,6 +184,15 @@ export default function MedicationsPage() {
         </div>
 
         <div className="flex gap-2">
+          <DataTransferMenu
+            endpoint="/data-transfer/medications"
+            exportParams={{
+              isActive: toFilterParam(statusFilter) === "all" ? undefined : toFilterParam(statusFilter),
+              search: search.trim() || undefined,
+            }}
+            canImport={canCreate}
+            onImported={load}
+          />
           {canCreate && (
             <button
               type="button"

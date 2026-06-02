@@ -21,6 +21,7 @@ import {
   mapBedToForm,
   normalize,
 } from "@/features/beds/components/bedUtils";
+import DataTransferMenu from "@/features/dataTransfer/DataTransferMenu";
 
 const EMPTY_FILTERS = {
   search: "",
@@ -179,6 +180,18 @@ export default function BedManagement() {
         </div>
 
         <div className="flex flex-wrap gap-2">
+          <DataTransferMenu
+            endpoint="/data-transfer/beds"
+            exportParams={{
+              status: filters.status === "all" ? undefined : filters.status,
+              departmentId:
+                filters.departmentId === "all" || filters.departmentId.startsWith("ward:")
+                  ? undefined
+                  : filters.departmentId,
+            }}
+            canImport={canCreate}
+            onImported={() => loadBeds({ refresh: true })}
+          />
           {canCreate && (
             <button
               type="button"

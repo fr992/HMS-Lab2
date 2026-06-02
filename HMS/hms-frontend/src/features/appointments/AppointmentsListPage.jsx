@@ -25,6 +25,7 @@ import AppointmentCalendar from "@/features/appointments/components/AppointmentC
 import AppointmentRowActions from "@/features/appointments/components/AppointmentRowActions";
 import CalendarDayModal from "@/features/appointments/components/CalendarDayModal";
 import { APPOINTMENT_STATUS } from "@/features/appointments/appointmentConstants";
+import DataTransferMenu from "@/features/dataTransfer/DataTransferMenu";
 
 const LIST_SEGMENT_TABS = [
   { value: "all", label: "All" },
@@ -796,6 +797,14 @@ export default function AppointmentsListPage() {
 
         <div className="flex flex-wrap items-center gap-2 lg:justify-end">
           <ViewToggle view={view} onChange={setView} />
+          <DataTransferMenu
+            endpoint="/data-transfer/appointments"
+            exportParams={{
+              status: listSegment === "all" ? undefined : listSegment,
+            }}
+            canImport={canEdit}
+            onImported={load}
+          />
           {canEdit && (
             <Link
               to="/appointments/new"

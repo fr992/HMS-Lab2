@@ -58,6 +58,7 @@ const selectField = `mt-1.5 w-full rounded-xl border border-slate-200/90 bg-whit
  * @param {boolean} p.hasActiveFilters
  * @param {boolean} p.canRegister
  * @param {() => void} [p.onAddPatient]
+ * @param {import("react").ReactNode} [p.dataAction]
  */
 export default function PatientListToolbar({
   search,
@@ -73,6 +74,7 @@ export default function PatientListToolbar({
   hasActiveFilters,
   canRegister,
   onAddPatient,
+  dataAction,
 }) {
   const idBase = useId();
   const filterWrapRef = useRef(null);
@@ -187,6 +189,7 @@ export default function PatientListToolbar({
               </div>
             )}
           </div>
+          {dataAction}
           {canRegister && (
             <button
               type="button"

@@ -13,10 +13,12 @@ public sealed class PatientsController : ControllerBase
 {
 
     private readonly IPatientService _patientService;
+    private readonly IDataTransferService _dataTransferService;
 
-    public PatientsController(IPatientService patientService)
+    public PatientsController(IPatientService patientService, IDataTransferService dataTransferService)
     {
         _patientService = patientService;
+        _dataTransferService = dataTransferService;
     }
 
     private int? CurrentUserId()
@@ -113,6 +115,54 @@ public async Task<ActionResult<PatientProfileDto>> RegisterPatient(
         return Ok(patients);
     }
 
+    [HttpGet("export/{format}")]
+    [RequirePermission("Patients.Read")]
+    public async Task<IActionResult> Export(
+        string format,
+        [FromQuery] string? search,
+        [FromQuery] string? gender,
+        [FromQuery] bool? hasPortal,
+        CancellationToken cancellationToken)
+    {
+        if (IsDoctorOnly())
+            return Forbid();
+
+        var export = await _dataTransferService.ExportAsync(
+            "patients",
+            format,
+            new Dictionary<string, string?>
+            {
+                ["search"] = search,
+                ["gender"] = gender,
+                ["hasPortal"] = hasPortal?.ToString()
+            },
+            CurrentUserId() ?? 0,
+            CurrentPermissions(),
+            cancellationToken);
+
+        return File(export.Content, export.ContentType, export.FileName);
+    }
+
+    [HttpPost("import/{format}")]
+    [RequirePermission("Patients.Register")]
+    public async Task<ActionResult<DataImportResultDto>> Import(
+        string format,
+        IFormFile file,
+        CancellationToken cancellationToken)
+    {
+        await using var stream = file.OpenReadStream();
+        var result = await _dataTransferService.ImportAsync(
+            "patients",
+            format,
+            file.FileName,
+            stream,
+            file.Length,
+            CurrentUserId() ?? 0,
+            cancellationToken);
+
+        return Ok(result);
+    }
+
     private bool IsDoctorOnly()
     {
         return User.IsInRole("Doctor")
@@ -128,6 +178,14 @@ public async Task<ActionResult<PatientProfileDto>> RegisterPatient(
             .Select(c => c.Value)
             .Where(role => !string.IsNullOrWhiteSpace(role))
             .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToArray();
+    }
+
+    private IReadOnlyCollection<string> CurrentPermissions()
+    {
+        return User.Claims
+            .Where(c => c.Type == "permission")
+            .Select(c => c.Value)
             .ToArray();
     }
 

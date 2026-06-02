@@ -75,10 +75,6 @@ function apiError(error) {
   return getApiErrorMessage(error);
 }
 
-function normalize(value) {
-  return String(value ?? "").trim().toLowerCase();
-}
-
 function roleKey(role) {
   return String(role ?? "").replace(/\s+/g, "").toLowerCase();
 }

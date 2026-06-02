@@ -13,10 +13,12 @@ namespace HMS.Api.Controllers.Reception;
 public sealed class BedsController : ControllerBase
 {
     private readonly IBedService _service;
+    private readonly IDataTransferService _dataTransferService;
 
-    public BedsController(IBedService service)
+    public BedsController(IBedService service, IDataTransferService dataTransferService)
     {
         _service = service;
+        _dataTransferService = dataTransferService;
     }
 
     [HttpGet]
@@ -45,6 +47,49 @@ public sealed class BedsController : ControllerBase
     public async Task<ActionResult<BedDto>> GetBed(int id, CancellationToken cancellationToken)
     {
         var result = await _service.GetBedAsync(id, cancellationToken);
+        return Ok(result);
+    }
+
+    [HttpGet("export/{format}")]
+    [RequirePermission("Beds.Read")]
+    public async Task<IActionResult> Export(
+        string format,
+        [FromQuery] string? status,
+        [FromQuery] int? departmentId,
+        CancellationToken cancellationToken)
+    {
+        var export = await _dataTransferService.ExportAsync(
+            "beds",
+            format,
+            new Dictionary<string, string?>
+            {
+                ["status"] = status,
+                ["departmentId"] = departmentId?.ToString()
+            },
+            CurrentUserId(),
+            CurrentPermissions(),
+            cancellationToken);
+
+        return File(export.Content, export.ContentType, export.FileName);
+    }
+
+    [HttpPost("import/{format}")]
+    [RequirePermission("Beds.Create")]
+    public async Task<ActionResult<DataImportResultDto>> Import(
+        string format,
+        IFormFile file,
+        CancellationToken cancellationToken)
+    {
+        await using var stream = file.OpenReadStream();
+        var result = await _dataTransferService.ImportAsync(
+            "beds",
+            format,
+            file.FileName,
+            stream,
+            file.Length,
+            CurrentUserId(),
+            cancellationToken);
+
         return Ok(result);
     }
 
@@ -122,5 +167,13 @@ public sealed class BedsController : ControllerBase
             throw new UnauthorizedException("Invalid authenticated user.");
 
         return userId;
+    }
+
+    private IReadOnlyCollection<string> CurrentPermissions()
+    {
+        return User.Claims
+            .Where(c => c.Type == "permission")
+            .Select(c => c.Value)
+            .ToArray();
     }
 }

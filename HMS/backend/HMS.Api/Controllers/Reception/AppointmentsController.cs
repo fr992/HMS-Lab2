@@ -15,10 +15,12 @@ namespace HMS.Api.Controllers.Receptionist;
 public sealed class AppointmentsController : ControllerBase
 {
     private readonly IAppointmentService _appointmentService;
+    private readonly IDataTransferService _dataTransferService;
 
-    public AppointmentsController(IAppointmentService appointmentService)
+    public AppointmentsController(IAppointmentService appointmentService, IDataTransferService dataTransferService)
     {
         _appointmentService = appointmentService;
+        _dataTransferService = dataTransferService;
     }
 
     [HttpGet]
@@ -68,6 +70,44 @@ public sealed class AppointmentsController : ControllerBase
 
         if (result == null)
             return NotFound();
+
+        return Ok(result);
+    }
+
+    [HttpGet("export/{format}")]
+    [RequirePermission("Appointments.Read")]
+    public async Task<IActionResult> Export(
+        string format,
+        [FromQuery] string? status,
+        CancellationToken cancellationToken)
+    {
+        var export = await _dataTransferService.ExportAsync(
+            "appointments",
+            format,
+            new Dictionary<string, string?> { ["status"] = status },
+            GetCurrentUserId(),
+            CurrentPermissions(),
+            cancellationToken);
+
+        return File(export.Content, export.ContentType, export.FileName);
+    }
+
+    [HttpPost("import/{format}")]
+    [RequirePermission("Appointments.Create")]
+    public async Task<ActionResult<DataImportResultDto>> Import(
+        string format,
+        IFormFile file,
+        CancellationToken cancellationToken)
+    {
+        await using var stream = file.OpenReadStream();
+        var result = await _dataTransferService.ImportAsync(
+            "appointments",
+            format,
+            file.FileName,
+            stream,
+            file.Length,
+            GetCurrentUserId(),
+            cancellationToken);
 
         return Ok(result);
     }
@@ -154,6 +194,14 @@ public sealed class AppointmentsController : ControllerBase
             throw new UnauthorizedException("User id claim is missing.");
 
         return int.Parse(value);
+    }
+
+    private IReadOnlyCollection<string> CurrentPermissions()
+    {
+        return User.Claims
+            .Where(c => c.Type == "permission")
+            .Select(c => c.Value)
+            .ToArray();
     }
 
 }

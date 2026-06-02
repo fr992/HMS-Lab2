@@ -12,6 +12,7 @@ import ErrorState from "@/features/patients/components/ErrorState";
 import ConfirmDeleteModal from "@/features/patients/components/ConfirmDeleteModal";
 import PatientContactModal from "@/features/patients/components/PatientContactModal";
 import { MAX_LIST_PAGE_SIZE, PaginationBar, paginateArray } from "@/lib/pagination.jsx";
+import DataTransferMenu from "@/features/dataTransfer/DataTransferMenu";
 
 function DoctorPatientSection({
   title,
@@ -152,10 +153,6 @@ export default function PatientsListPage() {
     if (!isDoctor) setPage(1);
   }, [search, filterGender, filterHasPortal, isDoctor]);
 
-  const patientPage = useMemo(
-    () => paginateArray(filteredPatients, page, MAX_LIST_PAGE_SIZE),
-    [filteredPatients, page]
-  );
   const primaryPatientPage = useMemo(
     () => paginateArray(filteredPrimaryPatients, primaryPage, MAX_LIST_PAGE_SIZE),
     [filteredPrimaryPatients, primaryPage]
@@ -199,6 +196,26 @@ export default function PatientsListPage() {
           hasActiveFilters={hasActiveFilters}
           canRegister={canRegister}
           onAddPatient={() => setCreateOpen(true)}
+          dataAction={
+            !isDoctor ? (
+              <DataTransferMenu
+                endpoint="/data-transfer/patients"
+                exportParams={{
+                  search: search.trim() || undefined,
+                  gender: filterGender === "all" ? undefined : filterGender,
+                  hasPortal: filterHasPortal === "all" ? undefined : filterHasPortal === "yes",
+                }}
+                canImport={canRegister}
+                onImported={() => loadList("all", {
+                  page,
+                  pageSize: MAX_LIST_PAGE_SIZE,
+                  search: search.trim() || undefined,
+                  gender: filterGender === "all" ? undefined : filterGender,
+                  hasPortal: filterHasPortal === "all" ? undefined : filterHasPortal === "yes",
+                })}
+              />
+            ) : null
+          }
         />
 
         {lastActionSuccess && (

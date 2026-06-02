@@ -29,6 +29,7 @@ import {
   printInvoiceSummaryPdf,
   showPdfError,
 } from "@/lib/pdfPrint";
+import DataTransferMenu from "@/features/dataTransfer/DataTransferMenu";
 
 const STATUS_OPTIONS = [
   { value: "all", label: "All statuses" },
@@ -186,6 +187,14 @@ export default function InvoicesListPage() {
         </div>
 
         <div className="flex flex-wrap gap-2">
+          <DataTransferMenu
+            endpoint="/data-transfer/invoices"
+            exportParams={{
+              status: statusFilter === "all" ? undefined : statusFilter,
+              search: search.trim() || undefined,
+            }}
+            canImport={false}
+          />
           {canCreateInvoice && (
             <button
               type="button"

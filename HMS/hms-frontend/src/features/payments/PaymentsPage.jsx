@@ -35,6 +35,7 @@ import {
 import { fetchInvoices } from "@/features/invoices/api/invoicesApi";
 import { formatMoney, keyOf, titleCase } from "@/features/invoices/invoiceFormat";
 import { getPagedItems, getPagination, PaginationBar } from "@/lib/pagination.jsx";
+import DataTransferMenu from "@/features/dataTransfer/DataTransferMenu";
 
 const STATUS_OPTIONS = [
   { value: "all", label: "All statuses" },
@@ -355,6 +356,14 @@ export default function PaymentsPage() {
         </div>
 
         <div className="flex flex-wrap gap-2">
+          <DataTransferMenu
+            endpoint="/data-transfer/payments"
+            exportParams={{
+              search: search.trim() || undefined,
+              status: statusFilter === "all" ? undefined : statusFilter,
+            }}
+            canImport={false}
+          />
           {canCreate && (
             <button
               type="button"
