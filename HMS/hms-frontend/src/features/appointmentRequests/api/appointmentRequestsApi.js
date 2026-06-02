@@ -15,6 +15,9 @@ export async function fetchAppointmentRequests(filters = {}) {
   const params = {};
   if (filters.status && filters.status !== "all") params.status = filters.status;
   if (filters.preferredDate) params.preferredDate = filters.preferredDate;
+  if (filters.search) params.search = filters.search;
+  if (filters.page) params.page = filters.page;
+  if (filters.pageSize) params.pageSize = filters.pageSize;
 
   const { data } = await api.get("/appointment-requests", { params });
   return data;

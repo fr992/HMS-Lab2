@@ -51,6 +51,7 @@ public sealed class AdminUsersController : ControllerBase
         [FromQuery] string? role,
         [FromQuery] string? status,
         [FromQuery] bool? isActive,
+        [FromQuery] bool staffOnly,
         [FromQuery] PaginationQuery pagination,
         CancellationToken cancellationToken)
     {
@@ -62,6 +63,7 @@ public sealed class AdminUsersController : ControllerBase
             search ?? q ?? pagination.Search,
             role,
             effectiveStatus,
+            staffOnly,
             pagination,
             cancellationToken);
         if (error is not null)

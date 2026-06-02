@@ -3,6 +3,7 @@ using HMS.Application.Exceptions;
 using HMS.Contracts.Identity;
 using HMS.Domain.Entities;
 using HMS.Persistence;
+using Identity.Infrastructure.Common;
 using Identity.Domain.Entities;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
@@ -247,12 +248,46 @@ namespace Identity.Infrastructure.Services.Patients;
         return await MapToDtoAsync(patientProfileId, cancellationToken);
     }
 
-    public async Task<List<PatientProfileDto>> GetAllAsync(CancellationToken cancellationToken)
+    public async Task<PaginatedResponse<PatientProfileDto>> GetAllAsync(
+        PaginationQuery pagination,
+        string? gender,
+        bool? hasPortal,
+        CancellationToken cancellationToken)
     {
-        return await _db.PatientProfiles
+        var query = _db.PatientProfiles
             .AsNoTracking()
+            .AsQueryable();
+
+        if (!string.IsNullOrWhiteSpace(pagination.Search))
+        {
+            var search = pagination.Search.Trim();
+            query = query.Where(p =>
+                p.PatientNumber.Contains(search) ||
+                p.Person.FirstName.Contains(search) ||
+                p.Person.LastName.Contains(search) ||
+                (p.Person.PersonalNumber != null && p.Person.PersonalNumber.Contains(search)) ||
+                (p.Person.Phone != null && p.Person.Phone.Contains(search)) ||
+                (p.Person.User != null && p.Person.User.Email != null && p.Person.User.Email.Contains(search)) ||
+                (p.PrimaryDoctor != null &&
+                    (p.PrimaryDoctor.StaffProfile.Person.FirstName + " " + p.PrimaryDoctor.StaffProfile.Person.LastName).Contains(search)));
+        }
+
+        if (!string.IsNullOrWhiteSpace(gender) && !string.Equals(gender, "all", StringComparison.OrdinalIgnoreCase))
+        {
+            var normalizedGender = gender.Trim();
+            query = query.Where(p => p.Person.Gender == normalizedGender);
+        }
+
+        if (hasPortal.HasValue)
+        {
+            query = query.Where(p => hasPortal.Value ? p.Person.UserId != null : p.Person.UserId == null);
+        }
+
+        return await query
+            .OrderBy(p => p.Person.LastName)
+            .ThenBy(p => p.Person.FirstName)
             .Select(ProjectToDto())
-            .ToListAsync(cancellationToken);
+            .ToPaginatedResponseAsync(pagination, cancellationToken);
     }
 
     public async Task<List<PatientProfileDto>> GetForCurrentDoctorAsync(

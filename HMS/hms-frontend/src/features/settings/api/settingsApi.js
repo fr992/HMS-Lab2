@@ -14,6 +14,29 @@ export async function fetchSettings(params = {}) {
   return data;
 }
 
+export async function fetchSettingsUntilKeys(expectedKeys, params = {}) {
+  const wanted = new Set(expectedKeys);
+  const itemsByKey = new Map();
+  let page = params.page ?? 1;
+  let totalPages = 1;
+
+  do {
+    const data = await fetchSettings({ ...params, page, pageSize: params.pageSize ?? 100 });
+    const items = Array.isArray(data) ? data : data?.items ?? data?.data ?? [];
+
+    for (const item of items) {
+      if (item?.key) itemsByKey.set(item.key, item);
+    }
+
+    totalPages = Number(data?.totalPages ?? page);
+    const hasAllExpected = [...wanted].every((key) => itemsByKey.has(key));
+    if (hasAllExpected || !data?.hasNextPage) break;
+    page += 1;
+  } while (page <= totalPages);
+
+  return { items: [...itemsByKey.values()] };
+}
+
 export async function updateSetting(id, body) {
   const payload = {
     key: body.key,

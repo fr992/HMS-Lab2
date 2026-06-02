@@ -95,13 +95,20 @@ public async Task<ActionResult<PatientProfileDto>> RegisterPatient(
 
     [HttpGet]
     [RequirePermission("Patients.Read")]
-    public async Task<ActionResult<List<PatientProfileDto>>> GetAll(
+    public async Task<ActionResult<PaginatedResponse<PatientProfileDto>>> GetAll(
+    [FromQuery] PaginationQuery pagination,
+    [FromQuery] string? gender,
+    [FromQuery] bool? hasPortal,
     CancellationToken cancellationToken)
     {
         if (IsDoctorOnly())
             return Forbid();
 
-        var patients = await _patientService.GetAllAsync(cancellationToken);
+        var patients = await _patientService.GetAllAsync(
+            pagination,
+            gender,
+            hasPortal,
+            cancellationToken);
 
         return Ok(patients);
     }

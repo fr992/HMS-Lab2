@@ -67,6 +67,17 @@ const BED_REQUEST_SORT_OPTIONS = [
   { value: "ward", label: "Ward" },
 ];
 
+const BED_REQUEST_PAGE_SIZE = 75;
+
+const EMPTY_REQUEST_PAGINATION = {
+  page: 1,
+  pageSize: BED_REQUEST_PAGE_SIZE,
+  totalCount: 0,
+  totalPages: 0,
+  hasNextPage: false,
+  hasPreviousPage: false,
+};
+
 const EMPTY_ASSIGN_FORM = {
   patientProfileId: "",
   encounterId: "",
@@ -262,9 +273,11 @@ export default function BedAssignmentsPage({ readOnly = false, requestsOnly = fa
   const [beds, setBeds] = useState([]);
   const [assignments, setAssignments] = useState([]);
   const [bedRequests, setBedRequests] = useState([]);
+  const [requestPagination, setRequestPagination] = useState(EMPTY_REQUEST_PAGINATION);
   const [departments, setDepartments] = useState([]);
   const [patients, setPatients] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [requestLoading, setRequestLoading] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
@@ -280,6 +293,7 @@ export default function BedAssignmentsPage({ readOnly = false, requestsOnly = fa
   const [releaseNotes, setReleaseNotes] = useState("");
   const [rejectNotes, setRejectNotes] = useState("");
   const [requestSearch, setRequestSearch] = useState("");
+  const [debouncedRequestSearch, setDebouncedRequestSearch] = useState("");
   const [requestStatusFilter, setRequestStatusFilter] = useState("all");
   const [requestPriorityFilter, setRequestPriorityFilter] = useState("all");
   const [requestWardFilter, setRequestWardFilter] = useState("all");
@@ -298,34 +312,91 @@ export default function BedAssignmentsPage({ readOnly = false, requestsOnly = fa
     setLoading(true);
     setError("");
     try {
-      const [bedData, assignmentData, departmentData, patientData, requestData] = await Promise.all([
+      const [bedData, assignmentData, departmentData, patientData] = await Promise.all([
         fetchBeds({
           departmentId: departmentFilter,
         }),
         fetchActiveBedAssignments(),
         canLoadAssignmentOptions ? fetchDepartmentsList() : Promise.resolve([]),
         canLoadAssignmentOptions ? fetchPatients() : Promise.resolve([]),
-        canReadBedRequests ? fetchBedAssignmentRequests() : Promise.resolve([]),
       ]);
       setBeds(bedData);
       setAssignments(assignmentData);
       setDepartments(departmentData);
       setPatients(Array.isArray(patientData) ? patientData : []);
-      setBedRequests(Array.isArray(requestData) ? requestData : []);
     } catch (e) {
       setError(getApiErrorMessage(e));
       setBeds([]);
       setAssignments([]);
-      setBedRequests([]);
     } finally {
       setLoading(false);
       setRefreshing(false);
     }
-  }, [canLoadAssignmentOptions, canReadBedRequests, departmentFilter]);
+  }, [canLoadAssignmentOptions, departmentFilter]);
+
+  const loadBedRequests = useCallback(
+    async (page = 1, { append = false } = {}) => {
+      if (!canReadBedRequests) {
+        setBedRequests([]);
+        setRequestPagination(EMPTY_REQUEST_PAGINATION);
+        return;
+      }
+
+      setRequestLoading(true);
+      setError("");
+      try {
+        const data = await fetchBedAssignmentRequests({
+          status: requestStatusFilter,
+          search: debouncedRequestSearch,
+          page,
+          pageSize: BED_REQUEST_PAGE_SIZE,
+        });
+
+        const items = Array.isArray(data.items) ? data.items : [];
+        setBedRequests((current) => (append ? [...current, ...items] : items));
+        setRequestPagination({
+          page: data.page ?? page,
+          pageSize: data.pageSize ?? BED_REQUEST_PAGE_SIZE,
+          totalCount: data.totalCount ?? items.length,
+          totalPages: data.totalPages ?? 0,
+          hasNextPage: Boolean(data.hasNextPage),
+          hasPreviousPage: Boolean(data.hasPreviousPage),
+        });
+      } catch (e) {
+        setError(getApiErrorMessage(e));
+        setBedRequests([]);
+        setRequestPagination(EMPTY_REQUEST_PAGINATION);
+      } finally {
+        setRequestLoading(false);
+      }
+    },
+    [canReadBedRequests, debouncedRequestSearch, requestStatusFilter]
+  );
 
   useEffect(() => {
     void load();
   }, [load]);
+
+  useEffect(() => {
+    const timeoutId = window.setTimeout(() => {
+      setDebouncedRequestSearch(requestSearch.trim());
+    }, 250);
+
+    return () => window.clearTimeout(timeoutId);
+  }, [requestSearch]);
+
+  useEffect(() => {
+    void loadBedRequests(1);
+  }, [loadBedRequests]);
+
+  const refreshRequestsView = useCallback(async () => {
+    setRefreshing(true);
+    try {
+      await Promise.all([load(), loadBedRequests(1)]);
+    } finally {
+      setRefreshing(false);
+    }
+  }, [load, loadBedRequests]);
 
   const rooms = useMemo(() => {
     return [...new Set(beds.map((bed) => bed.roomNumber).filter(Boolean))].sort();
@@ -528,6 +599,12 @@ export default function BedAssignmentsPage({ readOnly = false, requestsOnly = fa
     });
   }, [filteredBedRequests, requestSort]);
 
+  const requestHasActiveFilters =
+    requestSearch.trim() !== "" ||
+    requestStatusFilter !== "all" ||
+    requestPriorityFilter !== "all" ||
+    requestWardFilter !== "all";
+
   const selectedBedRequest = useMemo(() => {
     return (
       sortedBedRequests.find((request) => request.id === selectedRequestId) ||
@@ -537,39 +614,38 @@ export default function BedAssignmentsPage({ readOnly = false, requestsOnly = fa
   }, [selectedRequestId, sortedBedRequests]);
 
   const requestStats = useMemo(() => {
+    const pendingLoaded = bedRequests.filter((request) => normalize(request.status) === "pending").length;
+    const urgentLoaded = bedRequests.filter((request) =>
+      ["urgent", "stat"].includes(normalize(request.priority))
+    ).length;
+
     return [
       {
-        label: "Pending Requests",
-        value: bedRequests.filter((request) => normalize(request.status) === "pending").length,
+        label: "Matching Requests",
+        value: requestPagination.totalCount || bedRequests.length,
         icon: ClipboardList,
         tone: "blue",
       },
       {
-        label: "Urgent Requests",
-        value: bedRequests.filter((request) =>
-          ["urgent", "stat"].includes(normalize(request.priority))
-        ).length,
-        icon: AlertTriangle,
+        label: "Loaded Requests",
+        value: bedRequests.length,
+        icon: Clock,
         tone: "sky",
       },
       {
-        label: "Assigned Today",
-        value: bedRequests.filter(
-          (request) => normalize(request.status) === "assigned" && isToday(request.resolvedAt)
-        ).length,
+        label: "Pending Loaded",
+        value: pendingLoaded,
+        icon: AlertTriangle,
+        tone: "amber",
+      },
+      {
+        label: "Urgent Loaded",
+        value: urgentLoaded,
         icon: CheckCircle2,
         tone: "emerald",
       },
-      {
-        label: "Rejected Today",
-        value: bedRequests.filter(
-          (request) => normalize(request.status) === "rejected" && isToday(request.resolvedAt)
-        ).length,
-        icon: X,
-        tone: "amber",
-      },
     ];
-  }, [bedRequests]);
+  }, [bedRequests, requestPagination.totalCount]);
 
   useEffect(() => {
     if (!requestsOnly) return;
@@ -868,10 +944,9 @@ export default function BedAssignmentsPage({ readOnly = false, requestsOnly = fa
             <button
               type="button"
               onClick={() => {
-                setRefreshing(true);
-                void load();
+                void refreshRequestsView();
               }}
-              disabled={loading || refreshing}
+              disabled={loading || requestLoading || refreshing}
               className="inline-flex h-10 items-center justify-center gap-2 rounded-lg border border-slate-200 bg-white px-4 text-sm font-medium text-slate-800 shadow-sm transition hover:bg-slate-50 disabled:opacity-60"
             >
               <RefreshCw className={`h-4 w-4 ${refreshing ? "animate-spin" : ""}`} aria-hidden />
@@ -907,13 +982,13 @@ export default function BedAssignmentsPage({ readOnly = false, requestsOnly = fa
 
       {canReadBedRequests && (
         <div className="grid min-h-0 items-start gap-4 lg:grid-cols-[22rem_minmax(0,1fr)]">
-          <section className="min-h-0 overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm">
+          <section className="flex h-[34rem] max-h-[calc(100vh-23rem)] min-h-[30rem] flex-col overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm">
             <div className="border-b border-slate-200 p-4">
               <div className="flex items-start justify-between gap-3">
                 <div>
                   <h2 className="text-base font-semibold text-slate-950">Request Queue</h2>
                   <p className="mt-1 text-sm text-slate-500">
-                    {sortedBedRequests.length} of {bedRequests.length} requests
+                    {sortedBedRequests.length} of {requestPagination.totalCount || bedRequests.length} requests
                   </p>
                 </div>
                 <ClipboardList className="size-5 text-slate-400" aria-hidden />
@@ -929,21 +1004,20 @@ export default function BedAssignmentsPage({ readOnly = false, requestsOnly = fa
               </div>
             </div>
 
-            {loading ? (
+            {loading || requestLoading ? (
               <RequestQueueSkeleton />
             ) : error ? (
               <RequestErrorState
                 compact
                 message={error}
                 onRetry={() => {
-                  setRefreshing(true);
-                  void load();
+                  void refreshRequestsView();
                 }}
               />
             ) : sortedBedRequests.length === 0 ? (
               <RequestEmptyState
                 compact
-                filtered={bedRequests.length > 0}
+                filtered={requestHasActiveFilters}
                 onClear={() => {
                   setRequestSearch("");
                   setRequestStatusFilter("all");
@@ -952,7 +1026,7 @@ export default function BedAssignmentsPage({ readOnly = false, requestsOnly = fa
                 }}
               />
             ) : (
-              <div className="scrollbar-none h-[30rem] space-y-2 overflow-y-auto p-3">
+              <div className="scrollbar-none min-h-0 flex-1 space-y-2 overflow-y-auto p-3">
                 {sortedBedRequests.map((request) => (
                   <RequestQueueItem
                     key={request.id}
@@ -961,19 +1035,29 @@ export default function BedAssignmentsPage({ readOnly = false, requestsOnly = fa
                     onSelect={() => setSelectedRequestId(request.id)}
                   />
                 ))}
+                {requestPagination.hasNextPage && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      void loadBedRequests(requestPagination.page + 1, { append: true });
+                    }}
+                    className="h-10 w-full rounded-lg border border-slate-200 bg-white text-sm font-medium text-slate-700 transition hover:bg-slate-50"
+                  >
+                    Load more
+                  </button>
+                )}
               </div>
             )}
           </section>
 
-          <section className="min-h-0 overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm">
-            {loading ? (
+          <section className="h-[34rem] max-h-[calc(100vh-23rem)] min-h-[30rem] overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm">
+            {loading || requestLoading ? (
               <RequestDetailSkeleton />
             ) : error ? (
               <RequestErrorState
                 message={error}
                 onRetry={() => {
-                  setRefreshing(true);
-                  void load();
+                  void refreshRequestsView();
                 }}
               />
             ) : selectedBedRequest ? (
@@ -987,7 +1071,7 @@ export default function BedAssignmentsPage({ readOnly = false, requestsOnly = fa
               />
             ) : (
               <RequestEmptyState
-                filtered={bedRequests.length > 0}
+                filtered={requestHasActiveFilters}
                 onClear={() => {
                   setRequestSearch("");
                   setRequestStatusFilter("all");

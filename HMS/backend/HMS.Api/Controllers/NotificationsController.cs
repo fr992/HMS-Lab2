@@ -21,13 +21,15 @@ public sealed class MyNotificationsController : ControllerBase
 
     [HttpGet]
     [Route("me")]
-    public async Task<ActionResult<IReadOnlyList<NotificationDto>>> List(
+    public async Task<ActionResult<PaginatedResponse<NotificationDto>>> List(
         [FromQuery] bool? isRead,
+        [FromQuery] PaginationQuery pagination,
         CancellationToken cancellationToken)
     {
         var notifications = await _notificationService.GetForUserAsync(
             CurrentUserId(),
             isRead,
+            pagination,
             cancellationToken);
 
         return Ok(notifications);

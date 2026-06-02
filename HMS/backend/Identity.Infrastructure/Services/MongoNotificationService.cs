@@ -10,8 +10,6 @@ namespace Identity.Infrastructure.Services;
 
 public sealed class MongoNotificationService : INotificationService
 {
-    private const int DefaultLimit = 50;
-
     private readonly IMongoCollection<NotificationDocument> _notifications;
     private readonly INotificationMongoIndexInitializer _indexInitializer;
     private readonly INotificationRealtimeSender _realtimeSender;
@@ -65,9 +63,10 @@ public sealed class MongoNotificationService : INotificationService
         return notification;
     }
 
-    public async Task<IReadOnlyList<NotificationDto>> GetForUserAsync(
+    public async Task<PaginatedResponse<NotificationDto>> GetForUserAsync(
         int userId,
         bool? isRead,
+        PaginationQuery pagination,
         CancellationToken cancellationToken)
     {
         EnsureValidUserId(userId);
@@ -78,13 +77,21 @@ public sealed class MongoNotificationService : INotificationService
             filter &= Builders<NotificationDocument>.Filter.Eq(x => x.IsRead, isRead.Value);
         }
 
+        var totalCount = await _notifications.CountDocumentsAsync(filter, cancellationToken: cancellationToken);
+        var page = pagination.Page;
+        var pageSize = pagination.PageSize;
         var documents = await _notifications
             .Find(filter)
             .SortByDescending(x => x.CreatedAt)
-            .Limit(DefaultLimit)
+            .Skip((page - 1) * pageSize)
+            .Limit(pageSize)
             .ToListAsync(cancellationToken);
 
-        return documents.Select(ToDto).ToList();
+        return PaginatedResponse<NotificationDto>.Create(
+            documents.Select(ToDto).ToList(),
+            page,
+            pageSize,
+            totalCount > int.MaxValue ? int.MaxValue : (int)totalCount);
     }
 
     public async Task<int> GetUnreadCountAsync(int userId, CancellationToken cancellationToken)

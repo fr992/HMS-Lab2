@@ -13,7 +13,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import {
-  fetchSettings,
+  fetchSettingsUntilKeys,
   getApiErrorMessage,
   updateSetting,
 } from "@/features/settings/api/settingsApi";
@@ -152,6 +152,8 @@ const SETTING_META = {
   },
 };
 
+const PREDEFINED_SETTING_KEYS = SETTING_SECTIONS.flatMap((section) => section.keys);
+
 function normalizeBoolean(value) {
   return String(value).toLowerCase() === "true";
 }
@@ -178,7 +180,7 @@ export default function SettingsPage() {
     setLoading(true);
     setError("");
     try {
-      const data = await fetchSettings({
+      const data = await fetchSettingsUntilKeys(PREDEFINED_SETTING_KEYS, {
         page: 1,
         pageSize: 100,
       });
@@ -242,8 +244,7 @@ export default function SettingsPage() {
   }, [search, settingsByKey]);
 
   const missingPredefinedCount = useMemo(() => {
-    const expectedKeys = SETTING_SECTIONS.flatMap((section) => section.keys);
-    return expectedKeys.filter((key) => !settingsByKey.has(key)).length;
+    return PREDEFINED_SETTING_KEYS.filter((key) => !settingsByKey.has(key)).length;
   }, [settingsByKey]);
 
   useEffect(() => {

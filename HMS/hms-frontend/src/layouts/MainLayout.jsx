@@ -13,7 +13,7 @@ const NAV_LINKS = [
 export default function MainLayout() {
   return (
     <div className="min-h-screen bg-white text-cyan-950">
-      <header className="sticky top-0 z-50 border-b border-cyan-100 bg-white/90 backdrop-blur-xl">
+      <header className="sticky top-0 z-[45] border-b border-cyan-100 bg-white/90 backdrop-blur-xl">
         <div className="mx-auto flex max-w-7xl flex-wrap items-center gap-3 px-6 py-4 lg:px-8">
           <a href="#home" className="flex items-center gap-3">
             <span className="inline-flex size-9 items-center justify-center overflow-hidden rounded-md bg-white shadow-sm shadow-blue-700/20 ring-1 ring-cyan-100">

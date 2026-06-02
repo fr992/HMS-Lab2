@@ -104,14 +104,12 @@ public sealed class UserManagementService : IUserManagementService
         string? search,
         string? role,
         string? status,
+        bool staffOnly,
         PaginationQuery pagination,
         CancellationToken cancellationToken = default)
     {
         var query = _db.Users
             .AsNoTracking()
-            .Include(u => u.Person)
-            .Include(u => u.UserRoles)
-            .ThenInclude(ur => ur.Role)
             .AsQueryable();
 
         if (!string.IsNullOrWhiteSpace(search))
@@ -130,6 +128,24 @@ public sealed class UserManagementService : IUserManagementService
         {
             var roleName = role.Trim();
             query = query.Where(u => u.UserRoles.Any(ur => ur.Role.Name == roleName));
+        }
+        else if (staffOnly)
+        {
+            var staffRoles = new[]
+            {
+                "Doctor",
+                "Nurse",
+                "Infermier",
+                "Laboratorant",
+                "Lab",
+                "LabStaff",
+                "Laboratory",
+                "Receptionist",
+                "Reception",
+                "Admin",
+                "SuperAdmin"
+            };
+            query = query.Where(u => u.UserRoles.Any(ur => staffRoles.Contains(ur.Role.Name)));
         }
 
         if (!string.IsNullOrWhiteSpace(status) && !status.Equals("all", StringComparison.OrdinalIgnoreCase))
@@ -152,8 +168,12 @@ public sealed class UserManagementService : IUserManagementService
                 cancellationToken)
         };
 
-        var page = await query
+        var pageNumber = pagination.Page;
+        var pageSize = pagination.PageSize;
+        var pageItems = await query
             .OrderBy(u => u.UserName)
+            .Skip((pageNumber - 1) * pageSize)
+            .Take(pageSize)
             .Select(u => new UserListItemResponseDto
             {
                 Id = u.Id,
@@ -165,7 +185,12 @@ public sealed class UserManagementService : IUserManagementService
                 IsActive = u.IsActive,
                 RoleNames = u.UserRoles.Select(ur => ur.Role.Name).OrderBy(n => n).ToList()
             })
-            .ToPaginatedResponseAsync(pagination, cancellationToken);
+            .ToListAsync(cancellationToken);
+        var page = PaginatedResponse<UserListItemResponseDto>.Create(
+            pageItems,
+            pageNumber,
+            pageSize,
+            stats.TotalUsers);
 
         return (UserListResponseDto.Create(page, stats), null);
     }

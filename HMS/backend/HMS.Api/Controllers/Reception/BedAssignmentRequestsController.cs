@@ -20,11 +20,12 @@ public sealed class BedAssignmentRequestsController : ControllerBase
 
     [HttpGet]
     [RequirePermission("BedAssignmentRequests.Read")]
-    public async Task<ActionResult<IReadOnlyList<BedAssignmentRequestDto>>> GetRequests(
+    public async Task<ActionResult<PaginatedResponse<BedAssignmentRequestDto>>> GetRequests(
         [FromQuery] string? status,
+        [FromQuery] PaginationQuery pagination,
         CancellationToken cancellationToken)
     {
-        var result = await _service.GetRequestsAsync(status, cancellationToken);
+        var result = await _service.GetRequestsAsync(status, pagination, cancellationToken);
         return Ok(result);
     }
 

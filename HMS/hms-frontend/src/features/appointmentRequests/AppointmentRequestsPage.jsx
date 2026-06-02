@@ -15,7 +15,7 @@ import {
 import { toast } from "sonner";
 import { useAuth } from "@/auth/AuthContext";
 import { CountUpValue } from "@/features/dashboard/DashboardPrimitives";
-import { MAX_LIST_PAGE_SIZE, PaginationBar, paginateArray } from "@/lib/pagination.jsx";
+import { getPagedItems, getPagination, MAX_LIST_PAGE_SIZE, PaginationBar } from "@/lib/pagination.jsx";
 import {
   APPOINTMENT_REQUEST_STATUS,
   fetchAppointmentRequests,
@@ -152,6 +152,7 @@ export default function AppointmentRequestsPage() {
   const canCreateAppointment = auth.hasPermission("Appointments.Create");
 
   const [items, setItems] = useState([]);
+  const [pagination, setPagination] = useState(null);
   const [statusFilter, setStatusFilter] = useState("all");
   const [preferredDate, setPreferredDate] = useState("");
   const [search, setSearch] = useState("");
@@ -168,16 +169,21 @@ export default function AppointmentRequestsPage() {
       const data = await fetchAppointmentRequests({
         status: statusFilter,
         preferredDate,
+        search: search.trim() || undefined,
+        page,
+        pageSize: MAX_LIST_PAGE_SIZE,
       });
-      setItems(Array.isArray(data) ? data : []);
+      setItems(getPagedItems(data));
+      setPagination(getPagination(data));
     } catch (e) {
       setError(getApiErrorMessage(e));
       setItems([]);
+      setPagination(null);
     } finally {
       setLoading(false);
       setRefreshing(false);
     }
-  }, [preferredDate, statusFilter]);
+  }, [preferredDate, statusFilter, search, page]);
 
   useEffect(() => {
     const timer = window.setTimeout(() => {
@@ -194,25 +200,7 @@ export default function AppointmentRequestsPage() {
     if (error) showToast(error, "error");
   }, [error, showToast]);
 
-  const filteredItems = useMemo(() => {
-    const term = search.trim().toLowerCase();
-    if (!term) return items;
-
-    return items.filter((request) => {
-      const haystack = [
-        getFullName(request),
-        request.email,
-        request.phone,
-        request.reasonForVisit,
-        request.status,
-      ]
-        .filter(Boolean)
-        .join(" ")
-        .toLowerCase();
-
-      return haystack.includes(term);
-    });
-  }, [items, search]);
+  const filteredItems = items;
 
   const counts = useMemo(() => {
     const next = {
@@ -233,10 +221,7 @@ export default function AppointmentRequestsPage() {
     setPage(1);
   }, [search, statusFilter, preferredDate]);
 
-  const requestPage = useMemo(
-    () => paginateArray(filteredItems, page, MAX_LIST_PAGE_SIZE),
-    [filteredItems, page]
-  );
+  const requestPage = { items: filteredItems, pagination };
 
   const updateStatus = async (request, nextStatus) => {
     if (!canManageStatus || mutatingId != null) return;

@@ -19,7 +19,7 @@ import { toast } from "sonner";
 import apiClient from "@/api/apiClient";
 import { getFriendlyApiErrorMessage } from "@/api/apiClient";
 import { CountUpValue } from "@/features/dashboard/DashboardPrimitives";
-import { MAX_LIST_PAGE_SIZE, PaginationBar, getPagedItems, paginateArray } from "@/lib/pagination.jsx";
+import { MAX_LIST_PAGE_SIZE, PaginationBar, getPagedItems, getPagination } from "@/lib/pagination.jsx";
 
 const SYSTEM_ROLES = new Set([
   "SuperAdmin",
@@ -74,6 +74,7 @@ export default function RolesPage() {
   const [deleteId, setDeleteId] = useState(null);
   const [form, setForm] = useState(emptyForm);
   const [page, setPage] = useState(1);
+  const [pagination, setPagination] = useState(null);
 
   const showToast = useCallback((message, type = "success") => {
     toast[type === "error" ? "error" : type === "warning" ? "warning" : "success"](message);
@@ -88,20 +89,22 @@ export default function RolesPage() {
     setError("");
     try {
       const [rolesResponse, permissionsResponse, usersResponse] = await Promise.all([
-        apiClient.get("/admin/roles", { params: { pageSize: 100 } }),
+        apiClient.get("/admin/roles", { params: { page, pageSize: MAX_LIST_PAGE_SIZE } }),
         apiClient.get("/admin/permissions"),
         apiClient.get("/admin/users", { params: { pageSize: 100 } }),
       ]);
       setRoles(getPagedItems(rolesResponse.data));
+      setPagination(getPagination(rolesResponse.data));
       setPermissions(Array.isArray(permissionsResponse.data) ? permissionsResponse.data : []);
       setUsers(getPagedItems(usersResponse.data));
     } catch (e) {
       setError(apiError(e));
       setRoles([]);
+      setPagination(null);
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [page]);
 
   useEffect(() => {
     void load();
@@ -145,10 +148,7 @@ export default function RolesPage() {
     [roles, permissions]
   );
 
-  const rolePage = useMemo(
-    () => paginateArray(roles, page, MAX_LIST_PAGE_SIZE),
-    [roles, page]
-  );
+  const rolePage = { items: roles, pagination };
 
   function openCreate() {
     setDeleteId(null);

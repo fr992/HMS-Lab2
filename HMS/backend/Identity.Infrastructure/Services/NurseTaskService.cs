@@ -3,6 +3,7 @@ using HMS.Application.Exceptions;
 using HMS.Contracts.Identity;
 using HMS.Domain.Entities;
 using HMS.Persistence;
+using Identity.Infrastructure.Common;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 
@@ -83,21 +84,21 @@ public sealed class NurseTaskService : INurseTaskService
             .ToListAsync(cancellationToken);
     }
 
-    public async Task<IReadOnlyList<NurseTaskDto>> GetMyTasksAsync(
+    public async Task<PaginatedResponse<NurseTaskDto>> GetMyTasksAsync(
         int actorUserId,
         IEnumerable<string> actorRoles,
+        string? status,
+        string? priority,
+        PaginationQuery pagination,
         CancellationToken cancellationToken)
     {
+        IQueryable<NurseTask> query;
+
         if (IsAdmin(actorRoles))
         {
-            return await ProjectToDto(_db.NurseTasks
-                    .AsNoTracking()
-                    .OrderBy(x => x.DueAt ?? DateTime.MaxValue)
-                    .ThenByDescending(x => x.CreatedAt))
-                .ToListAsync(cancellationToken);
+            query = _db.NurseTasks.AsNoTracking();
         }
-
-        if (HasRole(actorRoles, "Doctor"))
+        else if (HasRole(actorRoles, "Doctor"))
         {
             var doctorId = await _db.DoctorProfiles
                 .AsNoTracking()
@@ -108,29 +109,58 @@ public sealed class NurseTaskService : INurseTaskService
             if (!doctorId.HasValue)
                 throw new ForbiddenException("Current user is not linked to an active doctor profile.");
 
-            return await ProjectToDto(_db.NurseTasks
+            query = _db.NurseTasks
                     .AsNoTracking()
-                    .Where(x => x.AssignedByDoctorId == doctorId.Value)
-                    .OrderBy(x => x.DueAt ?? DateTime.MaxValue)
-                    .ThenByDescending(x => x.CreatedAt))
-                .ToListAsync(cancellationToken);
+                    .Where(x => x.AssignedByDoctorId == doctorId.Value);
+        }
+        else
+        {
+            var nurseId = await _db.NurseProfiles
+                .AsNoTracking()
+                .Where(x => x.StaffProfile.Person.UserId == actorUserId)
+                .Select(x => (int?)x.Id)
+                .FirstOrDefaultAsync(cancellationToken);
+
+            if (!nurseId.HasValue)
+                throw new ForbiddenException("Current user is not linked to a nurse profile.");
+
+            query = _db.NurseTasks
+                .AsNoTracking()
+                .Where(x => x.AssignedToNurseId == nurseId.Value);
         }
 
-        var nurseId = await _db.NurseProfiles
-            .AsNoTracking()
-            .Where(x => x.StaffProfile.Person.UserId == actorUserId)
-            .Select(x => (int?)x.Id)
-            .FirstOrDefaultAsync(cancellationToken);
+        if (!string.IsNullOrWhiteSpace(status) && !string.Equals(status, "all", StringComparison.OrdinalIgnoreCase))
+        {
+            var normalizedStatus = status.Trim();
+            query = query.Where(x => x.Status == normalizedStatus);
+        }
 
-        if (!nurseId.HasValue)
-            throw new ForbiddenException("Current user is not linked to a nurse profile.");
+        if (!string.IsNullOrWhiteSpace(priority) && !string.Equals(priority, "all", StringComparison.OrdinalIgnoreCase))
+        {
+            var normalizedPriority = priority.Trim();
+            query = query.Where(x => x.Priority == normalizedPriority);
+        }
 
-        return await ProjectToDto(_db.NurseTasks
-                .AsNoTracking()
-                .Where(x => x.AssignedToNurseId == nurseId.Value)
+        if (!string.IsNullOrWhiteSpace(pagination.Search))
+        {
+            var search = pagination.Search.Trim();
+            query = query.Where(x =>
+                x.Type.Contains(search) ||
+                (x.Priority != null && x.Priority.Contains(search)) ||
+                x.Status.Contains(search) ||
+                (x.Notes != null && x.Notes.Contains(search)) ||
+                x.Encounter.EncounterNumber.Contains(search) ||
+                x.Encounter.PatientProfile.Person.FirstName.Contains(search) ||
+                x.Encounter.PatientProfile.Person.LastName.Contains(search) ||
+                (x.AssignedToNurse != null &&
+                    (x.AssignedToNurse.StaffProfile.Person.FirstName + " " + x.AssignedToNurse.StaffProfile.Person.LastName).Contains(search)) ||
+                (x.AssignedByDoctor.StaffProfile.Person.FirstName + " " + x.AssignedByDoctor.StaffProfile.Person.LastName).Contains(search));
+        }
+
+        return await ProjectToDto(query
                 .OrderBy(x => x.DueAt ?? DateTime.MaxValue)
                 .ThenByDescending(x => x.CreatedAt))
-            .ToListAsync(cancellationToken);
+            .ToPaginatedResponseAsync(pagination, cancellationToken);
     }
 
     public async Task<NurseTaskDto> UpdateAsync(

@@ -53,9 +53,16 @@ function extractArray(data) {
   return [];
 }
 
-function totalPages(data) {
+function getPagination(data) {
   if (!data || typeof data !== "object" || Array.isArray(data)) return 1;
-  return Number(data.totalPages ?? data.TotalPages ?? 1) || 1;
+  return {
+    page: Number(data.page ?? data.Page ?? 1) || 1,
+    pageSize: Number(data.pageSize ?? data.PageSize ?? 30) || 30,
+    totalCount: Number(data.totalCount ?? data.TotalCount ?? 0) || 0,
+    totalPages: Number(data.totalPages ?? data.TotalPages ?? 0) || 0,
+    hasNextPage: Boolean(data.hasNextPage ?? data.HasNextPage),
+    hasPreviousPage: Boolean(data.hasPreviousPage ?? data.HasPreviousPage),
+  };
 }
 
 function roleKey(role) {
@@ -85,37 +92,27 @@ function normalizeUser(user) {
   };
 }
 
-async function fetchUsersPage(page) {
+async function fetchUsersPage(params = {}) {
   const { data } = await api.get("/admin/users", {
     params: cleanParams({
-      page,
-      pageSize: 100,
+      ...params,
+      staffOnly: true,
     }),
   });
   return {
     items: extractArray(data),
-    totalPages: totalPages(data),
+    pagination: getPagination(data),
   };
 }
 
-export async function fetchStaffUsers() {
-  const firstPage = await fetchUsersPage(1);
-  const remainingPages = Math.max(firstPage.totalPages, 1);
-  const rest =
-    remainingPages > 1
-      ? await Promise.all(
-          Array.from({ length: remainingPages - 1 }, (_, index) => fetchUsersPage(index + 2))
-        )
-      : [];
-
+export async function fetchStaffUsers(params = {}) {
+  const page = await fetchUsersPage(params);
   const byId = new Map();
 
-  for (const page of [firstPage, ...rest]) {
-    for (const user of page.items) {
-      const normalized = normalizeUser(user);
-      if (hasStaffRole(normalized)) {
-        byId.set(Number(normalized.id), normalized);
-      }
+  for (const user of page.items) {
+    const normalized = normalizeUser(user);
+    if (hasStaffRole(normalized)) {
+      byId.set(Number(normalized.id), normalized);
     }
   }
 
@@ -125,6 +122,7 @@ export async function fetchStaffUsers() {
 
   return {
     items,
+    pagination: page.pagination,
   };
 }
 

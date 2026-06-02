@@ -2,6 +2,7 @@ using HMS.Application.Abstractions.Identity;
 using HMS.Application.Exceptions;
 using HMS.Contracts.Identity;
 using HMS.Domain.Entities;
+using Identity.Infrastructure.Common;
 using HMS.Persistence;
 using Microsoft.EntityFrameworkCore;
 
@@ -125,8 +126,9 @@ public sealed class BedAssignmentRequestService : IBedAssignmentRequestService
             .ToListAsync(cancellationToken);
     }
 
-    public async Task<IReadOnlyList<BedAssignmentRequestDto>> GetRequestsAsync(
+    public async Task<PaginatedResponse<BedAssignmentRequestDto>> GetRequestsAsync(
         string? status,
+        PaginationQuery pagination,
         CancellationToken cancellationToken)
     {
         var normalizedStatus = NormalizeOptional(status);
@@ -137,10 +139,27 @@ public sealed class BedAssignmentRequestService : IBedAssignmentRequestService
             query = query.Where(x => x.Status == NormalizeStatus(normalizedStatus));
         }
 
+        if (!string.IsNullOrWhiteSpace(pagination.Search))
+        {
+            var search = pagination.Search.Trim();
+            query = query.Where(x =>
+                x.Encounter.EncounterNumber.Contains(search)
+                || x.PatientProfile.PatientNumber.Contains(search)
+                || x.PatientProfile.Person.FirstName.Contains(search)
+                || x.PatientProfile.Person.LastName.Contains(search)
+                || x.RequestedByDoctor.StaffProfile.Person.FirstName.Contains(search)
+                || x.RequestedByDoctor.StaffProfile.Person.LastName.Contains(search)
+                || (x.PreferredWard != null && x.PreferredWard.Contains(search))
+                || (x.Notes != null && x.Notes.Contains(search))
+                || x.Priority.Contains(search)
+                || x.Status.Contains(search));
+        }
+
         return await ProjectToDto(query
                 .OrderBy(x => x.Status == BedAssignmentRequestStatus.Pending ? 0 : 1)
-                .ThenByDescending(x => x.RequestedAt))
-            .ToListAsync(cancellationToken);
+                .ThenByDescending(x => x.RequestedAt)
+                .ThenByDescending(x => x.Id))
+            .ToPaginatedResponseAsync(pagination, cancellationToken);
     }
 
     public async Task<BedAssignmentRequestDto> AssignAsync(

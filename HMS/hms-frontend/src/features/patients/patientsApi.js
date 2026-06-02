@@ -7,8 +7,8 @@ export function getApiErrorMessage(err) {
   return getFriendlyApiErrorMessage(err);
 }
 
-export async function fetchPatients() {
-  const { data } = await api.get("/patients");
+export async function fetchPatients(params = {}) {
+  const { data } = await api.get("/patients", { params });
   return data;
 }
 

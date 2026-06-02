@@ -17,8 +17,9 @@ public interface IBedAssignmentRequestService
         IEnumerable<string> actorRoles,
         CancellationToken cancellationToken);
 
-    Task<IReadOnlyList<BedAssignmentRequestDto>> GetRequestsAsync(
+    Task<PaginatedResponse<BedAssignmentRequestDto>> GetRequestsAsync(
         string? status,
+        PaginationQuery pagination,
         CancellationToken cancellationToken);
 
     Task<BedAssignmentRequestDto> AssignAsync(

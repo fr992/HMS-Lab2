@@ -112,6 +112,9 @@ builder.Services.AddAuthorization(options =>
 });
 
 var app = builder.Build();
+var demoSeedCount = GetDemoSeedCount(args);
+var seedDemoData = HasFlag(args, "--seed-demo");
+var rollbackDemoData = HasFlag(args, "--rollback-demo");
 
 if (app.Environment.IsDevelopment())
 {
@@ -124,6 +127,18 @@ if (!EF.IsDesignTime)
     await using var scope = app.Services.CreateAsyncScope();
     await scope.ServiceProvider.GetRequiredService<IMongoDbInitializer>().InitializeAsync(CancellationToken.None);
     await scope.ServiceProvider.GetRequiredService<IdentityDataSeeder>().SeedAsync();
+
+    if (rollbackDemoData)
+        await scope.ServiceProvider.GetRequiredService<DemoDataSeeder>().RollbackAsync(CancellationToken.None);
+
+    if (seedDemoData)
+        await scope.ServiceProvider.GetRequiredService<DemoDataSeeder>().SeedAsync(demoSeedCount, CancellationToken.None);
+}
+
+if (seedDemoData || rollbackDemoData)
+{
+    await app.StopAsync();
+    return;
 }
 
 app.UseHttpsRedirection();
@@ -235,4 +250,21 @@ static string? CurrentUserId(ClaimsPrincipal user)
 {
     return user.FindFirstValue(ClaimTypes.NameIdentifier)
         ?? user.FindFirstValue("sub");
+}
+
+static bool HasFlag(string[] args, string flag) =>
+    args.Any(arg => string.Equals(arg, flag, StringComparison.OrdinalIgnoreCase));
+
+static int? GetDemoSeedCount(string[] args)
+{
+    for (var i = 0; i < args.Length; i++)
+    {
+        if (!string.Equals(args[i], "--demo-seed-count", StringComparison.OrdinalIgnoreCase))
+            continue;
+
+        if (i + 1 < args.Length && int.TryParse(args[i + 1], out var count))
+            return count;
+    }
+
+    return null;
 }

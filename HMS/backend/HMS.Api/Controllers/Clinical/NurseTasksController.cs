@@ -47,11 +47,21 @@ public sealed class NurseTasksController : ControllerBase
 
     [HttpGet("my")]
     [RequirePermission("NurseTasks.Read")]
-    public async Task<ActionResult<IReadOnlyList<NurseTaskDto>>> GetMyTasks(CancellationToken cancellationToken)
+    public async Task<ActionResult<PaginatedResponse<NurseTaskDto>>> GetMyTasks(
+        [FromQuery] string? status,
+        [FromQuery] string? priority,
+        [FromQuery] PaginationQuery pagination,
+        CancellationToken cancellationToken)
     {
         try
         {
-            var result = await _service.GetMyTasksAsync(CurrentUserId(), CurrentUserRoles(), cancellationToken);
+            var result = await _service.GetMyTasksAsync(
+                CurrentUserId(),
+                CurrentUserRoles(),
+                status,
+                priority,
+                pagination,
+                cancellationToken);
             return Ok(result);
         }
         catch (InvalidOperationException ex)

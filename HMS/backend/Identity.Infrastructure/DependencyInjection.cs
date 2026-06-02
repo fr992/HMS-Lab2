@@ -122,6 +122,7 @@ public static class DependencyInjection
         services.AddScoped<IUserProfileService, UserProfileService>();
         services.AddScoped<IStaffProfileService, StaffProfileService>();
         services.AddScoped<IdentityDataSeeder>();
+        services.AddScoped<DemoDataSeeder>();
         services.AddScoped<IPatientContactService, PatientContactService>();
         services.AddScoped<IEncounterService, EncounterService>();
         services.AddScoped<IDiagnosisService, DiagnosisService>();

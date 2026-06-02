@@ -76,19 +76,18 @@ public sealed class DashboardController : ControllerBase
     }
 
     [HttpGet("stats/revenue/mtd")]
-    [RequirePermission("Invoices.Read")]
+    [RequirePermission("Payments.Read")]
     public async Task<ActionResult<object>> RevenueMtdStats(CancellationToken cancellationToken)
     {
         var now = DateTime.UtcNow;
         var start = new DateTime(now.Year, now.Month, 1);
         var previousStart = start.AddMonths(-1);
-        var paidStatuses = new[] { InvoiceStatus.Paid, InvoiceStatus.PartiallyPaid };
-        var current = await _db.Invoices.AsNoTracking()
-            .Where(x => paidStatuses.Contains(x.Status) && x.IssuedAt >= start)
-            .SumAsync(x => (decimal?)x.TotalAmount, cancellationToken) ?? 0m;
-        var previous = await _db.Invoices.AsNoTracking()
-            .Where(x => paidStatuses.Contains(x.Status) && x.IssuedAt >= previousStart && x.IssuedAt < start)
-            .SumAsync(x => (decimal?)x.TotalAmount, cancellationToken) ?? 0m;
+        var current = await _db.Payments.AsNoTracking()
+            .Where(x => x.Status == PaymentStatus.Paid && x.PaidAt != null && x.PaidAt >= start)
+            .SumAsync(x => (decimal?)x.Amount, cancellationToken) ?? 0m;
+        var previous = await _db.Payments.AsNoTracking()
+            .Where(x => x.Status == PaymentStatus.Paid && x.PaidAt != null && x.PaidAt >= previousStart && x.PaidAt < start)
+            .SumAsync(x => (decimal?)x.Amount, cancellationToken) ?? 0m;
 
         return Ok(new { formatted = FormatMoney(current), change = FormatChange(current, previous), trend = Trend(current, previous) });
     }
@@ -128,22 +127,22 @@ public sealed class DashboardController : ControllerBase
     }
 
     [HttpGet("charts/revenue")]
-    [RequirePermission("Invoices.Read")]
+    [RequirePermission("Payments.Read")]
     public async Task<ActionResult<IReadOnlyList<object>>> RevenueChart(CancellationToken cancellationToken)
     {
         var months = LastMonths(6);
         var start = months[0].Start;
-        var invoices = await _db.Invoices.AsNoTracking()
-            .Where(x => x.IssuedAt >= start && x.Status != InvoiceStatus.Cancelled)
-            .Select(x => new { x.IssuedAt, x.TotalAmount })
+        var payments = await _db.Payments.AsNoTracking()
+            .Where(x => x.Status == PaymentStatus.Paid && x.PaidAt != null && x.PaidAt >= start)
+            .Select(x => new { PaidAt = x.PaidAt!.Value, x.Amount })
             .ToListAsync(cancellationToken);
 
         return Ok(months.Select(month => new
         {
             month = month.Label,
-            revenue = decimal.ToInt32(Math.Round(invoices
-                .Where(x => IsInMonth(x.IssuedAt, month.Start))
-                .Sum(x => x.TotalAmount) / 1000m))
+            revenue = decimal.ToInt32(Math.Round(payments
+                .Where(x => IsInMonth(x.PaidAt, month.Start))
+                .Sum(x => x.Amount) / 1000m))
         }));
     }
 

@@ -13,6 +13,7 @@ public interface IUserManagementService
         string? search,
         string? role,
         string? status,
+        bool staffOnly,
         PaginationQuery pagination,
         CancellationToken cancellationToken = default);
     Task<(UserDetailResponseDto? user, string? error)> GetUserByIdAsync(

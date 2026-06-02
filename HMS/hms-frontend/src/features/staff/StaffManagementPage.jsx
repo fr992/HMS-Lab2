@@ -17,7 +17,7 @@ import {
 import { toast } from "sonner";
 import { useAuth } from "@/auth/AuthContext";
 import { CountUpValue } from "@/features/dashboard/DashboardPrimitives";
-import { MAX_LIST_PAGE_SIZE, PaginationBar, paginateArray } from "@/lib/pagination.jsx";
+import { MAX_LIST_PAGE_SIZE, PaginationBar } from "@/lib/pagination.jsx";
 import {
   createDoctorStaff,
   createGeneralStaff,
@@ -166,6 +166,7 @@ export default function StaffManagementPage() {
   const canReadNurses = auth.hasPermission("Nurses.Read");
 
   const [staffUsers, setStaffUsers] = useState([]);
+  const [pagination, setPagination] = useState(null);
   const [roles, setRoles] = useState([]);
   const [departments, setDepartments] = useState([]);
   const [doctors, setDoctors] = useState([]);
@@ -196,12 +197,19 @@ export default function StaffManagementPage() {
     setError("");
     try {
       const [usersResult, roleData, doctorData, nurseData] = await Promise.all([
-        fetchStaffUsers(),
+        fetchStaffUsers({
+          page,
+          pageSize: MAX_LIST_PAGE_SIZE,
+          search: search.trim() || undefined,
+          role: activeTab === "all" ? undefined : activeTab,
+          status: statusFilter === "all" ? undefined : statusFilter,
+        }),
         fetchStaffRoles().catch(() => []),
         canReadDoctors ? fetchDoctors().catch(() => []) : Promise.resolve([]),
         canReadNurses ? fetchNurses().catch(() => []) : Promise.resolve([]),
       ]);
       setStaffUsers(usersResult.items);
+      setPagination(usersResult.pagination);
       setRoles(roleData);
       setDoctors(doctorData);
       setNurses(nurseData);
@@ -209,11 +217,12 @@ export default function StaffManagementPage() {
     } catch (e) {
       setError(apiError(e));
       setStaffUsers([]);
+      setPagination(null);
     } finally {
       setLoading(false);
       setRefreshing(false);
     }
-  }, [canReadDoctors, canReadNurses]);
+  }, [activeTab, canReadDoctors, canReadNurses, page, search, statusFilter]);
 
   useEffect(() => {
     void load();
@@ -233,36 +242,7 @@ export default function StaffManagementPage() {
     return staffUsers.map((user) => enrichStaff(user, doctorByUserId, nurseByUserId));
   }, [doctors, nurses, staffUsers]);
 
-  const filteredStaff = useMemo(() => {
-    const term = normalize(search);
-    return staff.filter((member) => {
-      const type = member.staffType;
-      const matchesTab =
-        activeTab === "all" ||
-        type === activeTab ||
-        (activeTab === "Nurse" && ["Nurse", "Infermier"].includes(type)) ||
-        (activeTab === "Laboratorant" &&
-          ["Laboratorant", "Lab", "LabStaff", "Laboratory"].includes(type)) ||
-        (activeTab === "Receptionist" && ["Receptionist", "Reception"].includes(type));
-      const matchesStatus =
-        statusFilter === "all" ||
-        (statusFilter === "active" ? member.isActive : !member.isActive);
-      const haystack = [
-        fullName(member),
-        member.email,
-        member.userName,
-        member.phoneNumber,
-        staffTypeLabel(type),
-        member.departmentName,
-        member.licenseNumber,
-        member.specializationName,
-      ]
-        .filter(Boolean)
-        .join(" ")
-        .toLowerCase();
-      return matchesTab && matchesStatus && (!term || haystack.includes(term));
-    });
-  }, [activeTab, search, staff, statusFilter]);
+  const filteredStaff = staff;
 
   const stats = useMemo(() => {
     const doctorsCount = staff.filter((member) => member.staffType === "Doctor").length;
@@ -282,10 +262,7 @@ export default function StaffManagementPage() {
     setPage(1);
   }, [activeTab, search, statusFilter]);
 
-  const staffPage = useMemo(
-    () => paginateArray(filteredStaff, page, MAX_LIST_PAGE_SIZE),
-    [filteredStaff, page]
-  );
+  const staffPage = { items: filteredStaff, pagination };
 
   function openCreate() {
     setDialog({ type: "create", staff: null });

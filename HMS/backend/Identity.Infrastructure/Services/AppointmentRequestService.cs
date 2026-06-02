@@ -2,6 +2,7 @@ using HMS.Application.Abstractions.Identity;
 using HMS.Application.Exceptions;
 using HMS.Contracts.Identity;
 using HMS.Persistence;
+using Identity.Infrastructure.Common;
 using Identity.Domain.Entities;
 using Microsoft.EntityFrameworkCore;
 
@@ -71,9 +72,10 @@ public sealed class AppointmentRequestService : IAppointmentRequestService
         };
     }
 
-    public async Task<List<AppointmentRequestDto>> GetAllAsync(
+    public async Task<PaginatedResponse<AppointmentRequestDto>> GetAllAsync(
         string? status,
         DateOnly? preferredDate,
+        PaginationQuery pagination,
         CancellationToken ct)
     {
         var query = _db.AppointmentRequests
@@ -89,6 +91,17 @@ public sealed class AppointmentRequestService : IAppointmentRequestService
         if (preferredDate.HasValue)
         {
             query = query.Where(a => a.PreferredDate == preferredDate.Value);
+        }
+
+        if (!string.IsNullOrWhiteSpace(pagination.Search))
+        {
+            var search = pagination.Search.Trim();
+            query = query.Where(a =>
+                a.FirstName.Contains(search) ||
+                a.LastName.Contains(search) ||
+                a.Email.Contains(search) ||
+                a.Phone.Contains(search) ||
+                a.ReasonForVisit.Contains(search));
         }
 
         return await query
@@ -109,7 +122,7 @@ public sealed class AppointmentRequestService : IAppointmentRequestService
                 CreatedAt = a.CreatedAt,
                 UpdatedAt = a.UpdatedAt
             })
-            .ToListAsync(ct);
+            .ToPaginatedResponseAsync(pagination, ct);
     }
 
     public async Task<AppointmentRequestDto?> GetByIdAsync(

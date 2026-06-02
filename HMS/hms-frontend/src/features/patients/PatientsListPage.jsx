@@ -64,6 +64,7 @@ export default function PatientsListPage() {
   const loadList = usePatientsStore((s) => s.loadList);
   const clearFeedback = usePatientsStore((s) => s.clearFeedback);
   const items = usePatientsStore((s) => s.items);
+  const pagination = usePatientsStore((s) => s.pagination);
   const doctorGroups = usePatientsStore((s) => s.doctorGroups);
   const listStatus = usePatientsStore((s) => s.listStatus);
   const listError = usePatientsStore((s) => s.listError);
@@ -85,20 +86,33 @@ export default function PatientsListPage() {
 
   useEffect(() => {
     clearFeedback();
-    loadList(isDoctor ? "doctor" : "all");
-  }, [loadList, clearFeedback, isDoctor]);
+    loadList(
+      isDoctor ? "doctor" : "all",
+      isDoctor
+        ? {}
+        : {
+            page,
+            pageSize: MAX_LIST_PAGE_SIZE,
+            search: search.trim() || undefined,
+            gender: filterGender === "all" ? undefined : filterGender,
+            hasPortal: filterHasPortal === "all" ? undefined : filterHasPortal === "yes",
+          }
+    );
+  }, [loadList, clearFeedback, isDoctor, page, search, filterGender, filterHasPortal]);
 
   const showDelete = useCallback((id) => setDeleteId(id), []);
   const row = deleteId != null ? items.find((p) => p.id === deleteId) : null;
 
   const filteredPatients = useMemo(
     () =>
-      applyPatientListFilters(items, {
-        search,
-        gender: filterGender,
-        hasPortal: filterHasPortal,
-      }),
-    [items, search, filterGender, filterHasPortal]
+      isDoctor
+        ? applyPatientListFilters(items, {
+            search,
+            gender: filterGender,
+            hasPortal: filterHasPortal,
+          })
+        : items,
+    [items, isDoctor, search, filterGender, filterHasPortal]
   );
 
   const filteredPrimaryPatients = useMemo(
@@ -130,9 +144,12 @@ export default function PatientsListPage() {
   );
 
   useEffect(() => {
-    setPage(1);
     setPrimaryPage(1);
     setInteractedPage(1);
+  }, [search, filterGender, filterHasPortal, isDoctor]);
+
+  useEffect(() => {
+    if (!isDoctor) setPage(1);
   }, [search, filterGender, filterHasPortal, isDoctor]);
 
   const patientPage = useMemo(
@@ -280,13 +297,13 @@ export default function PatientsListPage() {
         {listStatus === "ready" && !isDoctor && items.length > 0 && filteredPatients.length > 0 && (
           <div className="overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm">
             <PatientTable
-              patients={patientPage.items}
+              patients={items}
               canUpdate={canUpdate}
               canDelete={canDelete}
               onDelete={canDelete ? showDelete : undefined}
               onOpenContacts={canUpdate ? (id) => setContactId(id) : undefined}
             />
-            <PaginationBar pagination={patientPage.pagination} loading={false} onPageChange={setPage} />
+            <PaginationBar pagination={pagination} loading={listStatus === "loading"} onPageChange={setPage} />
           </div>
         )}
         {listStatus === "ready" && !isDoctor && items.length > 0 && filteredPatients.length === 0 && (

@@ -204,16 +204,34 @@ public sealed class LabResultService : ILabResultService
         int? patientProfileId,
         CancellationToken cancellationToken)
     {
-        var query = BaseQuery();
-
-        if (patientProfileId.HasValue)
-            query = query.Where(r => r.LabRequestItem.LabRequest.Encounter.PatientProfileId == patientProfileId.Value);
+        var query = BuildLabResultsQuery(patientProfileId);
 
         return await query
             .OrderByDescending(r => r.CreatedAt)
             .ThenByDescending(r => r.Id)
             .Select(MapToDto)
             .ToListAsync(cancellationToken);
+    }
+
+    public async Task<PaginatedResponse<LabResultDto>> GetLabResultsAsync(
+        int? patientProfileId,
+        PaginationQuery pagination,
+        CancellationToken cancellationToken)
+    {
+        var query = BuildLabResultsQuery(patientProfileId);
+        var page = pagination.Page;
+        var pageSize = pagination.PageSize;
+        var totalCount = await query.CountAsync(cancellationToken);
+
+        var items = await query
+            .OrderByDescending(r => r.CreatedAt)
+            .ThenByDescending(r => r.Id)
+            .Skip((page - 1) * pageSize)
+            .Take(pageSize)
+            .Select(MapToDto)
+            .ToListAsync(cancellationToken);
+
+        return PaginatedResponse<LabResultDto>.Create(items, page, pageSize, totalCount);
     }
 
     public async Task<List<LabResultDto>> GetPublishedForPatientUserAsync(
@@ -312,6 +330,16 @@ public sealed class LabResultService : ILabResultService
     private IQueryable<LabResult> BaseQuery()
     {
         return _db.LabResults.AsNoTracking();
+    }
+
+    private IQueryable<LabResult> BuildLabResultsQuery(int? patientProfileId)
+    {
+        var query = BaseQuery();
+
+        if (patientProfileId.HasValue)
+            query = query.Where(r => r.LabRequestItem.LabRequest.Encounter.PatientProfileId == patientProfileId.Value);
+
+        return query;
     }
 
     private static readonly Expression<Func<LabResult, LabResultDto>> MapToDto =

@@ -23,10 +23,12 @@ public sealed class DoctorAppointmentsController : ControllerBase
 
     [HttpGet]
     [RequirePermission("Appointments.Read")]
-    public async Task<ActionResult<List<AppointmentDto>>> GetDoctorAppointments(
+    public async Task<ActionResult<PaginatedResponse<AppointmentDto>>> GetDoctorAppointments(
         [FromQuery] DateTimeOffset? date,
         [FromQuery] DateTimeOffset? from,
         [FromQuery] DateTimeOffset? to,
+        [FromQuery] string? status,
+        [FromQuery] PaginationQuery pagination,
         CancellationToken cancellationToken)
     {
         var userId = GetCurrentUserId();
@@ -44,6 +46,8 @@ public sealed class DoctorAppointmentsController : ControllerBase
                 date,
                 from,
                 to,
+                status,
+                pagination,
                 cancellationToken);
 
             return Ok(result);

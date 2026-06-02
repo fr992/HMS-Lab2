@@ -3,6 +3,7 @@ import * as api from "./patientsApi";
 
 export const usePatientsStore = create((set) => ({
   items: [],
+  pagination: null,
   doctorGroups: { primaryPatients: [], interactedPatients: [] },
   listStatus: "idle",
   listError: null,
@@ -11,7 +12,7 @@ export const usePatientsStore = create((set) => ({
 
   clearFeedback: () => set({ lastActionError: null, lastActionSuccess: null }),
 
-  loadList: async (scope = "all") => {
+  loadList: async (scope = "all", params = {}) => {
     set({ listStatus: "loading", listError: null });
     try {
       if (scope === "doctor") {
@@ -32,9 +33,20 @@ export const usePatientsStore = create((set) => ({
         return;
       }
 
-      const items = await api.fetchPatients();
+      const data = await api.fetchPatients(params);
+      const items = Array.isArray(data) ? data : data?.items ?? [];
       set({
         items,
+        pagination: Array.isArray(data)
+          ? null
+          : {
+              page: data.page ?? 1,
+              pageSize: data.pageSize ?? 30,
+              totalCount: data.totalCount ?? items.length,
+              totalPages: data.totalPages ?? 0,
+              hasNextPage: Boolean(data.hasNextPage),
+              hasPreviousPage: Boolean(data.hasPreviousPage),
+            },
         doctorGroups: { primaryPatients: [], interactedPatients: [] },
         listStatus: "ready",
         listError: null,
@@ -44,6 +56,7 @@ export const usePatientsStore = create((set) => ({
         listStatus: "error",
         listError: api.getApiErrorMessage(e),
         items: [],
+        pagination: null,
         doctorGroups: { primaryPatients: [], interactedPatients: [] },
       });
     }

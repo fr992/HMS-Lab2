@@ -72,12 +72,17 @@ export default function Sidebar() {
     )
   );
 
-  const linkClass = (to) => {
+  const routeIsActive = (to) => {
     const current = `${pathname}${hash}`;
     const hasHash = to.includes("#");
-    const on = hasHash
-      ? current === to
-      : pathname === to || (to !== "/admin" && pathname.startsWith(to));
+    if (hasHash) return current === to;
+    if (pathname === to) return true;
+    if (to === "/admin") return false;
+    return pathname.startsWith(`${to}/`);
+  };
+
+  const linkClass = (to) => {
+    const on = routeIsActive(to);
     return [
       "flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition",
       collapsed ? "justify-center" : "",

@@ -23,6 +23,11 @@ public interface ILabResultService
         int? patientProfileId,
         CancellationToken cancellationToken);
 
+    Task<PaginatedResponse<LabResultDto>> GetLabResultsAsync(
+        int? patientProfileId,
+        PaginationQuery pagination,
+        CancellationToken cancellationToken);
+
     Task<List<LabResultDto>> GetPublishedForPatientUserAsync(
         int userId,
         CancellationToken cancellationToken);

@@ -21,9 +21,10 @@ public sealed class AppointmentRequestsController : ControllerBase
 
     [HttpGet]
     [RequirePermission("Appointments.Read")]
-    public async Task<ActionResult<List<AppointmentRequestDto>>> GetAll(
+    public async Task<ActionResult<PaginatedResponse<AppointmentRequestDto>>> GetAll(
         [FromQuery] string? status,
         [FromQuery] DateOnly? preferredDate,
+        [FromQuery] PaginationQuery pagination,
         CancellationToken cancellationToken)
     {
         try
@@ -31,6 +32,7 @@ public sealed class AppointmentRequestsController : ControllerBase
             var list = await _appointmentRequestService.GetAllAsync(
                 status,
                 preferredDate,
+                pagination,
                 cancellationToken);
 
             return Ok(list);

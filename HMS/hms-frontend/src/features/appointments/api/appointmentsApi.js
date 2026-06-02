@@ -26,6 +26,10 @@ export async function fetchAppointments(filters) {
     if (filters.date) params.date = filters.date;
     if (filters.from) params.from = filters.from;
     if (filters.to) params.to = filters.to;
+    if (filters.search) params.search = filters.search;
+    if (filters.status && filters.status !== "all") params.status = filters.status;
+    if (filters.page) params.page = filters.page;
+    if (filters.pageSize) params.pageSize = filters.pageSize;
   }
   const { data } = await api.get("/receptionist/appointments", { params });
   return data;

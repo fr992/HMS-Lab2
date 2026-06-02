@@ -14,7 +14,7 @@ import {
 import { toast } from "sonner";
 import { useAuth } from "@/auth/AuthContext";
 import { CountUpValue } from "@/features/dashboard/DashboardPrimitives";
-import { MAX_LIST_PAGE_SIZE, PaginationBar, paginateArray } from "@/lib/pagination.jsx";
+import { getPagedItems, getPagination, MAX_LIST_PAGE_SIZE, PaginationBar } from "@/lib/pagination.jsx";
 import {
   completeNurseTask,
   createNurseTask,
@@ -97,6 +97,7 @@ export default function NurseTasksPage() {
   const canReadNurses = auth.hasPermission("Nurses.Read");
 
   const [items, setItems] = useState([]);
+  const [pagination, setPagination] = useState(null);
   const [nurses, setNurses] = useState([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -123,48 +124,33 @@ export default function NurseTasksPage() {
     setError("");
     try {
       const [taskData, nurseData] = await Promise.all([
-        fetchNurseTasks(),
+        fetchNurseTasks({
+          page,
+          pageSize: MAX_LIST_PAGE_SIZE,
+          search: search.trim() || undefined,
+          status: statusFilter === "all" ? undefined : statusFilter,
+          priority: priorityFilter === "all" ? undefined : priorityFilter,
+        }),
         canReadNurses ? fetchNurses() : Promise.resolve([]),
       ]);
-      setItems(taskData);
+      setItems(getPagedItems(taskData));
+      setPagination(getPagination(taskData));
       setNurses(nurseData);
     } catch (e) {
       setError(getApiErrorMessage(e));
       setItems([]);
+      setPagination(null);
     } finally {
       setLoading(false);
       setRefreshing(false);
     }
-  }, [canReadNurses]);
+  }, [canReadNurses, page, search, statusFilter, priorityFilter]);
 
   useEffect(() => {
     void load();
   }, [load]);
 
-  const filteredItems = useMemo(() => {
-    const term = normalize(search);
-    return items.filter((task) => {
-      const haystack = [
-        task.type,
-        task.priority,
-        task.status,
-        task.notes,
-        task.encounterNumber,
-        task.patientName,
-        task.assignedToNurseName,
-        task.assignedByDoctorName,
-      ]
-        .filter(Boolean)
-        .join(" ")
-        .toLowerCase();
-      const matchesSearch = !term || haystack.includes(term);
-      const matchesStatus =
-        statusFilter === "all" || normalize(task.status) === statusFilter;
-      const matchesPriority =
-        priorityFilter === "all" || normalize(task.priority) === priorityFilter;
-      return matchesSearch && matchesStatus && matchesPriority;
-    });
-  }, [items, search, statusFilter, priorityFilter]);
+  const filteredItems = items;
 
   const stats = useMemo(() => {
     const pending = items.filter((task) => normalize(task.status) !== "completed");
@@ -182,10 +168,7 @@ export default function NurseTasksPage() {
     setPage(1);
   }, [search, statusFilter, priorityFilter]);
 
-  const taskPage = useMemo(
-    () => paginateArray(filteredItems, page, MAX_LIST_PAGE_SIZE),
-    [filteredItems, page]
-  );
+  const taskPage = { items: filteredItems, pagination };
 
   function openCreate() {
     setActiveTask(null);

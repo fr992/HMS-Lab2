@@ -185,14 +185,21 @@ function buildPatientTrendFallback(patients) {
   }));
 }
 
-function buildRevenueFallback(invoices) {
+function buildRevenueFallback(invoices, payments = []) {
   const months = lastSixMonths();
+  const paidPayments = payments.filter((payment) => keyOf(payment.status) === "paid");
+  const hasPaidPayments = paidPayments.length > 0;
+
   return months.map((month) => ({
     month: month.month,
     revenue: Math.round(
-      invoices
-        .filter((invoice) => formatDateKey(invoice.issuedAt ?? invoice.createdAt) === month.key)
-        .reduce((sum, invoice) => sum + numberOr(invoice.totalAmount), 0) / 1000
+      (hasPaidPayments
+        ? paidPayments
+            .filter((payment) => formatDateKey(payment.paidAt ?? payment.updatedAt ?? payment.createdAt) === month.key)
+            .reduce((sum, payment) => sum + numberOr(payment.amount), 0)
+        : invoices
+            .filter((invoice) => formatDateKey(invoice.issuedAt ?? invoice.createdAt) === month.key)
+            .reduce((sum, invoice) => sum + numberOr(invoice.totalAmount), 0)) / 1000
     ),
   }));
 }
@@ -317,6 +324,8 @@ export default function AdminOverviewDashboard() {
   const canReadUsers = auth.hasPermission("Users.Read");
   const canReadLabRequests = auth.hasPermission("LabRequests.Read");
   const canReadInvoices = auth.hasPermission("Invoices.Read");
+  const canReadPayments = auth.hasPermission("Payments.Read");
+  const canReadRevenue = canReadPayments || canReadInvoices;
   const canReadNurseTasks = auth.hasPermission("NurseTasks.Read");
   const canReadBeds = auth.hasPermission("Beds.Read");
 
@@ -342,12 +351,15 @@ export default function AdminOverviewDashboard() {
         getData("/dashboard/stats/appointments/today", {}, { enabled: canReadAppointments }),
         getData("/dashboard/stats/doctors/active", {}, { enabled: canReadUsers }),
         getData("/dashboard/stats/lab/pending", {}, { enabled: canReadLabRequests }),
-        getData("/dashboard/stats/revenue/mtd", {}, { enabled: canReadInvoices }),
+        getData("/dashboard/stats/revenue/mtd", {}, { enabled: canReadPayments }),
         getData("/dashboard/stats/nurse-tasks/open", {}, { enabled: canReadNurseTasks }),
-        getData("/patients", [], { enabled: canReadPatients }),
+        getData("/patients", [], {
+          enabled: canReadPatients,
+          config: { params: { page: 1, pageSize: 25 } },
+        }),
         getData("/receptionist/appointments", [], {
           enabled: canReadAppointments,
-          config: { params: { from: new Date().toISOString() } },
+          config: { params: { from: new Date().toISOString(), page: 1, pageSize: 25 } },
         }),
         getData("/doctors", [], { enabled: canReadUsers }),
         getData("/lab/requests", [], {
@@ -416,7 +428,7 @@ export default function AdminOverviewDashboard() {
           icon: FlaskConical,
           color: "bg-amber-50 text-amber-700",
         },
-        canReadInvoices && {
+        canReadRevenue && {
           label: "Revenue (MTD)",
           value: revenueStats.formatted ?? formatCompactCurrency(revenueMtd),
           change: revenueStats.change ?? "Current",
@@ -441,6 +453,8 @@ export default function AdminOverviewDashboard() {
   }, [
     canReadAppointments,
     canReadInvoices,
+    canReadPayments,
+    canReadRevenue,
     canReadLabRequests,
     canReadNurseTasks,
     canReadPatients,
@@ -453,25 +467,33 @@ export default function AdminOverviewDashboard() {
 
   useEffect(() => {
     async function fetchCharts() {
-      const [patChart, revChart, deptChart, beds, patientListRaw, invoiceListRaw, appointmentListRaw, bedListRaw] = await Promise.all([
+      const [patChart, revChart, deptChart, beds, patientListRaw, invoiceListRaw, paymentListRaw, appointmentListRaw, bedListRaw] = await Promise.all([
         getData("/dashboard/charts/patient-trends", [], { enabled: canReadPatients }),
-        getData("/dashboard/charts/revenue", [], { enabled: canReadInvoices }),
+        getData("/dashboard/charts/revenue", [], { enabled: canReadPayments }),
         getData("/dashboard/charts/departments", [], { enabled: canReadPatients }),
         getData("/dashboard/beds/occupancy", {}, { enabled: canReadBeds }),
-        getData("/patients", [], { enabled: canReadPatients }),
+        getData("/patients", [], {
+          enabled: canReadPatients,
+          config: { params: { page: 1, pageSize: 100 } },
+        }),
         getData("/invoices", [], {
           enabled: canReadInvoices,
           config: { params: { page: 1, pageSize: 100 } },
         }),
+        getData("/payments", [], {
+          enabled: canReadPayments,
+          config: { params: { page: 1, pageSize: 100 } },
+        }),
         getData("/receptionist/appointments", [], {
           enabled: canReadAppointments,
-          config: { params: { from: new Date().toISOString() } },
+          config: { params: { from: new Date().toISOString(), page: 1, pageSize: 100 } },
         }),
         getData("/beds", [], { enabled: canReadBeds }),
       ]);
 
       const patients = getList(patientListRaw);
       const invoices = getList(invoiceListRaw);
+      const payments = getList(paymentListRaw);
       const appointments = getList(appointmentListRaw);
       const bedList = getList(bedListRaw);
       const primaryPatientChart = Array.isArray(patChart) ? patChart : [];
@@ -495,7 +517,7 @@ export default function AdminOverviewDashboard() {
       setRevenueData(
         hasAnyValue(primaryRevenueChart, ["revenue"])
           ? primaryRevenueChart
-          : buildRevenueFallback(invoices)
+          : buildRevenueFallback(invoices, payments)
       );
       setDepartmentData(
         hasAnyValue(primaryDepartmentChart, ["patients"])
@@ -507,13 +529,16 @@ export default function AdminOverviewDashboard() {
     }
 
     void fetchCharts();
-  }, [canReadAppointments, canReadBeds, canReadInvoices, canReadPatients]);
+  }, [canReadAppointments, canReadBeds, canReadInvoices, canReadPatients, canReadPayments]);
 
   useEffect(() => {
     async function fetchPatients() {
       const [data, patientListRaw] = await Promise.all([
         getData("/dashboard/patients/recent?limit=5", [], { enabled: canReadPatients }),
-        getData("/patients", [], { enabled: canReadPatients }),
+        getData("/patients", [], {
+          enabled: canReadPatients,
+          config: { params: { page: 1, pageSize: 5 } },
+        }),
       ]);
       const recent = Array.isArray(data) ? data : [];
       const fallback = getList(patientListRaw)
@@ -540,7 +565,7 @@ export default function AdminOverviewDashboard() {
         getData("/dashboard/appointments/upcoming?limit=4", [], { enabled: canReadAppointments }),
         getData("/receptionist/appointments", [], {
           enabled: canReadAppointments,
-          config: { params: { from: new Date().toISOString() } },
+          config: { params: { from: new Date().toISOString(), page: 1, pageSize: 4 } },
         }),
       ]);
       const upcoming = Array.isArray(data) ? data : [];
@@ -612,9 +637,9 @@ export default function AdminOverviewDashboard() {
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
         <Card className="animate-fade-in lg:col-span-2 rounded-lg border-slate-200 bg-white shadow-sm">
           <CardHeader className="pb-2">
-            <div className="flex items-center justify-between">
+            <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
               <CardTitle className="text-sm font-semibold">Patient Trends</CardTitle>
-              <div className="flex items-center gap-4 text-xs text-slate-500">
+              <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-slate-500">
                 <span className="flex items-center gap-1.5">
                   <span className="h-2.5 w-2.5 rounded-full bg-blue-600" /> Inpatient
                 </span>
@@ -719,7 +744,7 @@ export default function AdminOverviewDashboard() {
                     </Pie>
                   </PieChart>
                 </ResponsiveContainer>
-                <div className="mt-2 flex gap-6">
+                <div className="mt-2 flex flex-wrap justify-center gap-x-6 gap-y-2">
                   {pieData.map((item) => (
                     <div key={item.name} className="flex items-center gap-2 text-xs">
                       <span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: item.color }} />
@@ -808,17 +833,17 @@ export default function AdminOverviewDashboard() {
                 : recentPatients.length === 0 ? (
                     <EmptyPanel label="No recent patients found." />
                   ) : recentPatients.map((p, i) => (
-                    <div key={`${p.name}-${i}`} className="flex items-center justify-between border-b border-slate-200 py-2 last:border-0">
-                      <div className="flex items-center gap-3">
-                        <div className="flex h-8 w-8 items-center justify-center rounded-full bg-blue-50 text-xs font-semibold text-blue-700">
+                    <div key={`${p.name}-${i}`} className="grid gap-3 border-b border-slate-200 py-2 last:border-0 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center">
+                      <div className="flex min-w-0 items-center gap-3">
+                        <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-blue-50 text-xs font-semibold text-blue-700">
                           {getInitials(p.name)}
                         </div>
-                        <div>
-                          <p className="text-sm font-medium text-slate-950">{p.name}</p>
-                          <p className="text-xs text-slate-500">{p.department} - Age {p.age ?? "-"}</p>
+                        <div className="min-w-0">
+                          <p className="truncate text-sm font-medium text-slate-950">{p.name}</p>
+                          <p className="truncate text-xs text-slate-500">{p.department} - Age {p.age ?? "-"}</p>
                         </div>
                       </div>
-                      <div className="flex items-center gap-3">
+                      <div className="flex min-w-0 flex-wrap items-center gap-2 sm:justify-end">
                         <Badge variant="outline" className={`text-[10px] font-medium ${statusColor[p.status] ?? ""}`}>{p.status}</Badge>
                         <span className="hidden items-center gap-1 text-xs text-slate-500 sm:flex">
                           <Clock className="h-3 w-3" /> {p.time}
@@ -868,12 +893,12 @@ export default function AdminOverviewDashboard() {
       </div>
 
       <Card className="animate-fade-in rounded-lg border-slate-200 bg-white shadow-sm">
-        <CardContent className="flex items-center justify-between p-5">
-          <div className="flex items-center gap-4">
-            <div className="flex h-11 w-11 items-center justify-center rounded-lg bg-amber-50">
+        <CardContent className="flex flex-col gap-4 p-5 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex min-w-0 items-center gap-4">
+            <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg bg-amber-50">
               <BedDouble className="h-5 w-5 text-amber-700" />
             </div>
-            <div>
+            <div className="min-w-0">
               {loadingCharts ? (
                 <>
                   <Skeleton className="mb-1 h-4 w-48" />
@@ -891,7 +916,7 @@ export default function AdminOverviewDashboard() {
               )}
             </div>
           </div>
-          <button className="flex items-center gap-1 text-xs font-medium text-blue-600 hover:text-blue-900 hover:cursor-pointer" onClick={() => navigate("/bed-management")}>
+          <button className="flex shrink-0 items-center gap-1 self-start text-xs font-medium text-blue-600 hover:cursor-pointer hover:text-blue-900 sm:self-auto" onClick={() => navigate("/bed-management")}>
             Manage Beds <ArrowUpRight className="h-3 w-3" />
           </button>
         </CardContent>

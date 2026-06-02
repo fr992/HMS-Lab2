@@ -53,8 +53,30 @@ export async function createBedAssignmentRequest(encounterId, body) {
 export async function fetchBedAssignmentRequests(filters = {}) {
   const params = {};
   if (filters.status && filters.status !== "all") params.status = filters.status;
+  if (filters.search) params.search = filters.search;
+  if (filters.page) params.page = filters.page;
+  if (filters.pageSize) params.pageSize = filters.pageSize;
   const { data } = await api.get("/bed-assignment-requests", { params });
-  return Array.isArray(data) ? data : [];
+  if (Array.isArray(data)) {
+    return {
+      items: data,
+      page: 1,
+      pageSize: data.length,
+      totalCount: data.length,
+      totalPages: data.length > 0 ? 1 : 0,
+      hasNextPage: false,
+      hasPreviousPage: false,
+    };
+  }
+  return {
+    items: Array.isArray(data?.items) ? data.items : [],
+    page: data?.page ?? 1,
+    pageSize: data?.pageSize ?? filters.pageSize ?? 50,
+    totalCount: data?.totalCount ?? 0,
+    totalPages: data?.totalPages ?? 0,
+    hasNextPage: Boolean(data?.hasNextPage),
+    hasPreviousPage: Boolean(data?.hasPreviousPage),
+  };
 }
 
 export async function assignBedAssignmentRequest(requestId, body) {

@@ -16,7 +16,7 @@ import {
 import { toast } from "sonner";
 import { useAuth } from "@/auth/AuthContext";
 import { CountUpValue } from "@/features/dashboard/DashboardPrimitives";
-import { MAX_LIST_PAGE_SIZE, PaginationBar, paginateArray } from "@/lib/pagination.jsx";
+import { getPagedItems, getPagination, MAX_LIST_PAGE_SIZE, PaginationBar, paginateArray } from "@/lib/pagination.jsx";
 import {
   fetchAppointments,
   getApiErrorMessage,
@@ -654,6 +654,7 @@ export default function AppointmentsListPage() {
   const [calendarView, setCalendarView] = useState("week");
   const [scheduleFocus, setScheduleFocus] = useState(() => new Date());
   const [items, setItems] = useState([]);
+  const [pagination, setPagination] = useState(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState(null);
@@ -676,20 +677,26 @@ export default function AppointmentsListPage() {
               );
               return { from: from.toISOString(), to: to.toISOString() };
             })()
-          : filterDate
-            ? { date: filterDate }
-            : undefined;
+          : {
+              ...(filterDate ? { date: filterDate } : {}),
+              search: search.trim() || undefined,
+              status: listSegment,
+              page,
+              pageSize: MAX_LIST_PAGE_SIZE,
+            };
 
       const data = await fetchAppointments(filters);
-      setItems(Array.isArray(data) ? data : []);
+      setItems(getPagedItems(data));
+      setPagination(view === "list" ? getPagination(data) : null);
     } catch (err) {
       setError(getApiErrorMessage(err));
       setItems([]);
+      setPagination(null);
     } finally {
       setLoading(false);
       setRefreshing(false);
     }
-  }, [filterDate, view, scheduleFocus, calendarView]);
+  }, [filterDate, view, scheduleFocus, calendarView, search, listSegment, page]);
 
   const handleCalendarViewChange = useCallback((nextView) => {
     setCalendarView(nextView);
@@ -712,6 +719,7 @@ export default function AppointmentsListPage() {
   }, [error, showToast]);
 
   const filteredItems = useMemo(() => {
+    if (view === "list") return items;
     const term = search.trim().toLowerCase();
     return items.filter((appointment) => {
       if (!matchesListSegment(appointment, listSegment)) return false;
@@ -731,7 +739,7 @@ export default function AppointmentsListPage() {
 
       return haystack.includes(term);
     });
-  }, [items, search, listSegment]);
+  }, [items, search, listSegment, view]);
 
   const counts = useMemo(() => {
     const next = {
@@ -758,19 +766,20 @@ export default function AppointmentsListPage() {
 
   const sortedListItems = useMemo(() => {
     if (view !== "list") return [];
+    if (pagination) return items;
     return [...filteredItems].sort(
       (a, b) =>
         new Date(a.scheduledStart).getTime() - new Date(b.scheduledStart).getTime()
     );
-  }, [filteredItems, view]);
+  }, [filteredItems, items, pagination, view]);
 
   useEffect(() => {
     setPage(1);
   }, [search, listSegment, filterDate, view]);
 
   const listPage = useMemo(
-    () => paginateArray(sortedListItems, page, MAX_LIST_PAGE_SIZE),
-    [sortedListItems, page]
+    () => pagination ? { items: sortedListItems, pagination } : paginateArray(sortedListItems, page, MAX_LIST_PAGE_SIZE),
+    [sortedListItems, page, pagination]
   );
 
   return (

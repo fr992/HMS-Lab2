@@ -4,9 +4,9 @@ export function getApiErrorMessage(error) {
   return getFriendlyApiErrorMessage(error);
 }
 
-export async function fetchNurseTasks() {
-  const { data } = await apiClient.get("/nurse-tasks/my");
-  return Array.isArray(data) ? data : [];
+export async function fetchNurseTasks(params = {}) {
+  const { data } = await apiClient.get("/nurse-tasks/my", { params });
+  return data;
 }
 
 export async function fetchNurseTasksByEncounter(encounterId) {

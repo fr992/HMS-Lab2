@@ -8,7 +8,11 @@ namespace HMS.Application.Abstractions.Identity
         Task<PatientProfileDto> LinkPortalAccountAsync(int patientProfileId, LinkPatientPortalRequestDto request, int? actorUserId, CancellationToken cancellationToken);
         Task<PatientProfileDto?> GetByIdAsync(int id, CancellationToken cancellationToken);
         Task<PatientProfileDto?> GetByIdForCurrentDoctorAsync(int currentUserId, int patientProfileId, IEnumerable<string> actorRoles, CancellationToken cancellationToken);
-        Task<List<PatientProfileDto>> GetAllAsync(CancellationToken cancellationToken);
+        Task<PaginatedResponse<PatientProfileDto>> GetAllAsync(
+            PaginationQuery pagination,
+            string? gender,
+            bool? hasPortal,
+            CancellationToken cancellationToken);
         Task<List<PatientProfileDto>> GetForCurrentDoctorAsync(int currentUserId, IEnumerable<string> actorRoles, CancellationToken cancellationToken);
         Task<DoctorPatientsGroupedDto> GetGroupedForCurrentDoctorAsync(int currentUserId, IEnumerable<string> actorRoles, CancellationToken cancellationToken);
         Task<PatientProfileDto> UpdateAsync(int id, UpdatePatientRequestDto request, int? actorUserId, CancellationToken cancellationToken);

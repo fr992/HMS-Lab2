@@ -23,14 +23,15 @@ public sealed class AppointmentsController : ControllerBase
 
     [HttpGet]
     [RequirePermission("Appointments.Read")]
-    public async Task<ActionResult<List<AppointmentDto>>> GetAppointments(
+    public async Task<ActionResult<PaginatedResponse<AppointmentDto>>> GetAppointments(
         [FromQuery] DateTimeOffset? date,
         [FromQuery] DateTimeOffset? from,
         [FromQuery] DateTimeOffset? to,
+        [FromQuery] string? status,
+        [FromQuery] PaginationQuery pagination,
         CancellationToken cancellationToken)
     {
         var userId = GetCurrentUserId();
-        var role = GetCurrentUserRole();
 
         var permissions = User.Claims
             .Where(c => c.Type == "permission")
@@ -45,6 +46,8 @@ public sealed class AppointmentsController : ControllerBase
                 date,
                 from,
                 to,
+                status,
+                pagination,
                 cancellationToken);
 
             return Ok(result);
@@ -153,10 +156,4 @@ public sealed class AppointmentsController : ControllerBase
         return int.Parse(value);
     }
 
-    private string GetCurrentUserRole()
-    {
-        return User.FindFirstValue(ClaimTypes.Role)
-            ?? User.FindFirstValue("role")
-            ?? "";
-    }
 }

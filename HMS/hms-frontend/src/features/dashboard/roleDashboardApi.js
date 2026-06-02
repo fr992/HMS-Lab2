@@ -4,11 +4,13 @@ export async function fetchAdminDashboardData(auth) {
   const requests = {};
 
   if (auth.hasPermission("Patients.Read")) {
-    requests.patients = apiClient.get("/patients");
+    requests.patients = apiClient.get("/patients", {
+      params: { page: 1, pageSize: 25 },
+    });
   }
   if (auth.hasPermission("Appointments.Read")) {
     requests.appointments = apiClient.get("/receptionist/appointments", {
-      params: { from: new Date().toISOString() },
+      params: { from: new Date().toISOString(), page: 1, pageSize: 25 },
     });
   }
   if (auth.hasPermission("Invoices.Read")) {
@@ -37,7 +39,9 @@ export async function fetchAdminDashboardData(auth) {
     requests.users = apiClient.get("/admin/users", {
       params: { page: 1, pageSize: 25 },
     });
-    requests.roles = apiClient.get("/admin/roles");
+    requests.roles = apiClient.get("/admin/roles", {
+      params: { page: 1, pageSize: 100 },
+    });
   }
 
   return settleNamed(requests);
@@ -48,7 +52,7 @@ export async function fetchPatientDashboardData() {
 
   return settleNamed({
     appointments: apiClient.get("/patients/me/appointments", {
-      params: { from: now },
+      params: { from: now, page: 1, pageSize: 25 },
     }),
     invoices: apiClient.get("/me/invoices", {
       params: { page: 1, pageSize: 25 },

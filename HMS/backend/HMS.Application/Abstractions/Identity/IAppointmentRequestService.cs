@@ -8,9 +8,10 @@ public interface IAppointmentRequestService
         CreateAppointmentRequestDto dto,
         CancellationToken ct);
 
-    Task<List<AppointmentRequestDto>> GetAllAsync(
+    Task<PaginatedResponse<AppointmentRequestDto>> GetAllAsync(
         string? status,
         DateOnly? preferredDate,
+        PaginationQuery pagination,
         CancellationToken ct);
 
     Task<AppointmentRequestDto?> GetByIdAsync(

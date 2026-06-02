@@ -6,9 +6,10 @@ public interface INotificationService
 {
     Task<NotificationDto> CreateAsync(CreateNotificationRequestDto request, CancellationToken cancellationToken);
 
-    Task<IReadOnlyList<NotificationDto>> GetForUserAsync(
+    Task<PaginatedResponse<NotificationDto>> GetForUserAsync(
         int userId,
         bool? isRead,
+        PaginationQuery pagination,
         CancellationToken cancellationToken);
 
     Task<int> GetUnreadCountAsync(int userId, CancellationToken cancellationToken);

@@ -37,12 +37,14 @@ public sealed class ReceptionLabResultsController : ControllerBase
 
     [HttpGet]
     [RequirePermission("LabResults.Read")]
-    public async Task<ActionResult<List<LabResultDto>>> List(
+    public async Task<ActionResult<PaginatedResponse<LabResultDto>>> List(
         [FromQuery] int? patientId,
+        [FromQuery] PaginationQuery pagination,
         CancellationToken cancellationToken)
     {
         var result = await _labResultService.GetLabResultsAsync(
             patientId,
+            pagination,
             cancellationToken);
 
         return Ok(result);

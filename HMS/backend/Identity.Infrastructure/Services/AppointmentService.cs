@@ -3,6 +3,7 @@ using HMS.Application.Exceptions;
 using HMS.Contracts.Identity;
 using Identity.Domain.Entities;
 using HMS.Persistence;
+using Identity.Infrastructure.Common;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using System.Globalization;
@@ -197,22 +198,18 @@ public sealed class AppointmentService : IAppointmentService
         return updated;
     }
 
-    public async Task<List<AppointmentDto>> GetAppointmentsAsync(
+    public async Task<PaginatedResponse<AppointmentDto>> GetAppointmentsAsync(
         int actorUserId,
         IEnumerable<string> permissions,
         DateTimeOffset? date,
         DateTimeOffset? from,
         DateTimeOffset? to,
+        string? status,
+        PaginationQuery pagination,
         CancellationToken cancellationToken)
     {
         var query = _db.Appointments
             .AsNoTracking()
-            .Include(a => a.PatientProfile)
-            .ThenInclude(p => p.Person)
-            .Include(a => a.DoctorProfile)
-            .ThenInclude(d => d.StaffProfile)
-            .ThenInclude(s => s.Person)
-            .Include(a => a.Department)
             .AsQueryable();
 
         var permissionList = permissions as IList<string> ?? permissions.ToList();
@@ -260,8 +257,33 @@ public sealed class AppointmentService : IAppointmentService
             }
         }
 
-        return await query
+        if (!string.IsNullOrWhiteSpace(status) && !string.Equals(status, "all", StringComparison.OrdinalIgnoreCase))
+        {
+            var normalizedStatus = AppointmentStatus.NormalizeToKnownStatus(status);
+            query = query.Where(a => a.Status == normalizedStatus);
+        }
+
+        if (!string.IsNullOrWhiteSpace(pagination.Search))
+        {
+            var search = pagination.Search.Trim();
+            query = query.Where(a =>
+                a.PatientProfile.Person.FirstName.Contains(search) ||
+                a.PatientProfile.Person.LastName.Contains(search) ||
+                a.DoctorProfile.StaffProfile.Person.FirstName.Contains(search) ||
+                a.DoctorProfile.StaffProfile.Person.LastName.Contains(search) ||
+                (a.Department != null && a.Department.Name.Contains(search)) ||
+                (a.AppointmentType != null && a.AppointmentType.Contains(search)) ||
+                (a.Reason != null && a.Reason.Contains(search)) ||
+                a.Status.Contains(search));
+        }
+
+        var page = pagination.Page;
+        var pageSize = pagination.PageSize;
+        var totalCount = await query.CountAsync(cancellationToken);
+        var items = await query
             .OrderBy(a => a.ScheduledStart)
+            .Skip((page - 1) * pageSize)
+            .Take(pageSize)
             .Select(a => new AppointmentDto
             {
                 Id = a.Id,
@@ -278,6 +300,8 @@ public sealed class AppointmentService : IAppointmentService
                 Reason = a.Reason,
             })
             .ToListAsync(cancellationToken);
+
+        return PaginatedResponse<AppointmentDto>.Create(items, page, pageSize, totalCount);
     }
 
     private static void EnsureAppointmentEditable(string currentStatus)

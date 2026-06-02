@@ -2,7 +2,12 @@ import apiClient from "@/api/apiClient";
 
 export async function getMyNotifications(params = {}) {
   const { data } = await apiClient.get("/notifications/me", { params });
-  return Array.isArray(data) ? data : [];
+  return Array.isArray(data) ? data : data?.items ?? [];
+}
+
+export async function getMyNotificationsPage(params = {}) {
+  const { data } = await apiClient.get("/notifications/me", { params });
+  return data;
 }
 
 export async function getUnreadCount() {

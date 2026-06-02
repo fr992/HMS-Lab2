@@ -1,14 +1,16 @@
 import { useMemo, useState } from "react";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link } from "react-router-dom";
 import { ArrowLeft, Bell, CheckCheck, Search, Trash2, X } from "lucide-react";
 import { useAuth } from "@/auth/AuthContext";
 import {
   clearAllNotifications,
   clearNotification,
+  getMyNotificationsPage,
   markAllRead,
   markRead,
 } from "@/features/notifications/api/notificationsApi";
+import { getPagedItems, getPagination, PaginationBar } from "@/lib/pagination.jsx";
 import {
   notificationQueryKeys,
   useNotifications,
@@ -30,12 +32,7 @@ const PAGE_SIZE = 10;
 export default function NotificationsPage() {
   const auth = useAuth();
   const queryClient = useQueryClient();
-  const notificationsQuery = useNotifications();
   const unreadQuery = useUnreadNotificationCount();
-  const notifications = useMemo(
-    () => notificationsQuery.data ?? [],
-    [notificationsQuery.data]
-  );
   const unreadCount = Number(unreadQuery.data ?? 0);
   const userKey = auth.userId ?? auth.userName ?? "anonymous";
   const listQueryKey = notificationQueryKeys.list(userKey);
@@ -44,6 +41,24 @@ export default function NotificationsPage() {
   const [filter, setFilter] = useState("all");
   const [page, setPage] = useState(1);
   const dashboardPath = getDashboardPath(auth);
+  const notificationsQuery = useQuery({
+    queryKey: [...listQueryKey, { page, filter }],
+    queryFn: () =>
+      getMyNotificationsPage({
+        page,
+        pageSize: PAGE_SIZE,
+        isRead: filter === "all" ? undefined : filter === "read",
+      }),
+    refetchInterval: 90_000,
+  });
+  const notifications = useMemo(
+    () => getPagedItems(notificationsQuery.data),
+    [notificationsQuery.data]
+  );
+  const pagination = useMemo(
+    () => getPagination(notificationsQuery.data),
+    [notificationsQuery.data]
+  );
 
   const markReadMutation = useMutation({
     mutationFn: markRead,
@@ -195,12 +210,6 @@ export default function NotificationsPage() {
     const term = search.trim().toLowerCase();
 
     return notifications.filter((notification) => {
-      const matchesFilter =
-        filter === "all" ||
-        (filter === "unread" && !notification.isRead) ||
-        (filter === "read" && notification.isRead);
-
-      if (!matchesFilter) return false;
       if (!term) return true;
 
       return [
@@ -212,14 +221,9 @@ export default function NotificationsPage() {
         .filter(Boolean)
         .some((value) => String(value).toLowerCase().includes(term));
     });
-  }, [filter, notifications, search]);
+  }, [notifications, search]);
 
-  const pageCount = Math.max(Math.ceil(filteredNotifications.length / PAGE_SIZE), 1);
-  const currentPage = Math.min(page, pageCount);
-  const pageItems = filteredNotifications.slice(
-    (currentPage - 1) * PAGE_SIZE,
-    currentPage * PAGE_SIZE
-  );
+  const pageItems = filteredNotifications;
 
   function handleFilterChange(value) {
     setFilter(value);
@@ -320,31 +324,7 @@ export default function NotificationsPage() {
           </div>
         )}
 
-        {filteredNotifications.length > PAGE_SIZE && (
-          <div className="flex items-center justify-between border-t border-slate-100 px-4 py-3 text-sm text-slate-500">
-            <span>
-              Page {currentPage} of {pageCount}
-            </span>
-            <div className="flex gap-2">
-              <button
-                type="button"
-                onClick={() => setPage((value) => Math.max(value - 1, 1))}
-                disabled={currentPage === 1}
-                className="rounded-md border border-slate-200 px-3 py-1.5 font-semibold text-slate-700 transition hover:bg-slate-50 disabled:pointer-events-none disabled:text-slate-300"
-              >
-                Previous
-              </button>
-              <button
-                type="button"
-                onClick={() => setPage((value) => Math.min(value + 1, pageCount))}
-                disabled={currentPage === pageCount}
-                className="rounded-md border border-slate-200 px-3 py-1.5 font-semibold text-slate-700 transition hover:bg-slate-50 disabled:pointer-events-none disabled:text-slate-300"
-              >
-                Next
-              </button>
-            </div>
-          </div>
-        )}
+        <PaginationBar pagination={pagination} loading={notificationsQuery.isLoading} onPageChange={setPage} />
       </section>
     </div>
   );
