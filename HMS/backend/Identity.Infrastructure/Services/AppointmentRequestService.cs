@@ -73,11 +73,12 @@ public sealed class AppointmentRequestService : IAppointmentRequestService
         PaginationQuery pagination,
         CancellationToken ct)
     {
+        var permissionSet = permissions as ISet<string> ?? permissions.ToHashSet(StringComparer.Ordinal);
         var query = _db.AppointmentRequests
             .AsNoTracking()
             .AsQueryable();
 
-        var canManageStatus = permissions.Contains("Appointments.ManageStatus");
+        var canManageStatus = permissionSet.Contains("Appointments.ManageStatus");
         if (!canManageStatus)
         {
             var doctorProfileId = await ResolveDoctorProfileIdAsync(actorUserId, ct);
@@ -131,11 +132,12 @@ public sealed class AppointmentRequestService : IAppointmentRequestService
         IEnumerable<string> permissions,
         CancellationToken ct)
     {
+        var permissionSet = permissions as ISet<string> ?? permissions.ToHashSet(StringComparer.Ordinal);
         var query = _db.AppointmentRequests
             .AsNoTracking()
             .Where(a => a.Id == id);
 
-        var canManageStatus = permissions.Contains("Appointments.ManageStatus");
+        var canManageStatus = permissionSet.Contains("Appointments.ManageStatus");
         if (!canManageStatus)
         {
             var doctorProfileId = await ResolveDoctorProfileIdAsync(actorUserId, ct);

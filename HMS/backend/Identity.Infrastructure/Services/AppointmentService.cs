@@ -101,11 +101,6 @@ public sealed class AppointmentService : IAppointmentService
     {
         return await _db.Appointments
             .AsNoTracking()
-            .Include(a => a.PatientProfile)
-            .ThenInclude(p => p.Person)
-            .Include(a => a.DoctorProfile)
-            .ThenInclude(d => d.StaffProfile)
-            .Include(a => a.Department)
             .Where(a => a.Id == id)
             .Select(a => new AppointmentDto
             {
@@ -212,9 +207,9 @@ public sealed class AppointmentService : IAppointmentService
             .AsNoTracking()
             .AsQueryable();
 
-        var permissionList = permissions as IList<string> ?? permissions.ToList();
-        var canReadAll = permissionList.Contains("Appointments.Read");
-        var canReadOwn = permissionList.Contains("Own.Appointments.View");
+        var permissionSet = permissions as ISet<string> ?? permissions.ToHashSet(StringComparer.Ordinal);
+        var canReadAll = permissionSet.Contains("Appointments.Read");
+        var canReadOwn = permissionSet.Contains("Own.Appointments.View");
 
         if (canReadAll)
         {

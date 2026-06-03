@@ -40,5 +40,9 @@ public sealed class AppointmentRequestConfiguration : IEntityTypeConfiguration<A
             .OnDelete(DeleteBehavior.Restrict);
 
         builder.HasIndex(a => a.DoctorProfileId);
+        builder.HasIndex(a => a.Status);
+        builder.HasIndex(a => a.PreferredDate);
+        builder.HasIndex(a => new { a.DoctorProfileId, a.Status, a.PreferredDate });
+        builder.HasIndex(a => new { a.Status, a.PreferredDate, a.CreatedAt });
     }
 }

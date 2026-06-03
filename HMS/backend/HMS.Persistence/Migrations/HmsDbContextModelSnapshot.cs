@@ -899,7 +899,7 @@ namespace HMS.Persistence.Migrations
 
                     b.Property<string>("Status")
                         .IsRequired()
-                        .HasColumnType("nvarchar(max)");
+                        .HasColumnType("nvarchar(450)");
 
                     b.Property<DateTime>("UpdatedAt")
                         .HasColumnType("datetime2");
@@ -913,9 +913,13 @@ namespace HMS.Persistence.Migrations
 
                     b.HasIndex("DepartmentId");
 
-                    b.HasIndex("DoctorProfileId");
+                    b.HasIndex("DoctorProfileId", "ScheduledStart");
 
-                    b.HasIndex("PatientProfileId");
+                    b.HasIndex("PatientProfileId", "ScheduledStart");
+
+                    b.HasIndex("Status", "ScheduledStart");
+
+                    b.HasIndex("DoctorProfileId", "Status", "ScheduledStart");
 
                     b.ToTable("Appointments");
                 });
@@ -970,7 +974,7 @@ namespace HMS.Persistence.Migrations
 
                     b.Property<string>("Status")
                         .IsRequired()
-                        .HasColumnType("nvarchar(max)");
+                        .HasColumnType("nvarchar(450)");
 
                     b.Property<DateTime>("UpdatedAt")
                         .HasColumnType("datetime2");
@@ -981,6 +985,14 @@ namespace HMS.Persistence.Migrations
                     b.HasKey("Id");
 
                     b.HasIndex("DoctorProfileId");
+
+                    b.HasIndex("PreferredDate");
+
+                    b.HasIndex("Status");
+
+                    b.HasIndex("DoctorProfileId", "Status", "PreferredDate");
+
+                    b.HasIndex("Status", "PreferredDate", "CreatedAt");
 
                     b.ToTable("AppointmentRequests", (string)null);
                 });
