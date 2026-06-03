@@ -1,4 +1,5 @@
-import { useMutation, useQuery } from "@tanstack/react-query";
+import { useState } from "react";
+import { useMutation } from "@tanstack/react-query";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
 import { toast } from "sonner";
@@ -16,6 +17,7 @@ import {
   createAppointmentRequest,
   fetchPublicDoctors,
 } from "@/features/landing/api/appointmentRequestApi";
+import DoctorSearchSelect from "@/features/patients/components/DoctorSearchSelect";
 import { appointmentRequestSchema } from "@/features/landing/schemas/appointmentRequestSchema";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -45,11 +47,7 @@ const dateInputClass =
 
 export default function AppointmentForm() {
   const { submitted, setSubmitted, reset: resetSubmitted } = useAppointmentStore();
-  const doctorsQuery = useQuery({
-    queryKey: ["public-doctors"],
-    queryFn: fetchPublicDoctors,
-    staleTime: 5 * 60 * 1000,
-  });
+  const [selectedDoctor, setSelectedDoctor] = useState(null);
   const form = useForm({
     resolver: zodResolver(appointmentRequestSchema),
     defaultValues,
@@ -60,6 +58,7 @@ export default function AppointmentForm() {
     onSuccess: () => {
       toast.success("Request received. Our team will contact you shortly.");
       form.reset(defaultValues);
+      setSelectedDoctor(null);
       setSubmitted(true);
     },
     onError: (error) => {
@@ -219,17 +218,19 @@ export default function AppointmentForm() {
                     <FormItem>
                       <FormLabel>Preferred Doctor</FormLabel>
                       <FormControl>
-                        <select className={dateInputClass} {...field}>
-                          <option value="">
-                            {doctorsQuery.isLoading ? "Loading doctors..." : "No preference"}
-                          </option>
-                          {(Array.isArray(doctorsQuery.data) ? doctorsQuery.data : []).map((doctor) => (
-                            <option key={doctor.id} value={doctor.id}>
-                              {doctor.fullName}
-                              {doctor.specializationName ? ` - ${doctor.specializationName}` : ""}
-                            </option>
-                          ))}
-                        </select>
+                        <DoctorSearchSelect
+                          value={field.value}
+                          onValueChange={(nextValue, doctor) => {
+                            field.onChange(nextValue);
+                            setSelectedDoctor(doctor ?? null);
+                          }}
+                          fetchDoctors={fetchPublicDoctors}
+                          queryKey="public-doctor-search"
+                          selectedDoctor={selectedDoctor}
+                          placeholder="Search doctor by name or specialty"
+                          emptyLabel="No preference"
+                          inputClassName="rounded-md border-cyan-100 text-cyan-950 focus:border-teal-300 focus:ring-teal-100"
+                        />
                       </FormControl>
                       <FormMessage />
                     </FormItem>

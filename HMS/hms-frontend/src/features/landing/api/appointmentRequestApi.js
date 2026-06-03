@@ -10,7 +10,7 @@ export async function createAppointmentRequest(data) {
   return response.data;
 }
 
-export async function fetchPublicDoctors() {
-  const response = await apiClient.get("/public/doctors");
+export async function fetchPublicDoctors(params = {}) {
+  const response = await apiClient.get("/public/doctors", { params });
   return response.data;
 }

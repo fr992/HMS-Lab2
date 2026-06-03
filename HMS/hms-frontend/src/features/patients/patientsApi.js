@@ -21,8 +21,8 @@ export async function fetchDoctorPatientsGrouped() {
  * Optional list for primary doctor assignment. Backend may expose `GET /api/doctors` later.
  * @returns {Promise<{ id: number, fullName: string }[] | unknown>}
  */
-export async function fetchDoctorsList() {
-  const { data } = await api.get("/doctors");
+export async function fetchDoctorsList(params = {}) {
+  const { data } = await api.get("/doctors", { params });
   return data;
 }
 

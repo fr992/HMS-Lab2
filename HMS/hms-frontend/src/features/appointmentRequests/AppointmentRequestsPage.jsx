@@ -15,7 +15,7 @@ import {
 import { toast } from "sonner";
 import { useAuth } from "@/auth/AuthContext";
 import { CountUpValue } from "@/features/dashboard/DashboardPrimitives";
-import { useDoctorOptionsStore } from "@/features/patients/doctorOptionsStore";
+import DoctorSearchSelect from "@/features/patients/components/DoctorSearchSelect";
 import { getPagedItems, getPagination, MAX_LIST_PAGE_SIZE, PaginationBar } from "@/lib/pagination.jsx";
 import {
   APPOINTMENT_REQUEST_STATUS,
@@ -164,14 +164,7 @@ export default function AppointmentRequestsPage() {
   const [mutatingId, setMutatingId] = useState(null);
   const [page, setPage] = useState(1);
   const [doctorSelections, setDoctorSelections] = useState({});
-  const loadDoctors = useDoctorOptionsStore((state) => state.load);
-  const doctors = useDoctorOptionsStore((state) => state.items);
-  const doctorsStatus = useDoctorOptionsStore((state) => state.status);
-  const doctorsError = useDoctorOptionsStore((state) => state.error);
-
-  useEffect(() => {
-    if (canManageStatus) void loadDoctors();
-  }, [canManageStatus, loadDoctors]);
+  const [selectedDoctors, setSelectedDoctors] = useState({});
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -238,6 +231,14 @@ export default function AppointmentRequestsPage() {
     const raw = doctorSelections[request.id] ?? request.doctorProfileId ?? "";
     const parsed = Number.parseInt(raw, 10);
     return Number.isFinite(parsed) ? parsed : null;
+  };
+
+  const selectedDoctorFor = (request) => {
+    const selected = selectedDoctors[request.id];
+    if (selected) return selected;
+    return request.doctorProfileId && request.doctorName
+      ? { id: request.doctorProfileId, fullName: request.doctorName }
+      : null;
   };
 
   const updateStatus = async (request, nextStatus) => {
@@ -461,34 +462,35 @@ export default function AppointmentRequestsPage() {
                         </dt>
                         <dd className="mt-1">
                           {canManageStatus && statusKey(request.status) === "pending" ? (
-                            <select
+                            <DoctorSearchSelect
                               value={doctorSelections[request.id] ?? request.doctorProfileId ?? ""}
-                              onChange={(event) =>
+                              onValueChange={(nextValue, doctor) => {
                                 setDoctorSelections((current) => ({
                                   ...current,
-                                  [request.id]: event.target.value,
-                                }))
-                              }
-                              disabled={busy || mutatingId != null || doctorsStatus === "loading"}
-                              className="h-9 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm text-slate-900 shadow-sm outline-none transition focus:border-sky-500 focus:ring-2 focus:ring-sky-500/20 disabled:opacity-60"
-                            >
-                              <option value="">
-                                {doctorsStatus === "loading" ? "Loading doctors..." : "Assign doctor"}
-                              </option>
-                              {doctors.map((doctor) => (
-                                <option key={doctor.id} value={doctor.id}>
-                                  {doctor.fullName}
-                                </option>
-                              ))}
-                            </select>
+                                  [request.id]: nextValue,
+                                }));
+                                setSelectedDoctors((current) => {
+                                  const next = { ...current };
+                                  if (doctor) {
+                                    next[request.id] = doctor;
+                                  } else {
+                                    delete next[request.id];
+                                  }
+                                  return next;
+                                });
+                              }}
+                              selectedDoctor={selectedDoctorFor(request)}
+                              placeholder="Search name or specialty"
+                              emptyLabel="Assign doctor"
+                              minSearchLength={1}
+                              disabled={busy || mutatingId != null}
+                              inputClassName="h-9"
+                            />
                           ) : (
                             <span className="text-slate-800">
                               {request.doctorName || "Unassigned"}
                             </span>
                           )}
-                          {doctorsError && canManageStatus ? (
-                            <span className="mt-1 block text-xs text-rose-600">{doctorsError}</span>
-                          ) : null}
                         </dd>
                       </div>
                     </dl>

@@ -15,7 +15,7 @@ import { fetchDoctorsList, getApiErrorMessage } from "@/features/patients/patien
  * @param {unknown} data
  * @returns {DoctorItem[]}
  */
-function normalizeDoctorsResponse(data) {
+export function normalizeDoctorsResponse(data) {
   const raw = Array.isArray(data)
     ? data
     : data && typeof data === "object" && Array.isArray(data.items)

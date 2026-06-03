@@ -9,6 +9,8 @@ public interface IAppointmentRequestService
         CancellationToken ct);
 
     Task<PaginatedResponse<AppointmentRequestDto>> GetAllAsync(
+        int actorUserId,
+        IEnumerable<string> permissions,
         string? status,
         DateOnly? preferredDate,
         PaginationQuery pagination,
@@ -16,6 +18,8 @@ public interface IAppointmentRequestService
 
     Task<AppointmentRequestDto?> GetByIdAsync(
         int id,
+        int actorUserId,
+        IEnumerable<string> permissions,
         CancellationToken ct);
 
     Task<AppointmentRequestDto> UpdateStatusAsync(

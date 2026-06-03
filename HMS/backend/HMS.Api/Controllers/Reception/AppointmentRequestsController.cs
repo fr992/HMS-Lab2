@@ -30,6 +30,8 @@ public sealed class AppointmentRequestsController : ControllerBase
         try
         {
             var list = await _appointmentRequestService.GetAllAsync(
+                CurrentUserId(),
+                CurrentPermissions(),
                 status,
                 preferredDate,
                 pagination,
@@ -49,7 +51,11 @@ public sealed class AppointmentRequestsController : ControllerBase
         int id,
         CancellationToken cancellationToken)
     {
-        var item = await _appointmentRequestService.GetByIdAsync(id, cancellationToken);
+        var item = await _appointmentRequestService.GetByIdAsync(
+            id,
+            CurrentUserId(),
+            CurrentPermissions(),
+            cancellationToken);
 
         if (item == null)
             return NotFound();
@@ -97,11 +103,19 @@ public sealed class AppointmentRequestsController : ControllerBase
         }
     }
 
-    private int? CurrentUserId()
+    private int CurrentUserId()
     {
         var value = User.FindFirstValue(ClaimTypes.NameIdentifier)
             ?? User.FindFirstValue("sub");
 
-        return int.TryParse(value, out var id) ? id : null;
+        return int.Parse(value ?? throw new UnauthorizedAccessException("User id claim is missing."));
+    }
+
+    private IReadOnlyCollection<string> CurrentPermissions()
+    {
+        return User.Claims
+            .Where(c => c.Type == "permission")
+            .Select(c => c.Value)
+            .ToArray();
     }
 }

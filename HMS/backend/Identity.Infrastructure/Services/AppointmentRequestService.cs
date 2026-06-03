@@ -5,6 +5,7 @@ using HMS.Persistence;
 using Identity.Infrastructure.Common;
 using Identity.Domain.Entities;
 using Microsoft.EntityFrameworkCore;
+using System.Linq.Expressions;
 
 namespace Identity.Infrastructure.Services.Patients;
 
@@ -60,11 +61,13 @@ public sealed class AppointmentRequestService : IAppointmentRequestService
         _db.AppointmentRequests.Add(entity);
         await _db.SaveChangesAsync(ct);
 
-        return await GetByIdAsync(entity.Id, ct)
+        return await LoadByIdForManagerAsync(entity.Id, ct)
             ?? throw new Exception("Appointment request was created but could not be loaded.");
     }
 
     public async Task<PaginatedResponse<AppointmentRequestDto>> GetAllAsync(
+        int actorUserId,
+        IEnumerable<string> permissions,
         string? status,
         DateOnly? preferredDate,
         PaginationQuery pagination,
@@ -73,6 +76,24 @@ public sealed class AppointmentRequestService : IAppointmentRequestService
         var query = _db.AppointmentRequests
             .AsNoTracking()
             .AsQueryable();
+
+        var canManageStatus = permissions.Contains("Appointments.ManageStatus");
+        if (!canManageStatus)
+        {
+            var doctorProfileId = await ResolveDoctorProfileIdAsync(actorUserId, ct);
+            if (!doctorProfileId.HasValue)
+            {
+                return PaginatedResponse<AppointmentRequestDto>.Create(
+                    [],
+                    pagination.Page,
+                    pagination.PageSize,
+                    0);
+            }
+
+            query = query.Where(a =>
+                a.Status == AppointmentRequestStatus.Confirmed &&
+                a.DoctorProfileId == doctorProfileId.Value);
+        }
 
         if (!string.IsNullOrWhiteSpace(status))
         {
@@ -100,52 +121,34 @@ public sealed class AppointmentRequestService : IAppointmentRequestService
             .OrderBy(a => a.Status == AppointmentRequestStatus.Pending ? 0 : 1)
             .ThenBy(a => a.PreferredDate)
             .ThenByDescending(a => a.CreatedAt)
-            .Select(a => new AppointmentRequestDto
-            {
-                Id = a.Id,
-                FirstName = a.FirstName,
-                LastName = a.LastName,
-                Email = a.Email,
-                Phone = a.Phone,
-                DateOfBirth = a.DateOfBirth,
-                PreferredDate = a.PreferredDate,
-                DoctorProfileId = a.DoctorProfileId,
-                DoctorName = a.DoctorProfile != null
-                    ? a.DoctorProfile.StaffProfile.Person.FullName
-                    : null,
-                ReasonForVisit = a.ReasonForVisit,
-                Status = a.Status.ToString(),
-                CreatedAt = a.CreatedAt,
-                UpdatedAt = a.UpdatedAt
-            })
+            .Select(ToDto)
             .ToPaginatedResponseAsync(pagination, ct);
     }
 
     public async Task<AppointmentRequestDto?> GetByIdAsync(
         int id,
+        int actorUserId,
+        IEnumerable<string> permissions,
         CancellationToken ct)
     {
-        return await _db.AppointmentRequests
+        var query = _db.AppointmentRequests
             .AsNoTracking()
-            .Where(a => a.Id == id)
-            .Select(a => new AppointmentRequestDto
-            {
-                Id = a.Id,
-                FirstName = a.FirstName,
-                LastName = a.LastName,
-                Email = a.Email,
-                Phone = a.Phone,
-                DateOfBirth = a.DateOfBirth,
-                PreferredDate = a.PreferredDate,
-                DoctorProfileId = a.DoctorProfileId,
-                DoctorName = a.DoctorProfile != null
-                    ? a.DoctorProfile.StaffProfile.Person.FullName
-                    : null,
-                ReasonForVisit = a.ReasonForVisit,
-                Status = a.Status.ToString(),
-                CreatedAt = a.CreatedAt,
-                UpdatedAt = a.UpdatedAt
-            })
+            .Where(a => a.Id == id);
+
+        var canManageStatus = permissions.Contains("Appointments.ManageStatus");
+        if (!canManageStatus)
+        {
+            var doctorProfileId = await ResolveDoctorProfileIdAsync(actorUserId, ct);
+            if (!doctorProfileId.HasValue)
+                return null;
+
+            query = query.Where(a =>
+                a.Status == AppointmentRequestStatus.Confirmed &&
+                a.DoctorProfileId == doctorProfileId.Value);
+        }
+
+        return await query
+            .Select(ToDto)
             .FirstOrDefaultAsync(ct);
     }
 
@@ -182,7 +185,7 @@ public sealed class AppointmentRequestService : IAppointmentRequestService
             await _db.SaveChangesAsync(ct);
         }
 
-        return await GetByIdAsync(id, ct)
+        return await LoadByIdForManagerAsync(id, ct)
             ?? throw new Exception("Appointment request was updated but could not be loaded.");
     }
 
@@ -213,4 +216,46 @@ public sealed class AppointmentRequestService : IAppointmentRequestService
         if (!exists)
             throw new BadRequestException("Selected doctor is not available.");
     }
+
+    private async Task<int?> ResolveDoctorProfileIdAsync(int userId, CancellationToken ct)
+    {
+        return await _db.DoctorProfiles
+            .AsNoTracking()
+            .Where(d =>
+                d.IsActive &&
+                d.StaffProfile.Person.UserId == userId &&
+                d.StaffProfile.Person.User != null &&
+                d.StaffProfile.Person.User.IsActive)
+            .Select(d => (int?)d.Id)
+            .FirstOrDefaultAsync(ct);
+    }
+
+    private async Task<AppointmentRequestDto?> LoadByIdForManagerAsync(int id, CancellationToken ct)
+    {
+        return await _db.AppointmentRequests
+            .AsNoTracking()
+            .Where(a => a.Id == id)
+            .Select(ToDto)
+            .FirstOrDefaultAsync(ct);
+    }
+
+    private static readonly Expression<Func<AppointmentRequest, AppointmentRequestDto>> ToDto = a =>
+        new AppointmentRequestDto
+        {
+            Id = a.Id,
+            FirstName = a.FirstName,
+            LastName = a.LastName,
+            Email = a.Email,
+            Phone = a.Phone,
+            DateOfBirth = a.DateOfBirth,
+            PreferredDate = a.PreferredDate,
+            DoctorProfileId = a.DoctorProfileId,
+            DoctorName = a.DoctorProfile != null
+                ? a.DoctorProfile.StaffProfile.Person.FullName
+                : null,
+            ReasonForVisit = a.ReasonForVisit,
+            Status = a.Status.ToString(),
+            CreatedAt = a.CreatedAt,
+            UpdatedAt = a.UpdatedAt
+        };
 }

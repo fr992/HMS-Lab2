@@ -25,9 +25,15 @@ public sealed class DoctorsController : ControllerBase
     [HttpGet]
     [RequirePermission("Patients.Read")]
     public async Task<ActionResult<List<DoctorProfileDto>>> GetDoctors(
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        [FromQuery] string? search = null,
+        [FromQuery] int? limit = null)
     {
-        var list = await _db.DoctorProfiles
+        var take = limit.HasValue ? Math.Clamp(limit.Value, 1, 50) : (int?)null;
+        var term = search?.Trim();
+        var pattern = string.IsNullOrWhiteSpace(term) ? null : $"%{term}%";
+
+        var query = _db.DoctorProfiles
             .AsNoTracking()
             .Where(d =>
                 d.IsActive &&
@@ -35,9 +41,30 @@ public sealed class DoctorsController : ControllerBase
                 d.StaffProfile.Person != null &&
                 d.StaffProfile.Person.User != null &&
                 d.StaffProfile.Person.User.IsActive &&
-                d.StaffProfile.Person.User.UserRoles.Any(ur => ur.Role.Name == "Doctor"))
+                d.StaffProfile.Person.User.UserRoles.Any(ur => ur.Role.Name == "Doctor"));
+
+        if (pattern is not null)
+        {
+            query = query.Where(d =>
+                EF.Functions.Like(d.StaffProfile.Person.FirstName ?? string.Empty, pattern) ||
+                EF.Functions.Like(d.StaffProfile.Person.LastName ?? string.Empty, pattern) ||
+                EF.Functions.Like(((d.StaffProfile.Person.FirstName ?? string.Empty) + " " + (d.StaffProfile.Person.LastName ?? string.Empty)), pattern) ||
+                EF.Functions.Like(d.LicenseNumber ?? string.Empty, pattern) ||
+                EF.Functions.Like(d.StaffProfile.Person.User!.Email ?? string.Empty, pattern) ||
+                (d.StaffProfile.Department != null && EF.Functions.Like(d.StaffProfile.Department.Name, pattern)) ||
+                (d.Specialization != null && EF.Functions.Like(d.Specialization.Name, pattern)));
+        }
+
+        query = query
             .OrderBy(d => d.StaffProfile.Person.LastName)
-            .ThenBy(d => d.StaffProfile.Person.FirstName)
+            .ThenBy(d => d.StaffProfile.Person.FirstName);
+
+        if (take.HasValue)
+        {
+            query = query.Take(take.Value);
+        }
+
+        var list = await query
             .Select(d => new DoctorProfileDto
             {
                 Id = d.Id,
