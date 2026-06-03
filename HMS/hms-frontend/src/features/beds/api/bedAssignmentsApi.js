@@ -1,6 +1,7 @@
 import api from "@/api/apiClient";
 
 export { getApiErrorMessage } from "@/features/patients/patientsApi";
+export { fetchDepartmentsList } from "@/features/departments/api/departmentsApi";
 
 export async function fetchBeds(filters = {}) {
   const params = {};
@@ -107,7 +108,3 @@ export async function releaseBed(bedId, body) {
   return data;
 }
 
-export async function fetchDepartmentsList() {
-  const { data } = await api.get("/departments");
-  return Array.isArray(data) ? data : [];
-}

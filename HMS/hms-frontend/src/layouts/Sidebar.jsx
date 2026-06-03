@@ -24,6 +24,7 @@ import {
   Settings,
   ShieldCheck,
   ShieldAlert,
+  Building2,
 } from "lucide-react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { HOSPITAL_LOGO_PATH, HOSPITAL_NAME, HOSPITAL_TAGLINE } from "@/config/branding";
@@ -521,7 +522,7 @@ export default function Sidebar() {
           </Section>
         )}
 
-        {(isSuperAdmin || canManageSettings || canReadAuditLogs) && (
+        {(isSuperAdmin || isAdmin || canManageSettings || canReadAuditLogs) && (
           <Section title="Administration" collapsed={collapsed}>
             {isSuperAdmin && (
               <NavLink
@@ -538,6 +539,15 @@ export default function Sidebar() {
                 icon={UserRoundCog}
                 label="Staff"
                 className={linkClass("/admin/staff")}
+                collapsed={collapsed}
+              />
+            )}
+            {isAdmin && (
+              <NavLink
+                to="/admin/departments"
+                icon={Building2}
+                label="Departments"
+                className={linkClass("/admin/departments")}
                 collapsed={collapsed}
               />
             )}

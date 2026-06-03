@@ -12,7 +12,7 @@ export const EMPTY_BED_FORM = {
   roomNumber: "",
   bedNumber: "",
   floor: "",
-  departmentId: "none",
+  departmentId: "",
   isActive: true,
   notes: "",
 };
@@ -77,7 +77,7 @@ export function mapBedToForm(bed) {
     roomNumber: bed?.roomNumber || "",
     bedNumber: bed?.bedNumber || "",
     floor: bed?.floor || "",
-    departmentId: bed?.departmentId ? String(bed.departmentId) : "none",
+    departmentId: bed?.departmentId ? String(bed.departmentId) : "",
     isActive: bed?.isActive ?? true,
     notes: bed?.notes || "",
   };
@@ -89,7 +89,7 @@ export function buildBedPayload(form, includeActive = false) {
     roomNumber: form.roomNumber.trim(),
     bedNumber: form.bedNumber.trim(),
     floor: form.floor.trim() || null,
-    departmentId: form.departmentId === "none" ? null : Number(form.departmentId),
+    departmentId: Number(form.departmentId),
     notes: form.notes.trim() || null,
   };
 

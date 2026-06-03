@@ -143,8 +143,8 @@ export default function BedManagement() {
     event.preventDefault();
     if (saving) return;
 
-    if (!form.ward.trim() || !form.roomNumber.trim() || !form.bedNumber.trim()) {
-      showToast("Ward, room number, and bed number are required.", "error");
+    if (!form.ward.trim() || !form.roomNumber.trim() || !form.bedNumber.trim() || !form.departmentId) {
+      showToast("Ward, room number, bed number, and department are required.", "error");
       return;
     }
 

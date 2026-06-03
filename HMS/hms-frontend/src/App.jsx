@@ -45,6 +45,7 @@ import AdminAuditLogsPage from "@/features/auditLogs/AdminAuditLogsPage";
 import BedManagement from "@/features/beds/bedManagement/BedManagement";
 import ProfilePage from "@/features/profile/ProfilePage";
 import StaffOverviewPage from "@/features/staffOverview/OverviewPage";
+import DepartmentsPage from "@/features/departments/DepartmentsPage";
 
 
 export default function App() {
@@ -136,6 +137,14 @@ export default function App() {
               element={
                 <PermissionRoute requireRole="SuperAdmin">
                   <StaffManagementPage />
+                </PermissionRoute>
+              }
+            />
+            <Route
+              path="departments"
+              element={
+                <PermissionRoute requireRole="Admin">
+                  <DepartmentsPage />
                 </PermissionRoute>
               }
             />
