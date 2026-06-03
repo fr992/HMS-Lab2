@@ -1,4 +1,5 @@
 using HMS.Shared.Entities;
+using HMS.Domain.Entities;
 
 namespace Identity.Domain.Entities;
 
@@ -18,6 +19,8 @@ public sealed class AppointmentRequest : BaseEntity
     public string Phone { get; set; } = string.Empty;
     public DateOnly DateOfBirth { get; set; }
     public DateOnly PreferredDate { get; set; }
+    public int? DoctorProfileId { get; set; }
+    public DoctorProfile? DoctorProfile { get; set; }
     public string ReasonForVisit { get; set; } = string.Empty;
     public AppointmentRequestStatus Status { get; set; } = AppointmentRequestStatus.Pending;
 }

@@ -937,6 +937,9 @@ namespace HMS.Persistence.Migrations
                     b.Property<DateOnly>("DateOfBirth")
                         .HasColumnType("date");
 
+                    b.Property<int?>("DoctorProfileId")
+                        .HasColumnType("int");
+
                     b.Property<string>("Email")
                         .IsRequired()
                         .HasMaxLength(256)
@@ -976,6 +979,8 @@ namespace HMS.Persistence.Migrations
                         .HasColumnType("int");
 
                     b.HasKey("Id");
+
+                    b.HasIndex("DoctorProfileId");
 
                     b.ToTable("AppointmentRequests", (string)null);
                 });
@@ -2172,6 +2177,16 @@ namespace HMS.Persistence.Migrations
                     b.Navigation("DoctorProfile");
 
                     b.Navigation("PatientProfile");
+                });
+
+            modelBuilder.Entity("Identity.Domain.Entities.AppointmentRequest", b =>
+                {
+                    b.HasOne("HMS.Domain.Entities.DoctorProfile", "DoctorProfile")
+                        .WithMany()
+                        .HasForeignKey("DoctorProfileId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.Navigation("DoctorProfile");
                 });
 
             modelBuilder.Entity("Identity.Domain.Entities.AuditLog", b =>

@@ -1,4 +1,4 @@
-import { useMutation } from "@tanstack/react-query";
+import { useMutation, useQuery } from "@tanstack/react-query";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
 import { toast } from "sonner";
@@ -12,7 +12,10 @@ import {
   X,
 } from "lucide-react";
 import { useAppointmentStore } from "@/features/landing/appointmentStore";
-import { createAppointmentRequest } from "@/features/landing/api/appointmentRequestApi";
+import {
+  createAppointmentRequest,
+  fetchPublicDoctors,
+} from "@/features/landing/api/appointmentRequestApi";
 import { appointmentRequestSchema } from "@/features/landing/schemas/appointmentRequestSchema";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -31,6 +34,7 @@ const defaultValues = {
   lastName: "",
   email: "",
   phone: "",
+  doctorProfileId: "",
   dateOfBirth: "",
   preferredDate: "",
   reasonForVisit: "",
@@ -41,6 +45,11 @@ const dateInputClass =
 
 export default function AppointmentForm() {
   const { submitted, setSubmitted, reset: resetSubmitted } = useAppointmentStore();
+  const doctorsQuery = useQuery({
+    queryKey: ["public-doctors"],
+    queryFn: fetchPublicDoctors,
+    staleTime: 5 * 60 * 1000,
+  });
   const form = useForm({
     resolver: zodResolver(appointmentRequestSchema),
     defaultValues,
@@ -195,6 +204,32 @@ export default function AppointmentForm() {
                       <FormLabel>Preferred Appointment Date</FormLabel>
                       <FormControl>
                         <input type="date" className={dateInputClass} {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </div>
+
+              <div className="mt-5">
+                <FormField
+                  control={form.control}
+                  name="doctorProfileId"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Preferred Doctor</FormLabel>
+                      <FormControl>
+                        <select className={dateInputClass} {...field}>
+                          <option value="">
+                            {doctorsQuery.isLoading ? "Loading doctors..." : "No preference"}
+                          </option>
+                          {(Array.isArray(doctorsQuery.data) ? doctorsQuery.data : []).map((doctor) => (
+                            <option key={doctor.id} value={doctor.id}>
+                              {doctor.fullName}
+                              {doctor.specializationName ? ` - ${doctor.specializationName}` : ""}
+                            </option>
+                          ))}
+                        </select>
                       </FormControl>
                       <FormMessage />
                     </FormItem>

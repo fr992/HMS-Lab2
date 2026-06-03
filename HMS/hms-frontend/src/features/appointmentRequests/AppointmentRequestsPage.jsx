@@ -15,6 +15,7 @@ import {
 import { toast } from "sonner";
 import { useAuth } from "@/auth/AuthContext";
 import { CountUpValue } from "@/features/dashboard/DashboardPrimitives";
+import { useDoctorOptionsStore } from "@/features/patients/doctorOptionsStore";
 import { getPagedItems, getPagination, MAX_LIST_PAGE_SIZE, PaginationBar } from "@/lib/pagination.jsx";
 import {
   APPOINTMENT_REQUEST_STATUS,
@@ -128,6 +129,7 @@ function getNextActions(status) {
   const key = statusKey(status);
   if (key === "pending") {
     return [
+      { label: "Save doctor", status: APPOINTMENT_REQUEST_STATUS.PENDING },
       { label: "Confirm", status: APPOINTMENT_REQUEST_STATUS.CONFIRMED },
       { label: "Cancel", status: APPOINTMENT_REQUEST_STATUS.CANCELLED, danger: true },
     ];
@@ -161,6 +163,15 @@ export default function AppointmentRequestsPage() {
   const [error, setError] = useState(null);
   const [mutatingId, setMutatingId] = useState(null);
   const [page, setPage] = useState(1);
+  const [doctorSelections, setDoctorSelections] = useState({});
+  const loadDoctors = useDoctorOptionsStore((state) => state.load);
+  const doctors = useDoctorOptionsStore((state) => state.items);
+  const doctorsStatus = useDoctorOptionsStore((state) => state.status);
+  const doctorsError = useDoctorOptionsStore((state) => state.error);
+
+  useEffect(() => {
+    if (canManageStatus) void loadDoctors();
+  }, [canManageStatus, loadDoctors]);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -223,11 +234,23 @@ export default function AppointmentRequestsPage() {
 
   const requestPage = { items: filteredItems, pagination };
 
+  const selectedDoctorIdFor = (request) => {
+    const raw = doctorSelections[request.id] ?? request.doctorProfileId ?? "";
+    const parsed = Number.parseInt(raw, 10);
+    return Number.isFinite(parsed) ? parsed : null;
+  };
+
   const updateStatus = async (request, nextStatus) => {
     if (!canManageStatus || mutatingId != null) return;
+    const doctorProfileId = selectedDoctorIdFor(request);
+    if (nextStatus === APPOINTMENT_REQUEST_STATUS.CONFIRMED && !doctorProfileId) {
+      showToast("Assign a doctor before confirming this request.", "warning");
+      return;
+    }
+
     setMutatingId(request.id);
     try {
-      await patchAppointmentRequestStatus(request.id, nextStatus);
+      await patchAppointmentRequestStatus(request.id, nextStatus, doctorProfileId);
       showToast("Request status updated.");
       await load();
     } catch (e) {
@@ -430,6 +453,42 @@ export default function AppointmentRequestsPage() {
                         </dt>
                         <dd className="mt-1 text-slate-800">
                           {formatDateTime(request.createdAt)}
+                        </dd>
+                      </div>
+                      <div className="col-span-2 xl:col-span-1">
+                        <dt className="text-xs font-semibold uppercase tracking-wide text-slate-400">
+                          Doctor
+                        </dt>
+                        <dd className="mt-1">
+                          {canManageStatus && statusKey(request.status) === "pending" ? (
+                            <select
+                              value={doctorSelections[request.id] ?? request.doctorProfileId ?? ""}
+                              onChange={(event) =>
+                                setDoctorSelections((current) => ({
+                                  ...current,
+                                  [request.id]: event.target.value,
+                                }))
+                              }
+                              disabled={busy || mutatingId != null || doctorsStatus === "loading"}
+                              className="h-9 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm text-slate-900 shadow-sm outline-none transition focus:border-sky-500 focus:ring-2 focus:ring-sky-500/20 disabled:opacity-60"
+                            >
+                              <option value="">
+                                {doctorsStatus === "loading" ? "Loading doctors..." : "Assign doctor"}
+                              </option>
+                              {doctors.map((doctor) => (
+                                <option key={doctor.id} value={doctor.id}>
+                                  {doctor.fullName}
+                                </option>
+                              ))}
+                            </select>
+                          ) : (
+                            <span className="text-slate-800">
+                              {request.doctorName || "Unassigned"}
+                            </span>
+                          )}
+                          {doctorsError && canManageStatus ? (
+                            <span className="mt-1 block text-xs text-rose-600">{doctorsError}</span>
+                          ) : null}
                         </dd>
                       </div>
                     </dl>

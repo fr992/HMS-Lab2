@@ -38,6 +38,9 @@ public sealed class AppointmentRequestService : IAppointmentRequestService
         if (dto.DateOfBirth >= today)
             throw new BadRequestException("Date of birth is not valid.");
 
+        if (dto.DoctorProfileId.HasValue)
+            await EnsureDoctorExistsAsync(dto.DoctorProfileId.Value, ct);
+
         var now = DateTime.UtcNow;
         var entity = new AppointmentRequest
         {
@@ -47,6 +50,7 @@ public sealed class AppointmentRequestService : IAppointmentRequestService
             Phone = dto.Phone.Trim(),
             DateOfBirth = dto.DateOfBirth,
             PreferredDate = dto.PreferredDate,
+            DoctorProfileId = dto.DoctorProfileId,
             ReasonForVisit = dto.ReasonForVisit.Trim(),
             Status = AppointmentRequestStatus.Pending,
             CreatedAt = now,
@@ -56,20 +60,8 @@ public sealed class AppointmentRequestService : IAppointmentRequestService
         _db.AppointmentRequests.Add(entity);
         await _db.SaveChangesAsync(ct);
 
-        return new AppointmentRequestDto
-        {
-            Id = entity.Id,
-            FirstName = entity.FirstName,
-            LastName = entity.LastName,
-            Email = entity.Email,
-            Phone = entity.Phone,
-            DateOfBirth = entity.DateOfBirth,
-            PreferredDate = entity.PreferredDate,
-            ReasonForVisit = entity.ReasonForVisit,
-            Status = entity.Status.ToString(),
-            CreatedAt = entity.CreatedAt,
-            UpdatedAt = entity.UpdatedAt
-        };
+        return await GetByIdAsync(entity.Id, ct)
+            ?? throw new Exception("Appointment request was created but could not be loaded.");
     }
 
     public async Task<PaginatedResponse<AppointmentRequestDto>> GetAllAsync(
@@ -117,6 +109,10 @@ public sealed class AppointmentRequestService : IAppointmentRequestService
                 Phone = a.Phone,
                 DateOfBirth = a.DateOfBirth,
                 PreferredDate = a.PreferredDate,
+                DoctorProfileId = a.DoctorProfileId,
+                DoctorName = a.DoctorProfile != null
+                    ? a.DoctorProfile.StaffProfile.Person.FullName
+                    : null,
                 ReasonForVisit = a.ReasonForVisit,
                 Status = a.Status.ToString(),
                 CreatedAt = a.CreatedAt,
@@ -141,6 +137,10 @@ public sealed class AppointmentRequestService : IAppointmentRequestService
                 Phone = a.Phone,
                 DateOfBirth = a.DateOfBirth,
                 PreferredDate = a.PreferredDate,
+                DoctorProfileId = a.DoctorProfileId,
+                DoctorName = a.DoctorProfile != null
+                    ? a.DoctorProfile.StaffProfile.Person.FullName
+                    : null,
                 ReasonForVisit = a.ReasonForVisit,
                 Status = a.Status.ToString(),
                 CreatedAt = a.CreatedAt,
@@ -162,7 +162,18 @@ public sealed class AppointmentRequestService : IAppointmentRequestService
             throw new NotFoundException("Appointment request not found.");
 
         var nextStatus = ParseStatus(dto.Status);
-        if (entity.Status != nextStatus)
+        var changed = entity.Status != nextStatus;
+        if (dto.DoctorProfileId.HasValue && entity.DoctorProfileId != dto.DoctorProfileId)
+        {
+            await EnsureDoctorExistsAsync(dto.DoctorProfileId.Value, ct);
+            entity.DoctorProfileId = dto.DoctorProfileId;
+            changed = true;
+        }
+
+        if (nextStatus == AppointmentRequestStatus.Confirmed && !entity.DoctorProfileId.HasValue)
+            throw new BadRequestException("Assign a doctor before confirming this appointment request.");
+
+        if (changed)
         {
             entity.Status = nextStatus;
             entity.UpdatedAt = DateTime.UtcNow;
@@ -187,5 +198,19 @@ public sealed class AppointmentRequestService : IAppointmentRequestService
         }
 
         throw new BadRequestException($"Unknown appointment request status: '{raw.Trim()}'.");
+    }
+
+    private async Task EnsureDoctorExistsAsync(int doctorProfileId, CancellationToken ct)
+    {
+        var exists = await _db.DoctorProfiles.AnyAsync(
+            d =>
+                d.Id == doctorProfileId &&
+                d.IsActive &&
+                d.StaffProfile.Person.User != null &&
+                d.StaffProfile.Person.User.IsActive,
+            ct);
+
+        if (!exists)
+            throw new BadRequestException("Selected doctor is not available.");
     }
 }

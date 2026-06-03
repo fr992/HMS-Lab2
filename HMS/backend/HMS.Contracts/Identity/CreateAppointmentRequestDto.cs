@@ -8,6 +8,7 @@ namespace HMS.Contracts.Identity
         public string Phone { get; set; } = string.Empty;
         public DateOnly DateOfBirth { get; set; }
         public DateOnly PreferredDate { get; set; }
+        public int? DoctorProfileId { get; set; }
         public string ReasonForVisit { get; set; } = string.Empty;
     }
 }

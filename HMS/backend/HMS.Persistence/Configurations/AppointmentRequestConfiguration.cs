@@ -33,5 +33,12 @@ public sealed class AppointmentRequestConfiguration : IEntityTypeConfiguration<A
         builder.Property(a => a.Status)
             .HasConversion<string>()
             .IsRequired();
+
+        builder.HasOne(a => a.DoctorProfile)
+            .WithMany()
+            .HasForeignKey(a => a.DoctorProfileId)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        builder.HasIndex(a => a.DoctorProfileId);
     }
 }
