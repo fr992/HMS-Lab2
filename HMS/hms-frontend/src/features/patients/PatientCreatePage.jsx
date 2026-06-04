@@ -174,7 +174,7 @@ export function RegisterPatientModal({ onClose, onCreated }) {
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/70 p-4">
       <section
-        className="flex h-[35rem] w-full max-w-[50rem] flex-col overflow-hidden rounded-xl border border-slate-200 bg-white shadow-2xl"
+        className="flex h-140 w-full max-w-200 flex-col overflow-hidden rounded-xl border border-slate-200 bg-white shadow-2xl"
         role="dialog"
         aria-modal="true"
       >

@@ -722,7 +722,7 @@ export default function OverviewPage() {
         </div>
       </section>
 
-      <section className="grid min-h-[28rem] flex-1 grid-cols-1 gap-4 xl:grid-cols-[minmax(0,1.35fr)_minmax(20rem,0.85fr)]">
+      <section className="grid min-h-112 flex-1 grid-cols-1 gap-4 xl:grid-cols-[minmax(0,1.35fr)_minmax(20rem,0.85fr)]">
         <Panel
           title={activeView.title}
           icon={<ActiveIcon className="size-4" aria-hidden />}
@@ -948,7 +948,7 @@ function PaymentRow({ payment }) {
           {formatDateTime(payment.paidAt || payment.updatedAt || payment.createdAt)}
         </p>
       </div>
-      <p className="break-words text-sm font-semibold text-slate-950">
+      <p className="wrap-break-word text-sm font-semibold text-slate-950">
         {formatMoney(payment.amount, payment.currency || "USD")}
       </p>
     </div>
@@ -984,7 +984,7 @@ function LabRequestRow({ request }) {
           Requested {formatDateTime(request.requestedAt || request.createdAt)}
         </p>
       </div>
-      <span className="break-words text-xs font-semibold uppercase tracking-wide text-slate-500 md:text-right">
+      <span className="wrap-break-word text-xs font-semibold uppercase tracking-wide text-slate-500 md:text-right">
         {titleCase(request.priority || "routine")}
       </span>
     </div>

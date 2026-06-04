@@ -232,7 +232,7 @@ function AdminDoctorGroup({ group, isOpen, onToggle, panelBasePath }) {
 
       {isOpen && (
         <div className="border-t border-slate-100">
-          <div className="scrollbar-none max-h-[25rem] overflow-y-auto">
+          <div className="scrollbar-none max-h-100 overflow-y-auto">
             {group.encounters.map((encounter) => (
               <EncounterRow
                 key={encounter.id}
@@ -401,11 +401,11 @@ export default function EncountersListPage() {
       )}
 
       {loading ? (
-        <div className="flex min-h-[18rem] items-center justify-center rounded-lg border border-slate-200 bg-white text-sm text-slate-500 shadow-sm">
+        <div className="flex min-h-72 items-center justify-center rounded-lg border border-slate-200 bg-white text-sm text-slate-500 shadow-sm">
           Loading encounters...
         </div>
       ) : encounters.length === 0 ? (
-        <div className="flex min-h-[18rem] items-center justify-center rounded-lg border border-slate-200 bg-white p-8 text-center shadow-sm">
+        <div className="flex min-h-72 items-center justify-center rounded-lg border border-slate-200 bg-white p-8 text-center shadow-sm">
           <div>
             <Stethoscope className="mx-auto h-8 w-8 text-slate-300" aria-hidden />
             <p className="mt-3 text-sm font-medium text-slate-900">
@@ -414,7 +414,7 @@ export default function EncountersListPage() {
           </div>
         </div>
       ) : filteredEncounters.length === 0 ? (
-        <div className="flex min-h-[18rem] items-center justify-center rounded-lg border border-slate-200 bg-white p-8 text-center shadow-sm">
+        <div className="flex min-h-72 items-center justify-center rounded-lg border border-slate-200 bg-white p-8 text-center shadow-sm">
           <div>
             <Search className="mx-auto h-8 w-8 text-slate-300" aria-hidden />
             <p className="mt-3 text-sm font-medium text-slate-900">

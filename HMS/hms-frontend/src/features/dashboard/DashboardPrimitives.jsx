@@ -39,7 +39,7 @@ export function DashboardFrame({
 
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
             {onSearchChange && (
-              <label className="relative block sm:w-[25rem]">
+              <label className="relative block sm:w-100">
                 <Search className="pointer-events-none absolute left-4 top-1/2 size-5 -translate-y-1/2 text-slate-400" />
                 <input
                   type="search"

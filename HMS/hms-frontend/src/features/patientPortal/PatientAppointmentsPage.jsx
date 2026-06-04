@@ -121,7 +121,7 @@ export function ErrorBox({ message }) {
 
 export function LoadingBox({ label }) {
   return (
-    <div className="flex min-h-[16rem] items-center justify-center rounded-lg border border-slate-200 bg-white text-sm text-slate-500">
+    <div className="flex min-h-64 items-center justify-center rounded-lg border border-slate-200 bg-white text-sm text-slate-500">
       {label}
     </div>
   );
@@ -129,7 +129,7 @@ export function LoadingBox({ label }) {
 
 export function EmptyBox({ children }) {
   return (
-    <div className="flex min-h-[12rem] items-center justify-center p-6 text-center">
+    <div className="flex min-h-48 items-center justify-center p-6 text-center">
       <div>
         <CalendarDays className="mx-auto size-8 text-slate-300" aria-hidden />
         <p className="mt-3 text-sm font-medium text-slate-900">{children}</p>

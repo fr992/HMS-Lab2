@@ -223,7 +223,7 @@ export default function NotificationBell() {
 
       {open && (
         <div
-          className="absolute right-0 top-12 z-[120] flex w-[min(24rem,calc(100vw-2rem))] flex-col overflow-hidden rounded-lg border border-slate-200 bg-white shadow-xl shadow-slate-950/10"
+          className="absolute right-0 top-12 z-120 flex w-[min(24rem,calc(100vw-2rem))] flex-col overflow-hidden rounded-lg border border-slate-200 bg-white shadow-xl shadow-slate-950/10"
           style={{ maxHeight: "min(32rem, calc(100vh - 6rem))" }}
         >
           <div className="shrink-0 flex items-center justify-between gap-3 border-b border-slate-100 px-4 py-3">

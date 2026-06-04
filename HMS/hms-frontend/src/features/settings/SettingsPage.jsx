@@ -752,7 +752,7 @@ function SettingsSkeleton() {
 
 function EmptySettingsState({ search }) {
   return (
-    <section className="flex min-h-[18rem] items-center justify-center rounded-lg border border-slate-200 bg-white p-8 text-center shadow-sm">
+    <section className="flex min-h-72 items-center justify-center rounded-lg border border-slate-200 bg-white p-8 text-center shadow-sm">
       <div>
         <div className="mx-auto flex size-12 items-center justify-center rounded-lg bg-sky-50 text-sky-700 ring-1 ring-sky-100">
           <Settings className="size-6" aria-hidden />

@@ -148,7 +148,7 @@ export default function Sidebar() {
     <aside
       className={[
         "flex h-full shrink-0 flex-col rounded-lg border border-slate-800 bg-slate-900 text-white shadow-sm transition-all duration-300",
-        collapsed ? "w-[4.5rem]" : "w-60",
+        collapsed ? "w-18" : "w-60",
       ].join(" ")}
     >
       <div className="border-b border-slate-800 px-3 py-3.5">
@@ -283,7 +283,7 @@ export default function Sidebar() {
             </Section>
           )}
 
-        {isAdmin && (canReadMedications || canReadLabTests || canReadLabRequests || canReadInvoices || canReadPayments || isAdmin) && (
+        {isAdmin && (canReadMedications || canReadLabTests || canReadLabRequests || canReadInvoices || canReadPayments) && (
           <Section title="Operations" collapsed={collapsed}>
             {isAdmin && (
               <NavLink

@@ -13,7 +13,7 @@ const NAV_LINKS = [
 export default function MainLayout() {
   return (
     <div className="min-h-screen bg-white text-cyan-950">
-      <header className="sticky top-0 z-[45] border-b border-cyan-100 bg-white/90 backdrop-blur-xl">
+      <header className="sticky top-0 z-45 border-b border-cyan-100 bg-white/90 backdrop-blur-xl">
         <div className="mx-auto flex max-w-7xl flex-wrap items-center gap-3 px-6 py-4 lg:px-8">
           <a href="#home" className="flex items-center gap-3">
             <span className="inline-flex size-9 items-center justify-center overflow-hidden rounded-md bg-white shadow-sm shadow-blue-700/20 ring-1 ring-cyan-100">
@@ -27,7 +27,7 @@ export default function MainLayout() {
 
           <nav
             aria-label="Landing page sections"
-            className="scrollbar-none order-last flex w-full items-center gap-1 overflow-x-auto pt-2 sm:order-none sm:ml-6 sm:w-auto sm:flex-1 sm:justify-center sm:pt-0"
+            className="scrollbar-none order-last flex w-full items-center gap-1 overflow-x-auto pt-2 sm:order-0 sm:ml-6 sm:w-auto sm:flex-1 sm:justify-center sm:pt-0"
           >
             {NAV_LINKS.map((link) => (
               <a

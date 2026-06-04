@@ -278,7 +278,7 @@ function DashboardHeader({ userName, search, onSearchChange }) {
         </div>
 
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
-          <label className="relative block sm:w-[25rem]">
+          <label className="relative block sm:w-100">
             <Search className="pointer-events-none absolute left-4 top-1/2 size-5 -translate-y-1/2 text-slate-400" />
             <input
               type="search"
@@ -545,7 +545,7 @@ function PatientsByDepartment() {
           Loading {Math.round(progress * 100)}%
         </p>
       )}
-      <div className="mt-3 ml-[7rem] flex justify-between border-t border-slate-200 pt-2 text-xs text-slate-500">
+      <div className="mt-3 ml-28 flex justify-between border-t border-slate-200 pt-2 text-xs text-slate-500">
         <span>0</span>
         <span>30</span>
         <span>60</span>

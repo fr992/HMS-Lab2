@@ -353,7 +353,7 @@ export default function InvoicesListPage() {
             ))}
           </div>
         ) : items.length === 0 ? (
-          <div className="flex min-h-[16rem] items-center justify-center p-8 text-center">
+          <div className="flex min-h-64 items-center justify-center p-8 text-center">
             <div>
               <ReceiptText className="mx-auto h-8 w-8 text-slate-300" aria-hidden />
               <p className="mt-3 text-sm font-medium text-slate-900">

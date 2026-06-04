@@ -140,7 +140,7 @@ export default function AdminLayout() {
     <div className="flex h-screen w-full max-w-full gap-2 overflow-hidden bg-slate-100 p-2 text-slate-900 sm:gap-3 sm:p-3">
       <Sidebar />
       <main className="scrollbar-none min-h-0 min-w-0 flex-1 overflow-y-auto rounded-lg bg-slate-50">
-        <header className="sticky top-0 z-[45] overflow-visible rounded-t-lg border-b border-slate-200 bg-white/95 px-4 py-3 backdrop-blur sm:px-5 lg:px-6">
+        <header className="sticky top-0 z-45 overflow-visible rounded-t-lg border-b border-slate-200 bg-white/95 px-4 py-3 backdrop-blur sm:px-5 lg:px-6">
           <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
             <h1 className="truncate text-xl font-semibold text-slate-950 sm:text-2xl">
               {pageTitle(pathname)}
@@ -181,7 +181,7 @@ export default function AdminLayout() {
 
                 {userMenuOpen && (
                   <div
-                    className="absolute right-0 z-[120] mt-2 w-44 overflow-hidden rounded-lg border border-slate-200 bg-white p-1.5 shadow-xl ring-1 ring-slate-950/5"
+                    className="absolute right-0 z-120 mt-2 w-44 overflow-hidden rounded-lg border border-slate-200 bg-white p-1.5 shadow-xl ring-1 ring-slate-950/5"
                     role="menu"
                   >
                     <Link
@@ -209,7 +209,7 @@ export default function AdminLayout() {
         </header>
         <div
           className={[
-            "mx-auto flex h-full min-h-full w-full max-w-[120rem] flex-col",
+            "mx-auto flex h-full min-h-full w-full max-w-480 flex-col",
             isDashboard ? "" : "p-4 sm:p-5 lg:p-6",
           ].join(" ")}
         >

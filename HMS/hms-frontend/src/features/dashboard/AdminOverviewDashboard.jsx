@@ -60,7 +60,7 @@ function Skeleton({ className = "" }) {
 
 function EmptyChart({ label = "No chart data available yet." }) {
   return (
-    <div className="flex h-[240px] w-full items-center justify-center rounded-lg border border-dashed border-slate-200 bg-slate-50 text-sm font-medium text-slate-500">
+    <div className="flex h-60 w-full items-center justify-center rounded-lg border border-dashed border-slate-200 bg-slate-50 text-sm font-medium text-slate-500">
       {label}
     </div>
   );
@@ -107,7 +107,7 @@ function StatCard({ stat, loading }) {
           <p className="mt-1 truncate text-xl font-bold text-slate-950">{stat.value}</p>
         </div>
         <div className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-lg ${stat.color}`}>
-          <Icon className="h-[18px] w-[18px]" />
+          <Icon className="h-4.5 w-4.5" />
         </div>
       </div>
       <div className="mt-2 flex items-center gap-1">
@@ -651,7 +651,7 @@ export default function AdminOverviewDashboard() {
           </CardHeader>
           <CardContent>
             {loadingCharts ? (
-              <Skeleton className="h-[240px] w-full" />
+              <Skeleton className="h-60 w-full" />
             ) : !hasPatientTrendData ? (
               <EmptyChart label="No patient trend data yet." />
             ) : (
@@ -681,7 +681,7 @@ export default function AdminOverviewDashboard() {
           </CardHeader>
           <CardContent>
             {loadingCharts ? (
-              <Skeleton className="h-[240px] w-full" />
+              <Skeleton className="h-60 w-full" />
             ) : !hasRevenueData ? (
               <EmptyChart label="No revenue trend data yet." />
             ) : (
@@ -706,7 +706,7 @@ export default function AdminOverviewDashboard() {
           </CardHeader>
           <CardContent>
             {loadingCharts ? (
-              <Skeleton className="h-[240px] w-full" />
+              <Skeleton className="h-60 w-full" />
             ) : !hasDepartmentData ? (
               <EmptyChart label="No department patient data yet." />
             ) : (
@@ -730,7 +730,7 @@ export default function AdminOverviewDashboard() {
           <CardContent className="flex flex-col items-center">
             {loadingCharts ? (
               <>
-                <Skeleton className="h-[180px] w-full rounded-full" />
+                <Skeleton className="h-45 w-full rounded-full" />
                 <Skeleton className="mt-4 h-4 w-48" />
               </>
             ) : !hasBedData ? (

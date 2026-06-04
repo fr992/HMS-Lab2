@@ -210,12 +210,12 @@ export default function PatientEncountersListPage() {
       )}
 
       {loading ? (
-        <div className="flex min-h-[18rem] items-center justify-center rounded-lg border border-slate-200 bg-white text-sm text-slate-500 shadow-sm">
+        <div className="flex min-h-72 items-center justify-center rounded-lg border border-slate-200 bg-white text-sm text-slate-500 shadow-sm">
           <RefreshCw className="mr-2 h-4 w-4 animate-spin" aria-hidden />
           Loading encounters...
         </div>
       ) : encounters.length === 0 ? (
-        <div className="flex min-h-[18rem] items-center justify-center rounded-lg border border-slate-200 bg-white p-8 text-center shadow-sm">
+        <div className="flex min-h-72 items-center justify-center rounded-lg border border-slate-200 bg-white p-8 text-center shadow-sm">
           <div>
             <Stethoscope
               className="mx-auto h-9 w-9 text-slate-300"

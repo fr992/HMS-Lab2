@@ -293,7 +293,7 @@ export default function PatientsListPage() {
         )}
 
         {listStatus === "ready" && !isDoctor && items.length === 0 && (
-          <div className="flex min-h-[12rem] items-center">
+          <div className="flex min-h-48 items-center">
             <EmptyState
               title="No patients yet"
               description="Register a patient to see them here."

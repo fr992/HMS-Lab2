@@ -137,7 +137,7 @@ function ClinicCard({ clinic, tone, index }) {
   const Icon = CLINIC_ICONS[clinic.icon] ?? HeartPulse;
 
   return (
-    <div className={`landing-reveal landing-delay-${Math.min(index + 1, 5)} group rounded-md border border-cyan-100 bg-white p-5 shadow-sm shadow-cyan-950/[0.04] transition hover:-translate-y-1 hover:border-cyan-200 hover:shadow-xl hover:shadow-cyan-950/[0.08]`}>
+    <div className={`landing-reveal landing-delay-${Math.min(index + 1, 5)} group rounded-md border border-cyan-100 bg-white p-5 shadow-sm shadow-cyan-950/4 transition hover:-translate-y-1 hover:border-cyan-200 hover:shadow-xl hover:shadow-cyan-950/8`}>
       <div className="flex items-start justify-between gap-4">
         <span className={`inline-flex size-11 items-center justify-center rounded-md ring-1 ${tone}`}>
           <Icon className="size-5" />

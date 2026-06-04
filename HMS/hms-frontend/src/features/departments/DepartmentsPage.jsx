@@ -215,11 +215,11 @@ export default function DepartmentsPage() {
 
       <div className="scrollbar-none min-h-0 flex-1 overflow-auto rounded-lg border border-slate-200 bg-white shadow-sm">
         {loading ? (
-          <div className="flex min-h-[16rem] items-center justify-center text-sm text-slate-500">
+          <div className="flex min-h-64 items-center justify-center text-sm text-slate-500">
             Loading departments...
           </div>
         ) : departments.length === 0 ? (
-          <div className="flex min-h-[16rem] flex-col items-center justify-center gap-2 p-8 text-center text-sm text-slate-500">
+          <div className="flex min-h-64 flex-col items-center justify-center gap-2 p-8 text-center text-sm text-slate-500">
             <Building2 className="size-8 text-slate-300" aria-hidden />
             <span>{search.trim() ? "No departments match your search." : "No departments found."}</span>
           </div>

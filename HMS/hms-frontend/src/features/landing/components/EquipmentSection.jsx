@@ -42,7 +42,7 @@ export default function EquipmentSection() {
           </div>
         </div>
 
-        <div className="landing-reveal landing-delay-2 overflow-hidden rounded-md border border-cyan-100 bg-white shadow-sm shadow-cyan-950/[0.04]">
+        <div className="landing-reveal landing-delay-2 overflow-hidden rounded-md border border-cyan-100 bg-white shadow-sm shadow-cyan-950/4">
           {EQUIPMENT.map((item, index) => (
             <EquipmentRow key={item.id} item={item} index={index} />
           ))}

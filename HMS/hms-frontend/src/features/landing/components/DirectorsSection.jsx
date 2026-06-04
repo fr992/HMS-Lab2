@@ -65,7 +65,7 @@ function DirectorCard({ director, icon, delayClass }) {
   const accent = ACCENT_STYLES[director.accent] ?? ACCENT_STYLES.sky;
 
   return (
-    <div className={`landing-reveal ${delayClass} group rounded-md border border-cyan-100 bg-white p-5 shadow-sm shadow-cyan-950/[0.04] transition hover:-translate-y-1 hover:border-cyan-200 hover:shadow-xl hover:shadow-cyan-950/[0.08]`}>
+    <div className={`landing-reveal ${delayClass} group rounded-md border border-cyan-100 bg-white p-5 shadow-sm shadow-cyan-950/4 transition hover:-translate-y-1 hover:border-cyan-200 hover:shadow-xl hover:shadow-cyan-950/8`}>
       <div className="flex items-start justify-between gap-4">
         <span className={`inline-flex size-12 items-center justify-center rounded-md text-sm font-semibold ring-1 ${accent.avatar}`}>
           {director.initials}

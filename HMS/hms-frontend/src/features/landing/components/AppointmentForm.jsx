@@ -277,7 +277,7 @@ function ContactSignal({ icon, title, text }) {
   const Icon = icon;
 
   return (
-    <div className="flex gap-3 rounded-md border border-cyan-100 bg-white p-4 text-sm shadow-sm shadow-cyan-950/[0.03]">
+    <div className="flex gap-3 rounded-md border border-cyan-100 bg-white p-4 text-sm shadow-sm shadow-cyan-950/3">
       <span className="inline-flex size-9 shrink-0 items-center justify-center rounded-md bg-blue-50 text-blue-700">
         <Icon className="size-4" />
       </span>

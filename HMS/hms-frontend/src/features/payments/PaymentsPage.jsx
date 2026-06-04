@@ -413,10 +413,10 @@ export default function PaymentsPage() {
               />
             </span>
           </FilterField>
-          <SelectFilter className="md:min-w-[10rem] md:flex-[1_1_10rem] lg:min-w-0" label="Status" value={statusFilter} onChange={setStatusFilter} options={STATUS_OPTIONS} onBeforeChange={() => setPage(1)} />
-          <SelectFilter className="md:min-w-[11rem] md:flex-[1_1_11rem] lg:min-w-0" label="Method" value={methodFilter} onChange={setMethodFilter} options={METHOD_OPTIONS} onBeforeChange={() => setPage(1)} />
-          <DateFilter className="md:min-w-[9rem] md:flex-[0_1_9.5rem] lg:min-w-0" label="From" value={fromDate} onChange={setFromDate} />
-          <DateFilter className="md:min-w-[9rem] md:flex-[0_1_9.5rem] lg:min-w-0" label="To" value={toDate} onChange={setToDate} />
+          <SelectFilter className="md:min-w-40 md:flex-[1_1_10rem] lg:min-w-0" label="Status" value={statusFilter} onChange={setStatusFilter} options={STATUS_OPTIONS} onBeforeChange={() => setPage(1)} />
+          <SelectFilter className="md:min-w-44 md:flex-[1_1_11rem] lg:min-w-0" label="Method" value={methodFilter} onChange={setMethodFilter} options={METHOD_OPTIONS} onBeforeChange={() => setPage(1)} />
+          <DateFilter className="md:min-w-36 md:flex-[0_1_9.5rem] lg:min-w-0" label="From" value={fromDate} onChange={setFromDate} />
+          <DateFilter className="md:min-w-36 md:flex-[0_1_9.5rem] lg:min-w-0" label="To" value={toDate} onChange={setToDate} />
           <button
             type="button"
             onClick={resetFilters}
@@ -781,7 +781,7 @@ function PaymentActionsMenu({
       ? createPortal(
           <ul
             ref={menuRef}
-            className="pointer-events-auto fixed m-0 w-48 min-w-48 max-w-48 list-none rounded-lg border border-slate-200/90 bg-white p-0 py-1.5 text-slate-900 shadow-xl [z-index:200]"
+            className="pointer-events-auto fixed m-0 w-48 min-w-48 max-w-48 list-none rounded-lg border border-slate-200/90 bg-white p-0 py-1.5 text-slate-900 shadow-xl z-index:200"
             style={{ top: position.top, left: position.left }}
             role="menu"
           >
@@ -1205,7 +1205,7 @@ function ModalError({ message }) {
 
 function LoadingState() {
   return (
-    <div className="flex min-h-[16rem] items-center justify-center text-sm text-slate-500">
+    <div className="flex min-h-64 items-center justify-center text-sm text-slate-500">
       Loading payments...
     </div>
   );
@@ -1213,7 +1213,7 @@ function LoadingState() {
 
 function EmptyState() {
   return (
-    <div className="flex min-h-[16rem] items-center justify-center p-8 text-center">
+    <div className="flex min-h-64 items-center justify-center p-8 text-center">
       <div>
         <CreditCard className="mx-auto h-8 w-8 text-slate-300" aria-hidden />
         <p className="mt-3 text-sm font-medium text-slate-900">No payments found</p>

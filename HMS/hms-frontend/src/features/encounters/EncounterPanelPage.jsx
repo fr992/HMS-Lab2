@@ -352,7 +352,7 @@ export default function EncounterPanelPage() {
 
   if (loading) {
     return (
-      <div className="flex min-h-[18rem] items-center justify-center text-sm text-slate-500">
+      <div className="flex min-h-72 items-center justify-center text-sm text-slate-500">
         Loading encounter panel...
       </div>
     );
@@ -1720,7 +1720,7 @@ function LabRequestDialog({
                     </FormField>
                   </div>
 
-                  <div className="grid max-h-[28rem] gap-2 overflow-auto pr-1">
+                  <div className="grid max-h-112 gap-2 overflow-auto pr-1">
                     {labTestsLoading && (
                       <div className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-3 text-sm text-slate-500">
                         Loading lab tests...

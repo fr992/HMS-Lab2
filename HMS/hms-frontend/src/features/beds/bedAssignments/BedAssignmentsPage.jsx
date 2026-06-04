@@ -1031,7 +1031,7 @@ export default function BedAssignmentsPage({ readOnly = false, requestsOnly = fa
 
       {canReadBedRequests && (
         <div className="grid min-h-0 items-start gap-4 lg:grid-cols-[22rem_minmax(0,1fr)]">
-          <section className="flex h-[34rem] max-h-[calc(100vh-23rem)] min-h-[30rem] flex-col overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm">
+          <section className="flex h-136 max-h-[calc(100vh-23rem)] min-h-120 flex-col overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm">
             <div className="border-b border-slate-200 p-4">
               <div className="flex items-start justify-between gap-3">
                 <div>
@@ -1099,7 +1099,7 @@ export default function BedAssignmentsPage({ readOnly = false, requestsOnly = fa
             )}
           </section>
 
-          <section className="h-[34rem] max-h-[calc(100vh-23rem)] min-h-[30rem] overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm">
+          <section className="h-136 max-h-[calc(100vh-23rem)] min-h-120 overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm">
             {loading || requestLoading ? (
               <RequestDetailSkeleton />
             ) : error ? (
@@ -1359,7 +1359,7 @@ function RequestDetailPane({ request, encounterHref, canAssign, canReject, onAss
   const pending = normalize(request.status) === "pending";
 
   return (
-    <div className="flex h-[34rem] max-h-[calc(100vh-23rem)] min-h-[30rem] flex-col">
+    <div className="flex h-136 max-h-[calc(100vh-23rem)] min-h-120 flex-col">
       <div className="shrink-0 border-b border-slate-200 p-4">
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div className="min-w-0">
@@ -1464,7 +1464,7 @@ function RequestDetailSkeleton() {
 
 function RequestEmptyState({ filtered, onClear, compact = false }) {
   return (
-    <div className={`flex ${compact ? "min-h-[20rem]" : "min-h-[18rem]"} items-center justify-center rounded-lg border border-dashed border-slate-200 bg-slate-50 p-8 text-center`}>
+    <div className={`flex ${compact ? "min-h-80" : "min-h-72"} items-center justify-center rounded-lg border border-dashed border-slate-200 bg-slate-50 p-8 text-center`}>
       <div>
         <ClipboardList className="mx-auto size-10 text-slate-300" aria-hidden />
         <p className="mt-3 text-sm font-semibold text-slate-950">
@@ -1491,7 +1491,7 @@ function RequestEmptyState({ filtered, onClear, compact = false }) {
 
 function RequestErrorState({ message, onRetry, compact = false }) {
   return (
-    <div className={`flex ${compact ? "min-h-[20rem]" : "min-h-[16rem]"} items-center justify-center rounded-lg border border-rose-200 bg-rose-50 p-8 text-center`}>
+    <div className={`flex ${compact ? "min-h-80" : "min-h-64"} items-center justify-center rounded-lg border border-rose-200 bg-rose-50 p-8 text-center`}>
       <div>
         <AlertTriangle className="mx-auto size-10 text-rose-400" aria-hidden />
         <p className="mt-3 text-sm font-semibold text-rose-950">Unable to load bed requests</p>
@@ -2068,8 +2068,8 @@ function RequestAssignDialog({
   }, [availableBeds, beds, form.roomNumber, form.ward]);
 
   return (
-    <div className="fixed inset-0 z-[160] flex items-center justify-center bg-slate-950/45 p-4" role="dialog" aria-modal="true">
-      <section className="animate-in fade-in-0 zoom-in-95 flex max-h-[80vh] w-full max-w-[1000px] flex-col overflow-hidden rounded-xl border border-slate-200 bg-white shadow-2xl duration-150">
+    <div className="fixed inset-0 z-160 flex items-center justify-center bg-slate-950/45 p-4" role="dialog" aria-modal="true">
+      <section className="animate-in fade-in-0 zoom-in-95 flex max-h-[80vh] w-full max-w-250 flex-col overflow-hidden rounded-xl border border-slate-200 bg-white shadow-2xl duration-150">
         <div className="shrink-0 border-b border-slate-200 bg-white px-5 py-4 sm:px-6">
           <div className="flex items-start justify-between gap-4">
             <div className="min-w-0">
@@ -2532,7 +2532,7 @@ function DetailGrid({ items }) {
 
 function LoadingState({ label }) {
   return (
-    <div className="flex min-h-[14rem] items-center justify-center text-sm text-slate-500">
+    <div className="flex min-h-56 items-center justify-center text-sm text-slate-500">
       {label}
     </div>
   );
@@ -2540,7 +2540,7 @@ function LoadingState({ label }) {
 
 function EmptyState({ label, detail }) {
   return (
-    <div className="flex min-h-[14rem] items-center justify-center p-8 text-center">
+    <div className="flex min-h-56 items-center justify-center p-8 text-center">
       <div>
         <BedDouble className="mx-auto h-8 w-8 text-slate-300" aria-hidden />
         <p className="mt-3 text-sm font-medium text-slate-900">{label}</p>
