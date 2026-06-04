@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { CalendarPlus, ChevronDown, ChevronUp, X } from "lucide-react";
+import { CalendarPlus, ChevronDown, X } from "lucide-react";
 import { useLocation, useNavigate } from "react-router-dom";
 import AppointmentCancelModal from "@/features/appointments/components/AppointmentCancelModal";
 import AppointmentStatusBadge from "@/features/appointments/components/AppointmentStatusBadge";
@@ -173,7 +173,7 @@ export default function CalendarDayModal({
   const navigate = useNavigate();
   const location = useLocation();
   const overlayRef = useRef(null);
-  const [expanded, setExpanded] = useState(false);
+  const [visibleCount, setVisibleCount] = useState(DAY_APPOINTMENT_PAGE_SIZE);
 
   useEffect(() => {
     if (!date) return undefined;
@@ -191,14 +191,12 @@ export default function CalendarDayModal({
       ),
     [appointments]
   );
-  const hasOverflow = sorted.length > DAY_APPOINTMENT_PAGE_SIZE;
-  const visibleAppointments = hasOverflow && !expanded
-    ? sorted.slice(0, DAY_APPOINTMENT_PAGE_SIZE)
-    : sorted;
-  const hiddenCount = Math.max(0, sorted.length - DAY_APPOINTMENT_PAGE_SIZE);
+  const visibleAppointments = sorted.slice(0, visibleCount);
+  const remainingCount = Math.max(0, sorted.length - visibleAppointments.length);
+  const nextLoadCount = Math.min(DAY_APPOINTMENT_PAGE_SIZE, remainingCount);
 
   useEffect(() => {
-    setExpanded(false);
+    setVisibleCount(DAY_APPOINTMENT_PAGE_SIZE);
   }, [date, appointments.length]);
 
   if (!date) return null;
@@ -323,24 +321,19 @@ export default function CalendarDayModal({
                   />
                 </article>
               ))}
-              {hasOverflow && (
+              {remainingCount > 0 && (
                 <button
                   type="button"
-                  onClick={() => setExpanded((current) => !current)}
+                  onClick={() =>
+                    setVisibleCount((current) =>
+                      Math.min(sorted.length, current + DAY_APPOINTMENT_PAGE_SIZE)
+                    )
+                  }
                   className="inline-flex h-9 w-full items-center justify-center gap-2 rounded-lg border border-slate-200 bg-white px-3 text-sm font-semibold text-slate-700 transition hover:bg-slate-50"
-                  aria-expanded={expanded}
+                  aria-label={`Load ${nextLoadCount} more appointments`}
                 >
-                  {expanded ? (
-                    <>
-                      <ChevronUp className="h-4 w-4" aria-hidden />
-                      View less
-                    </>
-                  ) : (
-                    <>
-                      <ChevronDown className="h-4 w-4" aria-hidden />
-                      Load {hiddenCount} more
-                    </>
-                  )}
+                  <ChevronDown className="h-4 w-4" aria-hidden />
+                  Load {nextLoadCount} more
                 </button>
               )}
             </div>
