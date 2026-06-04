@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { CalendarPlus, X } from "lucide-react";
+import { CalendarPlus, ChevronDown, ChevronUp, X } from "lucide-react";
 import { useLocation, useNavigate } from "react-router-dom";
 import AppointmentCancelModal from "@/features/appointments/components/AppointmentCancelModal";
 import AppointmentStatusBadge from "@/features/appointments/components/AppointmentStatusBadge";
@@ -13,6 +13,8 @@ import {
   openOrCreateEncounterFromAppointment,
   patchAppointmentStatus,
 } from "@/features/appointments/api/appointmentsApi";
+
+const DAY_APPOINTMENT_PAGE_SIZE = 4;
 
 function formatDateHeading(date) {
   return date.toLocaleDateString(undefined, {
@@ -171,6 +173,7 @@ export default function CalendarDayModal({
   const navigate = useNavigate();
   const location = useLocation();
   const overlayRef = useRef(null);
+  const [expanded, setExpanded] = useState(false);
 
   useEffect(() => {
     if (!date) return undefined;
@@ -188,6 +191,15 @@ export default function CalendarDayModal({
       ),
     [appointments]
   );
+  const hasOverflow = sorted.length > DAY_APPOINTMENT_PAGE_SIZE;
+  const visibleAppointments = hasOverflow && !expanded
+    ? sorted.slice(0, DAY_APPOINTMENT_PAGE_SIZE)
+    : sorted;
+  const hiddenCount = Math.max(0, sorted.length - DAY_APPOINTMENT_PAGE_SIZE);
+
+  useEffect(() => {
+    setExpanded(false);
+  }, [date, appointments.length]);
 
   if (!date) return null;
 
@@ -261,7 +273,7 @@ export default function CalendarDayModal({
             </div>
           ) : (
             <div className="space-y-3">
-              {sorted.map((appointment) => (
+              {visibleAppointments.map((appointment) => (
                 <article
                   key={appointment.id}
                   className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm"
@@ -311,6 +323,26 @@ export default function CalendarDayModal({
                   />
                 </article>
               ))}
+              {hasOverflow && (
+                <button
+                  type="button"
+                  onClick={() => setExpanded((current) => !current)}
+                  className="inline-flex h-9 w-full items-center justify-center gap-2 rounded-lg border border-slate-200 bg-white px-3 text-sm font-semibold text-slate-700 transition hover:bg-slate-50"
+                  aria-expanded={expanded}
+                >
+                  {expanded ? (
+                    <>
+                      <ChevronUp className="h-4 w-4" aria-hidden />
+                      View less
+                    </>
+                  ) : (
+                    <>
+                      <ChevronDown className="h-4 w-4" aria-hidden />
+                      Load {hiddenCount} more
+                    </>
+                  )}
+                </button>
+              )}
             </div>
           )}
         </div>

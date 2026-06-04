@@ -1,5 +1,13 @@
-import { memo, useMemo } from "react";
-import { CalendarDays, CalendarPlus, Clock3, Eye, Pencil } from "lucide-react";
+import { memo, useMemo, useState } from "react";
+import {
+  CalendarDays,
+  CalendarPlus,
+  ChevronDown,
+  ChevronUp,
+  Clock3,
+  Eye,
+  Pencil,
+} from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
@@ -70,6 +78,7 @@ const TIME_SLOTS = Array.from(
 );
 const SCHEDULE_SLOT_COUNT = TIME_SLOTS.length - 1;
 const LANE_GAP_REM = 0.375;
+const DAY_APPOINTMENT_PAGE_SIZE = 4;
 
 function addDays(date, days) {
   const next = new Date(date);
@@ -563,11 +572,17 @@ const WeekDayCard = memo(function WeekDayCard({
   onAppointmentEdit,
 }) {
   const isToday = isSameDay(day, today);
+  const [expanded, setExpanded] = useState(false);
   const createForDay = () =>
     onCreate?.({
       date: dateInputValue(day),
       durationMinutes: SLOT_MINUTES,
     });
+  const hasOverflow = items.length > DAY_APPOINTMENT_PAGE_SIZE;
+  const visibleItems = hasOverflow && !expanded
+    ? items.slice(0, DAY_APPOINTMENT_PAGE_SIZE)
+    : items;
+  const hiddenCount = Math.max(0, items.length - DAY_APPOINTMENT_PAGE_SIZE);
 
   return (
     <Card
@@ -626,16 +641,40 @@ const WeekDayCard = memo(function WeekDayCard({
             No appointments
           </button>
         ) : (
-          items.map((appointment) => (
-            <WeekAppointmentCard
-              key={appointment.id}
-              appointment={appointment}
-              onAppointmentClick={onAppointmentClick}
-              onView={onAppointmentView}
-              onEdit={onAppointmentEdit}
-              canEdit={canEdit}
-            />
-          ))
+          <>
+            {visibleItems.map((appointment) => (
+              <WeekAppointmentCard
+                key={appointment.id}
+                appointment={appointment}
+                onAppointmentClick={onAppointmentClick}
+                onView={onAppointmentView}
+                onEdit={onAppointmentEdit}
+                canEdit={canEdit}
+              />
+            ))}
+            {hasOverflow && (
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => setExpanded((current) => !current)}
+                className="h-8 justify-center gap-2 rounded-lg border-slate-200 bg-white text-xs font-semibold text-slate-700 hover:bg-slate-50"
+                aria-expanded={expanded}
+              >
+                {expanded ? (
+                  <>
+                    <ChevronUp className="h-3.5 w-3.5" aria-hidden />
+                    View less
+                  </>
+                ) : (
+                  <>
+                    <ChevronDown className="h-3.5 w-3.5" aria-hidden />
+                    Load {hiddenCount} more
+                  </>
+                )}
+              </Button>
+            )}
+          </>
         )}
       </CardContent>
     </Card>
