@@ -1,23 +1,21 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { AlertTriangle, Building2, Pencil, Plus, RefreshCw, Trash2, X } from "lucide-react";
 import { toast } from "sonner";
 import { useAuth } from "@/auth/AuthContext";
 import {
   createDepartment,
   deleteDepartment,
-  fetchDepartmentsList,
+  fetchAdminDepartments,
   getApiErrorMessage,
   updateDepartment,
 } from "@/features/departments/api/departmentsApi";
+import { getPagedItems, getPagination, PaginationBar } from "@/lib/pagination.jsx";
 
 const EMPTY_FORM = {
   name: "",
   description: "",
 };
-
-function normalize(value) {
-  return String(value ?? "").trim().toLowerCase();
-}
+const PAGE_SIZE = 25;
 
 export default function DepartmentsPage() {
   const auth = useAuth();
@@ -31,12 +29,14 @@ export default function DepartmentsPage() {
   const [refreshing, setRefreshing] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
+  const [pagination, setPagination] = useState(null);
   const [search, setSearch] = useState("");
   const [formOpen, setFormOpen] = useState(false);
   const [editing, setEditing] = useState(null);
   const [form, setForm] = useState(EMPTY_FORM);
   const [deleteTarget, setDeleteTarget] = useState(null);
   const [deleteError, setDeleteError] = useState("");
+  const [page, setPage] = useState(1);
 
   const showToast = useCallback((message, type = "success") => {
     toast[type === "error" ? "error" : type === "warning" ? "warning" : "success"](message);
@@ -48,15 +48,22 @@ export default function DepartmentsPage() {
     setError("");
 
     try {
-      setDepartments(await fetchDepartmentsList());
+      const data = await fetchAdminDepartments({
+        search: search.trim() || undefined,
+        page,
+        pageSize: PAGE_SIZE,
+      });
+      setDepartments(getPagedItems(data));
+      setPagination(getPagination(data));
     } catch (e) {
       setDepartments([]);
+      setPagination(null);
       setError(getApiErrorMessage(e));
     } finally {
       setLoading(false);
       setRefreshing(false);
     }
-  }, []);
+  }, [page, search]);
 
   useEffect(() => {
     void load();
@@ -65,19 +72,6 @@ export default function DepartmentsPage() {
   useEffect(() => {
     if (error) showToast(error, "error");
   }, [error, showToast]);
-
-  const filteredDepartments = useMemo(() => {
-    const term = normalize(search);
-    if (!term) return departments;
-
-    return departments.filter((department) =>
-      [department.name, department.description]
-        .filter(Boolean)
-        .join(" ")
-        .toLowerCase()
-        .includes(term)
-    );
-  }, [departments, search]);
 
   function openCreate() {
     setEditing(null);
@@ -209,7 +203,10 @@ export default function DepartmentsPage() {
           <input
             type="search"
             value={search}
-            onChange={(event) => setSearch(event.target.value)}
+            onChange={(event) => {
+              setPage(1);
+              setSearch(event.target.value);
+            }}
             placeholder="Department name or description"
             className="mt-1.5 h-10 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm text-slate-900 shadow-sm outline-none transition placeholder:text-slate-400 focus:border-sky-500 focus:ring-2 focus:ring-sky-500/20"
           />
@@ -221,10 +218,10 @@ export default function DepartmentsPage() {
           <div className="flex min-h-[16rem] items-center justify-center text-sm text-slate-500">
             Loading departments...
           </div>
-        ) : filteredDepartments.length === 0 ? (
+        ) : departments.length === 0 ? (
           <div className="flex min-h-[16rem] flex-col items-center justify-center gap-2 p-8 text-center text-sm text-slate-500">
             <Building2 className="size-8 text-slate-300" aria-hidden />
-            <span>{departments.length === 0 ? "No departments found." : "No departments match your search."}</span>
+            <span>{search.trim() ? "No departments match your search." : "No departments found."}</span>
           </div>
         ) : (
           <table className="min-w-full divide-y divide-slate-200 text-sm">
@@ -236,7 +233,7 @@ export default function DepartmentsPage() {
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100 bg-white">
-              {filteredDepartments.map((department) => (
+              {departments.map((department) => (
                 <tr key={department.id} className="align-top">
                   <td className="px-4 py-3 font-medium text-slate-900">{department.name}</td>
                   <td className="px-4 py-3 text-slate-600">{department.description || "-"}</td>
@@ -274,6 +271,7 @@ export default function DepartmentsPage() {
             </tbody>
           </table>
         )}
+        <PaginationBar pagination={pagination} loading={loading} onPageChange={setPage} />
       </div>
 
       {!canCreate && !canUpdate && !canDelete && (

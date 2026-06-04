@@ -242,19 +242,27 @@ export default function EncounterPanelPage() {
       setRelatedLoading(true);
       setRelatedError("");
       try {
+        const patientProfileId = Number(
+          currentPanel.encounter.patientProfileId ?? currentPanel.patient?.id
+        );
         const [taskData, bedData] = await Promise.all([
           canReadNurseTasks ? fetchNurseTasksByEncounter(encounterId) : Promise.resolve([]),
-          canReadBeds ? fetchBeds({}) : Promise.resolve([]),
+          canReadBeds
+            ? fetchBeds({
+                encounterId,
+                patientProfileId: Number.isFinite(patientProfileId) ? patientProfileId : undefined,
+                page: 1,
+                pageSize: 2,
+              })
+            : Promise.resolve({ items: [] }),
         ]);
 
         setNurseTasks(taskData);
 
-        const patientProfileId = Number(
-          currentPanel.encounter.patientProfileId ?? currentPanel.patient?.id
-        );
+        const bedItems = Array.isArray(bedData) ? bedData : bedData?.items ?? [];
         const activeBed =
-          bedData.find((bed) => Number(bed.currentAssignment?.encounterId) === Number(encounterId)) ??
-          bedData.find(
+          bedItems.find((bed) => Number(bed.currentAssignment?.encounterId) === Number(encounterId)) ??
+          bedItems.find(
             (bed) =>
               Number(bed.currentAssignment?.patientProfileId) === patientProfileId &&
               !bed.currentAssignment?.releasedAt

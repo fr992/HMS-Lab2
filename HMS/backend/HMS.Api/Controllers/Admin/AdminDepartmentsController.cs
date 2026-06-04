@@ -3,6 +3,7 @@ using HMS.Contracts.Identity;
 using HMS.Domain.Entities;
 using HMS.Persistence;
 using Identity.Domain.Entities;
+using Identity.Infrastructure.Common;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -23,20 +24,32 @@ public sealed class AdminDepartmentsController : ControllerBase
     }
 
     [HttpGet]
-    public async Task<ActionResult<List<DepartmentDto>>> GetDepartments(CancellationToken cancellationToken)
+    public async Task<ActionResult<PaginatedResponse<DepartmentDto>>> GetDepartments(
+        [FromQuery] PaginationQuery pagination,
+        [FromQuery] bool all,
+        CancellationToken cancellationToken)
     {
-        var list = await _db.Set<Department>()
+        var query = _db.Set<Department>()
             .AsNoTracking()
+            .Where(d =>
+                string.IsNullOrWhiteSpace(pagination.Search) ||
+                d.Name.Contains(pagination.Search) ||
+                (d.Description != null && d.Description.Contains(pagination.Search)))
             .OrderBy(d => d.Name)
             .Select(d => new DepartmentDto
             {
                 Id = d.Id,
                 Name = d.Name,
                 Description = d.Description
-            })
-            .ToListAsync(cancellationToken);
+            });
 
-        return Ok(list);
+        if (all)
+        {
+            var items = await query.ToListAsync(cancellationToken);
+            return Ok(PaginatedResponse<DepartmentDto>.Create(items, 1, Math.Max(items.Count, 1), items.Count));
+        }
+
+        return Ok(await query.ToPaginatedResponseAsync(pagination, cancellationToken));
     }
 
     [HttpGet("{id:int}")]

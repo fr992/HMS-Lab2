@@ -149,7 +149,7 @@ export async function fetchNurses() {
 }
 
 export async function fetchDepartments() {
-  const { data } = await api.get("/departments");
+  const { data } = await api.get("/departments", { params: { all: true } });
   return extractArray(data);
 }
 

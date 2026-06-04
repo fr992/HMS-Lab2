@@ -6,6 +6,15 @@ export { fetchDepartmentsList } from "@/features/departments/api/departmentsApi"
 export async function fetchBeds(filters = {}) {
   const params = {};
   if (filters.status && filters.status !== "all") params.status = filters.status;
+  if (filters.search) params.search = filters.search;
+  if (filters.roomNumber && filters.roomNumber !== "all") params.roomNumber = filters.roomNumber;
+  if (filters.assignmentStatus && filters.assignmentStatus !== "all") {
+    params.assignmentStatus = filters.assignmentStatus;
+  }
+  if (filters.patientProfileId) params.patientProfileId = filters.patientProfileId;
+  if (filters.encounterId) params.encounterId = filters.encounterId;
+  if (filters.page) params.page = filters.page;
+  if (filters.pageSize) params.pageSize = filters.pageSize;
   const departmentId = Number(filters.departmentId);
   if (
     filters.departmentId &&
@@ -16,7 +25,7 @@ export async function fetchBeds(filters = {}) {
   }
 
   const { data } = await api.get("/beds", { params });
-  return Array.isArray(data) ? data : [];
+  return data;
 }
 
 export async function fetchActiveBedAssignments() {
@@ -36,9 +45,13 @@ export async function updateBed(bedId, body) {
   return data;
 }
 
-export async function fetchDoctorDepartmentBeds() {
-  const { data } = await api.get("/beds/department");
-  return Array.isArray(data) ? data : [];
+export async function fetchDoctorDepartmentBeds(filters = {}) {
+  const params = {};
+  if (filters.search) params.search = filters.search;
+  if (filters.page) params.page = filters.page;
+  if (filters.pageSize) params.pageSize = filters.pageSize;
+  const { data } = await api.get("/beds/department", { params });
+  return data;
 }
 
 export async function assignBed(bedId, body) {

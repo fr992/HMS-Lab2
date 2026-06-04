@@ -23,21 +23,21 @@ public sealed class BedsController : ControllerBase
 
     [HttpGet]
     [RequirePermission("Beds.Read")]
-    public async Task<ActionResult<IReadOnlyList<BedDto>>> GetBeds(
-        [FromQuery] string? status,
-        [FromQuery] int? departmentId,
+    public async Task<ActionResult<PaginatedResponse<BedDto>>> GetBeds(
+        [FromQuery] BedListQueryDto query,
         CancellationToken cancellationToken)
     {
-        var result = await _service.GetBedsAsync(status, departmentId, cancellationToken);
+        var result = await _service.GetBedsAsync(query, cancellationToken);
         return Ok(result);
     }
 
     [HttpGet("department")]
     [Authorize(Roles = "Doctor")]
-    public async Task<ActionResult<IReadOnlyList<BedPatientDetailsDto>>> GetDepartmentBeds(
+    public async Task<ActionResult<PaginatedResponse<BedPatientDetailsDto>>> GetDepartmentBeds(
+        [FromQuery] PaginationQuery pagination,
         CancellationToken cancellationToken)
     {
-        var result = await _service.GetBedsWithOccupancyByDepartmentAsync(CurrentUserId(), cancellationToken);
+        var result = await _service.GetBedsWithOccupancyByDepartmentAsync(CurrentUserId(), pagination, cancellationToken);
 
         return Ok(result);
     }

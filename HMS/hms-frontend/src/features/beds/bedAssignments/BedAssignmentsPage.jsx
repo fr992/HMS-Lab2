@@ -24,7 +24,6 @@ import {
   assignBed,
   assignBedAssignmentRequest,
   createBedAssignmentRequest,
-  fetchActiveBedAssignments,
   fetchBedAssignmentRequests,
   fetchBeds,
   fetchDepartmentsList,
@@ -34,6 +33,7 @@ import {
   releaseBed,
   releaseBedAssignment,
 } from "@/features/beds/api/bedAssignmentsApi";
+import { getPagedItems, getPagination } from "@/lib/pagination.jsx";
 
 const STATUS_OPTIONS = [
   { value: "all", label: "All statuses" },
@@ -68,6 +68,7 @@ const BED_REQUEST_SORT_OPTIONS = [
   { value: "ward", label: "Ward" },
 ];
 
+const BED_PAGE_SIZE = 40;
 const BED_REQUEST_PAGE_SIZE = 75;
 
 const EMPTY_REQUEST_PAGINATION = {
@@ -276,6 +277,7 @@ export default function BedAssignmentsPage({ readOnly = false, requestsOnly = fa
 
   const [beds, setBeds] = useState([]);
   const [assignments, setAssignments] = useState([]);
+  const [bedPagination, setBedPagination] = useState(null);
   const [bedRequests, setBedRequests] = useState([]);
   const [requestPagination, setRequestPagination] = useState(EMPTY_REQUEST_PAGINATION);
   const [departments, setDepartments] = useState([]);
@@ -314,34 +316,48 @@ export default function BedAssignmentsPage({ readOnly = false, requestsOnly = fa
     if (error) showToast(error, "error");
   }, [error, showToast]);
 
-  const load = useCallback(async () => {
-    setLoading(true);
+  const load = useCallback(async (page = 1, { append = false } = {}) => {
+    if (append) setRefreshing(true);
+    else setLoading(true);
     setError("");
     try {
-      const [bedData, assignmentData, departmentData, patientData, encounterData] = await Promise.all([
+      const [bedData, departmentData, patientData, encounterData] = await Promise.all([
         fetchBeds({
           departmentId: departmentFilter,
+          search: search.trim() || undefined,
+          roomNumber: roomFilter,
+          status: bedStatusFilter,
+          assignmentStatus: assignmentFilter,
+          page,
+          pageSize: BED_PAGE_SIZE,
         }),
-        fetchActiveBedAssignments(),
         canLoadAssignmentOptions ? fetchDepartmentsList() : Promise.resolve([]),
         canLoadAssignmentOptions ? fetchPatients() : Promise.resolve([]),
         canLoadAssignmentOptions ? fetchEncounters().catch(() => []) : Promise.resolve([]),
       ]);
-      setBeds(bedData);
-      setAssignments(assignmentData);
+      const items = getPagedItems(bedData);
+      setBeds((current) => (append ? [...current, ...items] : items));
+      setAssignments((current) => {
+        const nextItems = items.map((bed) => bed.currentAssignment).filter(Boolean);
+        return append ? [...current, ...nextItems] : nextItems;
+      });
+      setBedPagination(getPagination(bedData));
       setDepartments(departmentData);
       setPatients(Array.isArray(patientData) ? patientData : []);
       setEncounters(Array.isArray(encounterData) ? encounterData : []);
     } catch (e) {
       setError(getApiErrorMessage(e));
-      setBeds([]);
-      setAssignments([]);
-      setEncounters([]);
+      if (!append) {
+        setBeds([]);
+        setAssignments([]);
+        setBedPagination(null);
+        setEncounters([]);
+      }
     } finally {
       setLoading(false);
       setRefreshing(false);
     }
-  }, [canLoadAssignmentOptions, departmentFilter]);
+  }, [assignmentFilter, bedStatusFilter, canLoadAssignmentOptions, departmentFilter, roomFilter, search]);
 
   const loadBedRequests = useCallback(
     async (page = 1, { append = false } = {}) => {
@@ -1139,19 +1155,28 @@ export default function BedAssignmentsPage({ readOnly = false, requestsOnly = fa
         ) : groupedRooms.length === 0 ? (
           <EmptyState label="No beds found" detail="Adjust filters or add active beds before assigning patients." />
         ) : (
-          <div className="grid gap-4">
-            {groupedRooms.map((room) => (
-              <RoomCard
-                key={room.key}
-                room={room}
-                canAssign={canAssign}
-                canRelease={canRelease}
-                onAssign={openAssign}
-                onRelease={openRelease}
-                onView={openView}
-              />
-            ))}
-          </div>
+          <>
+            <div className="grid gap-4">
+              {groupedRooms.map((room) => (
+                <RoomCard
+                  key={room.key}
+                  room={room}
+                  canAssign={canAssign}
+                  canRelease={canRelease}
+                  onAssign={openAssign}
+                  onRelease={openRelease}
+                  onView={openView}
+                />
+              ))}
+            </div>
+            <BedRevealControls
+              visibleCount={beds.length}
+              totalCount={bedPagination?.totalCount ?? beds.length}
+              loading={refreshing}
+              hasMore={Boolean(bedPagination?.hasNextPage)}
+              onMore={() => load((bedPagination?.page ?? 1) + 1, { append: true })}
+            />
+          </>
         )}
         </section>
       )}
@@ -1512,6 +1537,27 @@ function SummaryCard({ stat }) {
           <Icon className="size-5" aria-hidden />
         </div>
       </div>
+    </div>
+  );
+}
+
+function BedRevealControls({ visibleCount, totalCount, loading, hasMore, onMore }) {
+  if (!hasMore) return null;
+
+  return (
+    <div className="mt-4 flex flex-col items-center gap-2 rounded-lg border border-slate-200 bg-white px-4 py-3 text-center sm:flex-row sm:justify-between sm:text-left">
+      <p className="text-sm text-slate-500">
+        Showing <span className="font-medium text-slate-900">{visibleCount}</span> of{" "}
+        <span className="font-medium text-slate-900">{totalCount}</span> beds
+      </p>
+      <button
+        type="button"
+        onClick={() => void onMore()}
+        disabled={loading}
+        className="h-10 rounded-lg border border-slate-200 bg-white px-4 text-sm font-medium text-slate-800 shadow-sm transition hover:bg-slate-50 disabled:opacity-60"
+      >
+        {loading ? "Loading..." : "View more"}
+      </button>
     </div>
   );
 }

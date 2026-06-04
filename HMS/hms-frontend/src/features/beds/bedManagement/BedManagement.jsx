@@ -22,6 +22,7 @@ import {
   normalize,
 } from "@/features/beds/components/bedUtils";
 import DataTransferMenu from "@/features/dataTransfer/DataTransferMenu";
+import { getPagedItems, getPagination } from "@/lib/pagination.jsx";
 
 const EMPTY_FILTERS = {
   search: "",
@@ -29,6 +30,7 @@ const EMPTY_FILTERS = {
   roomNumber: "all",
   status: "all",
 };
+const BED_PAGE_SIZE = 40;
 
 export default function BedManagement() {
   const auth = useAuth();
@@ -41,6 +43,7 @@ export default function BedManagement() {
   const [refreshing, setRefreshing] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
+  const [pagination, setPagination] = useState(null);
   const [filters, setFilters] = useState(EMPTY_FILTERS);
   const [dialog, setDialog] = useState({ bed: null, open: false });
   const [form, setForm] = useState(EMPTY_BED_FORM);
@@ -53,32 +56,55 @@ export default function BedManagement() {
     if (error) showToast(error, "error");
   }, [error, showToast]);
 
-  const loadBeds = useCallback(async ({ refresh = false } = {}) => {
-    if (refresh) setRefreshing(true);
+  const loadBeds = useCallback(async (page = 1, { append = false, refresh = false } = {}) => {
+    if (append || refresh) setRefreshing(true);
     else setLoading(true);
     setError("");
 
     try {
-      const [bedData, departmentData] = await Promise.all([
-        fetchBeds({
-          status: filters.status,
-          departmentId: filters.departmentId,
-        }),
-        fetchDepartmentsList(),
-      ]);
-      setBeds(bedData);
-      setDepartments(departmentData);
+      const bedData = await fetchBeds({
+        search: filters.search.trim() || undefined,
+        status: filters.status,
+        departmentId: filters.departmentId,
+        roomNumber: filters.roomNumber,
+        page,
+        pageSize: BED_PAGE_SIZE,
+      });
+      const items = getPagedItems(bedData);
+      setBeds((current) => (append ? [...current, ...items] : items));
+      setPagination(getPagination(bedData));
     } catch (e) {
-      setBeds([]);
+      if (!append) {
+        setBeds([]);
+        setPagination(null);
+      }
       setError(getApiErrorMessage(e));
     } finally {
       setLoading(false);
       setRefreshing(false);
     }
-  }, [filters.departmentId, filters.status]);
+  }, [filters.departmentId, filters.roomNumber, filters.search, filters.status]);
 
   useEffect(() => {
-    void loadBeds();
+    let active = true;
+
+    async function loadDepartments() {
+      try {
+        const departmentData = await fetchDepartmentsList();
+        if (active) setDepartments(departmentData);
+      } catch (e) {
+        if (active) setError(getApiErrorMessage(e));
+      }
+    }
+
+    void loadDepartments();
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  useEffect(() => {
+    void loadBeds(1);
   }, [loadBeds]);
 
   const roomOptions = useMemo(() => {
@@ -159,7 +185,7 @@ export default function BedManagement() {
       }
 
       closeDialog();
-      await loadBeds({ refresh: true });
+      await loadBeds(1, { refresh: true });
     } catch (e) {
       showToast(getApiErrorMessage(e), "error");
     } finally {
@@ -190,7 +216,7 @@ export default function BedManagement() {
                   : filters.departmentId,
             }}
             canImport={canCreate}
-            onImported={() => loadBeds({ refresh: true })}
+            onImported={() => loadBeds(1, { refresh: true })}
           />
           {canCreate && (
             <button
@@ -204,7 +230,7 @@ export default function BedManagement() {
           )}
           <button
             type="button"
-            onClick={() => void loadBeds({ refresh: true })}
+            onClick={() => void loadBeds(1, { refresh: true })}
             disabled={loading || refreshing}
             className="inline-flex h-10 items-center justify-center gap-2 rounded-lg border border-slate-200 bg-white px-4 text-sm font-medium text-slate-800 shadow-sm transition hover:bg-slate-50 disabled:opacity-60"
           >
@@ -233,7 +259,16 @@ export default function BedManagement() {
           detail={beds.length === 0 ? "Create the first bed to start managing capacity." : "Adjust filters to see more beds."}
         />
       ) : (
-        <BedBoard beds={filteredBeds} canUpdate={canUpdate} onEdit={openEdit} />
+        <>
+          <BedBoard beds={filteredBeds} canUpdate={canUpdate} onEdit={openEdit} />
+          <BedRevealControls
+            visibleCount={beds.length}
+            totalCount={pagination?.totalCount ?? beds.length}
+            loading={refreshing}
+            hasMore={Boolean(pagination?.hasNextPage)}
+            onMore={() => loadBeds((pagination?.page ?? 1) + 1, { append: true })}
+          />
+        </>
       )}
 
       {!canCreate && !canUpdate && (
@@ -254,6 +289,27 @@ export default function BedManagement() {
           onSubmit={handleSubmit}
         />
       )}
+    </div>
+  );
+}
+
+function BedRevealControls({ visibleCount, totalCount, loading, hasMore, onMore }) {
+  if (!hasMore) return null;
+
+  return (
+    <div className="flex flex-col items-center gap-2 rounded-lg border border-slate-200 bg-white px-4 py-3 text-center shadow-sm sm:flex-row sm:justify-between sm:text-left">
+      <p className="text-sm text-slate-500">
+        Showing <span className="font-medium text-slate-900">{visibleCount}</span> of{" "}
+        <span className="font-medium text-slate-900">{totalCount}</span> beds
+      </p>
+      <button
+        type="button"
+        onClick={() => void onMore()}
+        disabled={loading}
+        className="h-10 rounded-lg border border-slate-200 bg-white px-4 text-sm font-medium text-slate-800 shadow-sm transition hover:bg-slate-50"
+      >
+        {loading ? "Loading..." : "View more"}
+      </button>
     </div>
   );
 }

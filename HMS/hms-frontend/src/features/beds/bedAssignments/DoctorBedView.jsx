@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   BedDouble,
   CheckCircle2,
@@ -14,6 +14,7 @@ import {
   fetchDoctorDepartmentBeds,
   getApiErrorMessage,
 } from "@/features/beds/api/bedAssignmentsApi";
+import { getPagedItems, getPagination } from "@/lib/pagination.jsx";
 
 function normalize(value) {
   return String(value ?? "").trim().toLowerCase();
@@ -85,34 +86,47 @@ function initialsFromName(value) {
   );
 }
 
+const BED_PAGE_SIZE = 40;
+
 export default function DoctorBedView() {
   const [beds, setBeds] = useState([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState("");
+  const [pagination, setPagination] = useState(null);
   const [search, setSearch] = useState("");
   const [selectedBed, setSelectedBed] = useState(null);
   const [requesting, setRequesting] = useState(false);
 
-  async function loadBeds({ refresh = false } = {}) {
-    if (refresh) setRefreshing(true);
+  const loadBeds = useCallback(async (page = 1, { append = false, refresh = false } = {}) => {
+    if (append || refresh) setRefreshing(true);
     else setLoading(true);
     setError("");
 
     try {
-      setBeds(await fetchDoctorDepartmentBeds());
+      const data = await fetchDoctorDepartmentBeds({
+        search: search.trim() || undefined,
+        page,
+        pageSize: BED_PAGE_SIZE,
+      });
+      const items = getPagedItems(data);
+      setBeds((current) => (append ? [...current, ...items] : items));
+      setPagination(getPagination(data));
     } catch (e) {
-      setBeds([]);
+      if (!append) {
+        setBeds([]);
+        setPagination(null);
+      }
       setError(getApiErrorMessage(e));
     } finally {
       setLoading(false);
       setRefreshing(false);
     }
-  }
+  }, [search]);
 
   useEffect(() => {
-    void loadBeds();
-  }, []);
+    void loadBeds(1);
+  }, [loadBeds]);
 
   useEffect(() => {
     if (error) toast.error(error);
@@ -136,7 +150,7 @@ export default function DoctorBedView() {
       });
       toast.success(intent === "release" ? "Bed release request sent." : "Bed change request sent.");
       setSelectedBed(null);
-      await loadBeds({ refresh: true });
+      await loadBeds(1, { refresh: true });
     } catch (e) {
       toast.error(getApiErrorMessage(e));
     } finally {
@@ -233,7 +247,7 @@ export default function DoctorBedView() {
         </label>
         <button
           type="button"
-          onClick={() => void loadBeds({ refresh: true })}
+          onClick={() => void loadBeds(1, { refresh: true })}
           disabled={loading || refreshing}
           className="inline-flex h-10 items-center justify-center gap-2 rounded-lg border border-slate-200 bg-white px-4 text-sm font-medium text-slate-800 shadow-sm transition hover:bg-slate-50 disabled:opacity-60"
         >
@@ -256,11 +270,20 @@ export default function DoctorBedView() {
             label={beds.length === 0 ? "No beds found for your department." : "No beds match your search."}
           />
         ) : (
-          <div className="grid gap-4 xl:grid-cols-2">
-            {groupedRooms.map((room) => (
-              <RoomCard key={room.key} room={room} onSelectBed={setSelectedBed} />
-            ))}
-          </div>
+          <>
+            <div className="grid gap-4 xl:grid-cols-2">
+              {groupedRooms.map((room) => (
+                <RoomCard key={room.key} room={room} onSelectBed={setSelectedBed} />
+              ))}
+            </div>
+            <BedRevealControls
+              visibleCount={beds.length}
+              totalCount={pagination?.totalCount ?? beds.length}
+              loading={refreshing}
+              hasMore={Boolean(pagination?.hasNextPage)}
+              onMore={() => loadBeds((pagination?.page ?? 1) + 1, { append: true })}
+            />
+          </>
         )}
       </section>
 
@@ -272,6 +295,27 @@ export default function DoctorBedView() {
           onClose={() => setSelectedBed(null)}
         />
       )}
+    </div>
+  );
+}
+
+function BedRevealControls({ visibleCount, totalCount, loading, hasMore, onMore }) {
+  if (!hasMore) return null;
+
+  return (
+    <div className="mt-4 flex flex-col items-center gap-2 rounded-lg border border-slate-200 bg-white px-4 py-3 text-center sm:flex-row sm:justify-between sm:text-left">
+      <p className="text-sm text-slate-500">
+        Showing <span className="font-medium text-slate-900">{visibleCount}</span> of{" "}
+        <span className="font-medium text-slate-900">{totalCount}</span> beds
+      </p>
+      <button
+        type="button"
+        onClick={() => void onMore()}
+        disabled={loading}
+        className="h-10 rounded-lg border border-slate-200 bg-white px-4 text-sm font-medium text-slate-800 shadow-sm transition hover:bg-slate-50 disabled:opacity-60"
+      >
+        {loading ? "Loading..." : "View more"}
+      </button>
     </div>
   );
 }

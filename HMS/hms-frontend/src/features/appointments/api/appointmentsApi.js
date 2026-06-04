@@ -14,8 +14,8 @@ export async function createAppointment(body) {
 }
 
 export async function fetchDepartmentsList() {
-  const { data } = await api.get("/departments");
-  return data;
+  const { data } = await api.get("/departments", { params: { all: true } });
+  return Array.isArray(data) ? data : data?.items ?? [];
 }
 
 export async function fetchAppointments(filters) {

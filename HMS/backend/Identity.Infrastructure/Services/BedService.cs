@@ -16,43 +16,109 @@ public sealed class BedService : IBedService
         _db = db;
     }
 
-    public async Task<IReadOnlyList<BedDto>> GetBedsAsync(
-        string? status,
-        int? departmentId,
+    public async Task<PaginatedResponse<BedDto>> GetBedsAsync(
+        BedListQueryDto query,
         CancellationToken cancellationToken)
     {
-        var normalizedStatus = NormalizeOptional(status);
+        var normalizedStatus = NormalizeOptional(query.Status);
+        var normalizedAssignmentStatus = NormalizeOptional(query.AssignmentStatus);
+        var search = NormalizeOptional(query.Search);
+        var roomNumber = NormalizeOptional(query.RoomNumber);
 
-        var query = _db.Beds
+        var beds = _db.Beds
             .AsNoTracking()
-            .Where(x => !departmentId.HasValue || x.DepartmentId == departmentId.Value);
+            .Where(x => !query.DepartmentId.HasValue || x.DepartmentId == query.DepartmentId.Value);
+
+        var activeAssignments = _db.BedAssignments
+            .AsNoTracking()
+            .Where(x => x.ReleasedAt == null);
+
+        if (!string.IsNullOrWhiteSpace(roomNumber))
+        {
+            beds = beds.Where(x => x.RoomNumber == roomNumber);
+        }
+
+        if (query.PatientProfileId.HasValue)
+        {
+            beds = beds.Where(x => activeAssignments.Any(a =>
+                a.BedId == x.Id &&
+                a.PatientProfileId == query.PatientProfileId.Value));
+        }
+
+        if (query.EncounterId.HasValue)
+        {
+            beds = beds.Where(x => activeAssignments.Any(a =>
+                a.BedId == x.Id &&
+                a.EncounterId == query.EncounterId.Value));
+        }
 
         if (string.Equals(normalizedStatus, BedOccupancyStatus.Inactive, StringComparison.OrdinalIgnoreCase))
         {
-            query = query.Where(x => !x.IsActive);
+            beds = beds.Where(x => !x.IsActive);
         }
         else if (string.Equals(normalizedStatus, BedOccupancyStatus.Available, StringComparison.OrdinalIgnoreCase))
         {
-            query = query.Where(x => x.IsActive && !x.Assignments.Any(a => a.ReleasedAt == null));
+            beds = beds.Where(x => x.IsActive && !activeAssignments.Any(a => a.BedId == x.Id));
         }
         else if (string.Equals(normalizedStatus, BedOccupancyStatus.Occupied, StringComparison.OrdinalIgnoreCase))
         {
-            query = query.Where(x => x.IsActive && x.Assignments.Any(a => a.ReleasedAt == null));
+            beds = beds.Where(x => x.IsActive && activeAssignments.Any(a => a.BedId == x.Id));
         }
         else if (!string.IsNullOrWhiteSpace(normalizedStatus))
         {
             throw new BadRequestException("Bed status must be Available, Occupied, or Inactive.");
         }
 
-        return await ProjectBedsToDto(query
-                .OrderBy(x => x.Ward)
-                .ThenBy(x => x.RoomNumber)
-                .ThenBy(x => x.BedNumber))
+        if (string.Equals(normalizedAssignmentStatus, "active", StringComparison.OrdinalIgnoreCase))
+        {
+            beds = beds.Where(x => activeAssignments.Any(a => a.BedId == x.Id));
+        }
+        else if (string.Equals(normalizedAssignmentStatus, "unassigned", StringComparison.OrdinalIgnoreCase))
+        {
+            beds = beds.Where(x => !activeAssignments.Any(a => a.BedId == x.Id));
+        }
+        else if (!string.IsNullOrWhiteSpace(normalizedAssignmentStatus) &&
+                 !string.Equals(normalizedAssignmentStatus, "all", StringComparison.OrdinalIgnoreCase))
+        {
+            throw new BadRequestException("Assignment status must be active or unassigned.");
+        }
+
+        if (!string.IsNullOrWhiteSpace(search))
+        {
+            beds = beds.Where(x =>
+                x.Ward.Contains(search) ||
+                x.RoomNumber.Contains(search) ||
+                x.BedNumber.Contains(search) ||
+                (x.Floor != null && x.Floor.Contains(search)) ||
+                (x.Notes != null && x.Notes.Contains(search)) ||
+                (x.Department != null && x.Department.Name.Contains(search)) ||
+                activeAssignments.Any(a =>
+                    a.BedId == x.Id &&
+                    (a.PatientProfile.PatientNumber.Contains(search) ||
+                     a.PatientProfile.Person.FirstName.Contains(search) ||
+                     a.PatientProfile.Person.LastName.Contains(search) ||
+                     (a.Encounter != null && a.Encounter.EncounterNumber.Contains(search)))));
+        }
+
+        var orderedBeds = beds
+            .OrderBy(x => x.Ward)
+            .ThenBy(x => x.RoomNumber)
+            .ThenBy(x => x.BedNumber);
+
+        var totalCount = await orderedBeds.CountAsync(cancellationToken);
+        var items = await ProjectBedsWithActiveAssignmentsToDto(
+                orderedBeds
+                    .Skip((query.Page - 1) * query.PageSize)
+                    .Take(query.PageSize),
+                activeAssignments)
             .ToListAsync(cancellationToken);
+
+        return PaginatedResponse<BedDto>.Create(items, query.Page, query.PageSize, totalCount);
     }
 
-    public async Task<IReadOnlyList<BedPatientDetailsDto>> GetBedsWithOccupancyByDepartmentAsync(
+    public async Task<PaginatedResponse<BedPatientDetailsDto>> GetBedsWithOccupancyByDepartmentAsync(
         int actorUserId,
+        PaginationQuery pagination,
         CancellationToken cancellationToken)
     {
         var loggedInDepartmentId = await _db.StaffProfiles
@@ -62,56 +128,48 @@ public sealed class BedService : IBedService
             .FirstOrDefaultAsync(cancellationToken);
 
         if (!loggedInDepartmentId.HasValue)
-            return Array.Empty<BedPatientDetailsDto>();
+            return PaginatedResponse<BedPatientDetailsDto>.Create([], pagination.Page, pagination.PageSize, 0);
 
-        return await _db.Beds
+        var beds = _db.Beds
             .AsNoTracking()
-            .Where(b => b.DepartmentId == loggedInDepartmentId)
+            .Where(b => b.DepartmentId == loggedInDepartmentId);
+
+        var activeAssignments = _db.BedAssignments
+            .AsNoTracking()
+            .Where(a => a.ReleasedAt == null);
+
+        var search = NormalizeOptional(pagination.Search);
+        if (!string.IsNullOrWhiteSpace(search))
+        {
+            beds = beds.Where(b =>
+                b.Ward.Contains(search) ||
+                b.RoomNumber.Contains(search) ||
+                b.BedNumber.Contains(search) ||
+                (b.Floor != null && b.Floor.Contains(search)) ||
+                (b.Notes != null && b.Notes.Contains(search)) ||
+                (b.Department != null && b.Department.Name.Contains(search)) ||
+                activeAssignments.Any(a =>
+                    a.BedId == b.Id &&
+                    (a.PatientProfile.PatientNumber.Contains(search) ||
+                     a.PatientProfile.Person.FirstName.Contains(search) ||
+                     a.PatientProfile.Person.LastName.Contains(search) ||
+                     (a.Encounter != null && a.Encounter.EncounterNumber.Contains(search)))));
+        }
+
+        var orderedBeds = beds
             .OrderBy(b => b.Ward)
             .ThenBy(b => b.RoomNumber)
-            .ThenBy(b => b.BedNumber)
-            .Select(b => new BedPatientDetailsDto
-            {
-                BedId = b.Id,
-                BedLabel = b.BedNumber,
-                Ward = b.Ward,
-                RoomNumber = b.RoomNumber,
-                Floor = b.Floor,
-                DepartmentName = b.Department == null ? null : b.Department.Name,
-                IsActive = b.IsActive,
-                Status = !b.IsActive
-                    ? BedOccupancyStatus.Inactive
-                    : !b.Assignments.Any(a => a.ReleasedAt == null)
-                        ? BedOccupancyStatus.Available
-                        : BedOccupancyStatus.Occupied,
-                Notes = b.Notes,
+            .ThenBy(b => b.BedNumber);
 
-                PatientProfileId = b.Assignments
-                    .Where(a => a.ReleasedAt == null)
-                    .Select(a => (int?)a.PatientProfileId)
-                    .FirstOrDefault(),
-                PatientName = b.Assignments
-                    .Where(a => a.ReleasedAt == null)
-                    .Select(a => a.PatientProfile.Person.FirstName + " " + a.PatientProfile.Person.LastName)
-                    .FirstOrDefault(),
-                PatientNumber = b.Assignments
-                    .Where(a => a.ReleasedAt == null)
-                    .Select(a => a.PatientProfile.PatientNumber)
-                    .FirstOrDefault(),
-                EncounterId = b.Assignments
-                    .Where(a => a.ReleasedAt == null)
-                    .Select(a => a.EncounterId)
-                    .FirstOrDefault(),
-                EncounterNumber = b.Assignments
-                    .Where(a => a.ReleasedAt == null)
-                    .Select(a => a.Encounter == null ? null : a.Encounter.EncounterNumber)
-                    .FirstOrDefault(),
-                AssignedAt = b.Assignments
-                    .Where(a => a.ReleasedAt == null)
-                    .Select(a => (DateTime?)a.AssignedAt)
-                    .FirstOrDefault()
-            })
+        var totalCount = await orderedBeds.CountAsync(cancellationToken);
+        var items = await ProjectBedsWithOccupancyToDto(
+                orderedBeds
+                    .Skip((pagination.Page - 1) * pagination.PageSize)
+                    .Take(pagination.PageSize),
+                activeAssignments)
             .ToListAsync(cancellationToken);
+
+        return PaginatedResponse<BedPatientDetailsDto>.Create(items, pagination.Page, pagination.PageSize, totalCount);
     }
 
     public async Task<BedDto> GetBedAsync(int id, CancellationToken cancellationToken)
@@ -444,6 +502,90 @@ public sealed class BedService : IBedService
             CreatedAt = bed.CreatedAt,
             UpdatedAt = bed.UpdatedAt
         });
+    }
+
+    private static IQueryable<BedDto> ProjectBedsWithActiveAssignmentsToDto(
+        IQueryable<Bed> beds,
+        IQueryable<BedAssignment> activeAssignments)
+    {
+        return
+            from bed in beds
+            join assignment in activeAssignments on bed.Id equals assignment.BedId into assignmentGroup
+            from assignment in assignmentGroup.DefaultIfEmpty()
+            select new BedDto
+            {
+                Id = bed.Id,
+                Ward = bed.Ward,
+                RoomNumber = bed.RoomNumber,
+                BedNumber = bed.BedNumber,
+                Floor = bed.Floor,
+                DepartmentId = bed.DepartmentId,
+                DepartmentName = bed.Department == null ? null : bed.Department.Name,
+                IsActive = bed.IsActive,
+                Status = !bed.IsActive
+                    ? BedOccupancyStatus.Inactive
+                    : assignment == null
+                        ? BedOccupancyStatus.Available
+                        : BedOccupancyStatus.Occupied,
+                Notes = bed.Notes,
+                CurrentAssignment = assignment == null
+                    ? null
+                    : new BedAssignmentDto
+                    {
+                        Id = assignment.Id,
+                        BedId = assignment.BedId,
+                        BedLabel = bed.Ward + " / " + bed.RoomNumber + " / " + bed.BedNumber,
+                        PatientProfileId = assignment.PatientProfileId,
+                        PatientName = assignment.PatientProfile.Person.FirstName + " " + assignment.PatientProfile.Person.LastName,
+                        PatientNumber = assignment.PatientProfile.PatientNumber,
+                        EncounterId = assignment.EncounterId,
+                        EncounterNumber = assignment.Encounter == null ? null : assignment.Encounter.EncounterNumber,
+                        AssignedAt = assignment.AssignedAt,
+                        AssignedByUserId = assignment.AssignedByUserId,
+                        AssignedByUserName = assignment.AssignedByUser.Person == null
+                            ? assignment.AssignedByUser.UserName
+                            : assignment.AssignedByUser.Person.FirstName + " " + assignment.AssignedByUser.Person.LastName,
+                        Notes = assignment.Notes,
+                        CreatedAt = assignment.CreatedAt,
+                        UpdatedAt = assignment.UpdatedAt
+                    },
+                CreatedAt = bed.CreatedAt,
+                UpdatedAt = bed.UpdatedAt
+            };
+    }
+
+    private static IQueryable<BedPatientDetailsDto> ProjectBedsWithOccupancyToDto(
+        IQueryable<Bed> beds,
+        IQueryable<BedAssignment> activeAssignments)
+    {
+        return
+            from bed in beds
+            join assignment in activeAssignments on bed.Id equals assignment.BedId into assignmentGroup
+            from assignment in assignmentGroup.DefaultIfEmpty()
+            select new BedPatientDetailsDto
+            {
+                BedId = bed.Id,
+                BedLabel = bed.BedNumber,
+                Ward = bed.Ward,
+                RoomNumber = bed.RoomNumber,
+                Floor = bed.Floor,
+                DepartmentName = bed.Department == null ? null : bed.Department.Name,
+                IsActive = bed.IsActive,
+                Status = !bed.IsActive
+                    ? BedOccupancyStatus.Inactive
+                    : assignment == null
+                        ? BedOccupancyStatus.Available
+                        : BedOccupancyStatus.Occupied,
+                Notes = bed.Notes,
+                PatientProfileId = assignment == null ? null : assignment.PatientProfileId,
+                PatientName = assignment == null
+                    ? null
+                    : assignment.PatientProfile.Person.FirstName + " " + assignment.PatientProfile.Person.LastName,
+                PatientNumber = assignment == null ? null : assignment.PatientProfile.PatientNumber,
+                EncounterId = assignment == null ? null : assignment.EncounterId,
+                EncounterNumber = assignment == null || assignment.Encounter == null ? null : assignment.Encounter.EncounterNumber,
+                AssignedAt = assignment == null ? null : assignment.AssignedAt
+            };
     }
 
     private static IQueryable<BedAssignmentDto> ProjectAssignmentsToDto(IQueryable<BedAssignment> query)
