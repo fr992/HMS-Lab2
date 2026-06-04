@@ -48,59 +48,70 @@ public sealed class StaffProfileService : IStaffProfileService
         if (await _db.DoctorProfiles.AnyAsync(d => d.LicenseNumber == request.LicenseNumber.Trim(), cancellationToken))
             return (null, "Doctor license number is already registered.");
 
-        await using var transaction = await _db.Database.BeginTransactionAsync(cancellationToken);
         try
         {
-            var user = await CreateUserAsync(
-                request.UserName,
-                request.Email,
-                request.Password,
-                request.IsActive,
-                "Doctor",
-                createdByUserId,
-                cancellationToken);
-
-            var staffProfile = await CreateStaffProfileAsync(
-                user.Id,
-                request.FirstName,
-                request.LastName,
-                request.PersonalNumber,
-                request.DateOfBirth,
-                request.Gender,
-                request.Phone,
-                request.Address,
-                request.City,
-                request.Country,
-                request.StaffNumber,
-                request.DepartmentId,
-                request.EmploymentStatus,
-                request.HireDate,
-                createdByUserId,
-                cancellationToken);
-
-            var now = DateTime.UtcNow;
-            var doctor = new DoctorProfile
+            var strategy = _db.Database.CreateExecutionStrategy();
+            return await strategy.ExecuteAsync<(DoctorProfileDto? doctor, string? error)>(async () =>
             {
-                StaffProfileId = staffProfile.Id,
-                SpecializationId = request.SpecializationId,
-                LicenseNumber = request.LicenseNumber.Trim(),
-                IsActive = request.IsActive,
-                CreatedAt = now,
-                UpdatedAt = now,
-                CreatedById = createdByUserId,
-                UpdatedById = createdByUserId
-            };
+                await using var transaction = await _db.Database.BeginTransactionAsync(cancellationToken);
+                try
+                {
+                    var user = await CreateUserAsync(
+                        request.UserName,
+                        request.Email,
+                        request.Password,
+                        request.IsActive,
+                        "Doctor",
+                        createdByUserId,
+                        cancellationToken);
 
-            _db.DoctorProfiles.Add(doctor);
-            await _db.SaveChangesAsync(cancellationToken);
-            await transaction.CommitAsync(cancellationToken);
+                    var staffProfile = await CreateStaffProfileAsync(
+                        user.Id,
+                        request.FirstName,
+                        request.LastName,
+                        request.PersonalNumber,
+                        request.DateOfBirth,
+                        request.Gender,
+                        request.Phone,
+                        request.Address,
+                        request.City,
+                        request.Country,
+                        request.StaffNumber,
+                        request.DepartmentId,
+                        request.EmploymentStatus,
+                        request.HireDate,
+                        createdByUserId,
+                        cancellationToken);
 
-            return (await MapDoctorAsync(doctor.Id, cancellationToken), null);
+                    var now = DateTime.UtcNow;
+                    var doctor = new DoctorProfile
+                    {
+                        StaffProfileId = staffProfile.Id,
+                        SpecializationId = request.SpecializationId,
+                        LicenseNumber = request.LicenseNumber.Trim(),
+                        IsActive = request.IsActive,
+                        CreatedAt = now,
+                        UpdatedAt = now,
+                        CreatedById = createdByUserId,
+                        UpdatedById = createdByUserId
+                    };
+
+                    _db.DoctorProfiles.Add(doctor);
+                    await _db.SaveChangesAsync(cancellationToken);
+                    await transaction.CommitAsync(cancellationToken);
+
+                    return (await MapDoctorAsync(doctor.Id, cancellationToken), null);
+                }
+                catch
+                {
+                    await transaction.RollbackAsync(cancellationToken);
+                    throw;
+                }
+            });
         }
         catch (Exception ex)
         {
-            await transaction.RollbackAsync(cancellationToken);
-            return (null, ex.Message);
+            return (null, ToFriendlyCreateError(ex, "doctor"));
         }
     }
 
@@ -127,58 +138,69 @@ public sealed class StaffProfileService : IStaffProfileService
         if (await _db.NurseProfiles.AnyAsync(n => n.LicenseNumber == request.LicenseNumber.Trim(), cancellationToken))
             return (null, "Nurse license number is already registered.");
 
-        await using var transaction = await _db.Database.BeginTransactionAsync(cancellationToken);
         try
         {
-            var user = await CreateUserAsync(
-                request.UserName,
-                request.Email,
-                request.Password,
-                request.IsActive,
-                "Nurse",
-                createdByUserId,
-                cancellationToken);
-
-            var staffProfile = await CreateStaffProfileAsync(
-                user.Id,
-                request.FirstName,
-                request.LastName,
-                request.PersonalNumber,
-                request.DateOfBirth,
-                request.Gender,
-                request.Phone,
-                request.Address,
-                request.City,
-                request.Country,
-                request.StaffNumber,
-                request.DepartmentId,
-                request.EmploymentStatus,
-                request.HireDate,
-                createdByUserId,
-                cancellationToken);
-
-            var now = DateTime.UtcNow;
-            var nurse = new NurseProfile
+            var strategy = _db.Database.CreateExecutionStrategy();
+            return await strategy.ExecuteAsync<(NurseProfileDto? nurse, string? error)>(async () =>
             {
-                StaffProfileId = staffProfile.Id,
-                LicenseNumber = request.LicenseNumber.Trim(),
-                IsActive = request.IsActive,
-                CreatedAt = now,
-                UpdatedAt = now,
-                CreatedById = createdByUserId,
-                UpdatedById = createdByUserId
-            };
+                await using var transaction = await _db.Database.BeginTransactionAsync(cancellationToken);
+                try
+                {
+                    var user = await CreateUserAsync(
+                        request.UserName,
+                        request.Email,
+                        request.Password,
+                        request.IsActive,
+                        "Nurse",
+                        createdByUserId,
+                        cancellationToken);
 
-            _db.NurseProfiles.Add(nurse);
-            await _db.SaveChangesAsync(cancellationToken);
-            await transaction.CommitAsync(cancellationToken);
+                    var staffProfile = await CreateStaffProfileAsync(
+                        user.Id,
+                        request.FirstName,
+                        request.LastName,
+                        request.PersonalNumber,
+                        request.DateOfBirth,
+                        request.Gender,
+                        request.Phone,
+                        request.Address,
+                        request.City,
+                        request.Country,
+                        request.StaffNumber,
+                        request.DepartmentId,
+                        request.EmploymentStatus,
+                        request.HireDate,
+                        createdByUserId,
+                        cancellationToken);
 
-            return (await MapNurseAsync(nurse.Id, cancellationToken), null);
+                    var now = DateTime.UtcNow;
+                    var nurse = new NurseProfile
+                    {
+                        StaffProfileId = staffProfile.Id,
+                        LicenseNumber = request.LicenseNumber.Trim(),
+                        IsActive = request.IsActive,
+                        CreatedAt = now,
+                        UpdatedAt = now,
+                        CreatedById = createdByUserId,
+                        UpdatedById = createdByUserId
+                    };
+
+                    _db.NurseProfiles.Add(nurse);
+                    await _db.SaveChangesAsync(cancellationToken);
+                    await transaction.CommitAsync(cancellationToken);
+
+                    return (await MapNurseAsync(nurse.Id, cancellationToken), null);
+                }
+                catch
+                {
+                    await transaction.RollbackAsync(cancellationToken);
+                    throw;
+                }
+            });
         }
         catch (Exception ex)
         {
-            await transaction.RollbackAsync(cancellationToken);
-            return (null, ex.Message);
+            return (null, ToFriendlyCreateError(ex, "nurse"));
         }
     }
 
@@ -205,44 +227,55 @@ public sealed class StaffProfileService : IStaffProfileService
         if (validationError is not null)
             return (null, validationError);
 
-        await using var transaction = await _db.Database.BeginTransactionAsync(cancellationToken);
         try
         {
-            var user = await CreateUserAsync(
-                request.UserName,
-                request.Email,
-                request.Password,
-                request.IsActive,
-                roleName,
-                createdByUserId,
-                cancellationToken);
+            var strategy = _db.Database.CreateExecutionStrategy();
+            return await strategy.ExecuteAsync<(StaffProfileDto? staff, string? error)>(async () =>
+            {
+                await using var transaction = await _db.Database.BeginTransactionAsync(cancellationToken);
+                try
+                {
+                    var user = await CreateUserAsync(
+                        request.UserName,
+                        request.Email,
+                        request.Password,
+                        request.IsActive,
+                        roleName,
+                        createdByUserId,
+                        cancellationToken);
 
-            var staffProfile = await CreateStaffProfileAsync(
-                user.Id,
-                request.FirstName,
-                request.LastName,
-                request.PersonalNumber,
-                request.DateOfBirth,
-                request.Gender,
-                request.Phone,
-                request.Address,
-                request.City,
-                request.Country,
-                request.StaffNumber,
-                request.DepartmentId,
-                request.EmploymentStatus,
-                request.HireDate,
-                createdByUserId,
-                cancellationToken);
+                    var staffProfile = await CreateStaffProfileAsync(
+                        user.Id,
+                        request.FirstName,
+                        request.LastName,
+                        request.PersonalNumber,
+                        request.DateOfBirth,
+                        request.Gender,
+                        request.Phone,
+                        request.Address,
+                        request.City,
+                        request.Country,
+                        request.StaffNumber,
+                        request.DepartmentId,
+                        request.EmploymentStatus,
+                        request.HireDate,
+                        createdByUserId,
+                        cancellationToken);
 
-            await transaction.CommitAsync(cancellationToken);
+                    await transaction.CommitAsync(cancellationToken);
 
-            return (await MapStaffAsync(staffProfile.Id, roleName, request.IsActive, cancellationToken), null);
+                    return (await MapStaffAsync(staffProfile.Id, roleName, request.IsActive, cancellationToken), null);
+                }
+                catch
+                {
+                    await transaction.RollbackAsync(cancellationToken);
+                    throw;
+                }
+            });
         }
         catch (Exception ex)
         {
-            await transaction.RollbackAsync(cancellationToken);
-            return (null, ex.Message);
+            return (null, ToFriendlyCreateError(ex, "staff member"));
         }
     }
 
@@ -517,5 +550,12 @@ public sealed class StaffProfileService : IStaffProfileService
             "lab" or "labstaff" or "laboratory" or "laboratorant" => "Laboratorant",
             _ => null
         };
+    }
+
+    private static string ToFriendlyCreateError(Exception exception, string staffType)
+    {
+        return exception is InvalidOperationException
+            ? exception.Message
+            : $"Could not create the {staffType}. Please review the information and try again.";
     }
 }

@@ -33,68 +33,73 @@ public sealed class AppointmentService : IAppointmentService
         int? actorUserId,
         CancellationToken cancellationToken)
     {
-        await using var transaction = await _db.Database.BeginTransactionAsync(cancellationToken);
-        try
+        var strategy = _db.Database.CreateExecutionStrategy();
+
+        var created = await strategy.ExecuteAsync(async () =>
         {
-            if (request.ScheduledEnd <= request.ScheduledStart)
-                throw new BadRequestException("Scheduled end must be after scheduled start.");
-
-            var patientExists = await _db.PatientProfiles.AnyAsync(
-                p => p.Id == request.PatientProfileId,
-                cancellationToken);
-
-            if (!patientExists)
-                throw new NotFoundException("Patient profile does not exist.");
-
-            var doctorExists = await _db.DoctorProfiles.AnyAsync(
-                d => d.Id == request.DoctorProfileId,
-                cancellationToken);
-
-            if (!doctorExists)
-                throw new NotFoundException("Doctor profile does not exist.");
-
-            await EnsureNoDoctorScheduleConflictAsync(
-                request.DoctorProfileId,
-                request.ScheduledStart,
-                request.ScheduledEnd,
-                excludeAppointmentId: null,
-                cancellationToken);
-
-            var appointment = new Appointment
+            await using var transaction = await _db.Database.BeginTransactionAsync(cancellationToken);
+            try
             {
-                PatientProfileId = request.PatientProfileId,
-                DoctorProfileId = request.DoctorProfileId,
-                DepartmentId = request.DepartmentId,
+                if (request.ScheduledEnd <= request.ScheduledStart)
+                    throw new BadRequestException("Scheduled end must be after scheduled start.");
 
-                ScheduledStart = request.ScheduledStart,
-                ScheduledEnd = request.ScheduledEnd,
+                var patientExists = await _db.PatientProfiles.AnyAsync(
+                    p => p.Id == request.PatientProfileId,
+                    cancellationToken);
 
-                Status = AppointmentStatus.Scheduled,
-                AppointmentType = request.AppointmentType,
-                Reason = request.Reason,
+                if (!patientExists)
+                    throw new NotFoundException("Patient profile does not exist.");
 
-                CreatedAt = DateTime.UtcNow,
-                UpdatedAt = DateTime.UtcNow,
-                CreatedById = actorUserId,
-                UpdatedById = actorUserId,
-            };
+                var doctorExists = await _db.DoctorProfiles.AnyAsync(
+                    d => d.Id == request.DoctorProfileId,
+                    cancellationToken);
 
-            _db.Appointments.Add(appointment);
-            await _db.SaveChangesAsync(cancellationToken);
-            await transaction.CommitAsync(cancellationToken);
+                if (!doctorExists)
+                    throw new NotFoundException("Doctor profile does not exist.");
 
-            var created = await GetByIdAsync(appointment.Id, cancellationToken)
-                ?? throw new Exception("Appointment was created but could not be loaded.");
+                await EnsureNoDoctorScheduleConflictAsync(
+                    request.DoctorProfileId,
+                    request.ScheduledStart,
+                    request.ScheduledEnd,
+                    excludeAppointmentId: null,
+                    cancellationToken);
 
-            await NotifyAppointmentCreatedAsync(created, cancellationToken);
+                var appointment = new Appointment
+                {
+                    PatientProfileId = request.PatientProfileId,
+                    DoctorProfileId = request.DoctorProfileId,
+                    DepartmentId = request.DepartmentId,
 
-            return created;
-        }
-        catch
-        {
-            await transaction.RollbackAsync(cancellationToken);
-            throw;
-        }
+                    ScheduledStart = request.ScheduledStart,
+                    ScheduledEnd = request.ScheduledEnd,
+
+                    Status = AppointmentStatus.Scheduled,
+                    AppointmentType = request.AppointmentType,
+                    Reason = request.Reason,
+
+                    CreatedAt = DateTime.UtcNow,
+                    UpdatedAt = DateTime.UtcNow,
+                    CreatedById = actorUserId,
+                    UpdatedById = actorUserId,
+                };
+
+                _db.Appointments.Add(appointment);
+                await _db.SaveChangesAsync(cancellationToken);
+                await transaction.CommitAsync(cancellationToken);
+
+                return await GetByIdAsync(appointment.Id, cancellationToken)
+                    ?? throw new InvalidOperationException("Appointment was created but could not be loaded.");
+            }
+            catch
+            {
+                await transaction.RollbackAsync(cancellationToken);
+                throw;
+            }
+        });
+
+        await NotifyAppointmentCreatedAsync(created, cancellationToken);
+
+        return created;
     }
 
     public async Task<AppointmentDto?> GetByIdAsync(int id, CancellationToken cancellationToken)

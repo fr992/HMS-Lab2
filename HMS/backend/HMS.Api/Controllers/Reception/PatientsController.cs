@@ -33,15 +33,8 @@ public async Task<ActionResult<PatientProfileDto>> RegisterPatient(
     [FromBody] RegisterPatientRequestDto request,
     CancellationToken cancellationToken)
 {
-    try
-    {
-        var patient = await _patientService.RegisterAsync(request, CurrentUserId(), cancellationToken);
-        return CreatedAtAction(nameof(GetById), new { id = patient.Id }, patient);
-    }
-    catch (InvalidOperationException ex)
-    {
-        return BadRequest(new { error = ex.Message });
-    }
+    var patient = await _patientService.RegisterAsync(request, CurrentUserId(), cancellationToken);
+    return CreatedAtAction(nameof(GetById), new { id = patient.Id }, patient);
 }
 
     [HttpPost("{id:int}/portal")]
@@ -51,19 +44,12 @@ public async Task<ActionResult<PatientProfileDto>> RegisterPatient(
         [FromBody] LinkPatientPortalRequestDto request,
         CancellationToken cancellationToken)
     {
-        try
-        {
-            var patient = await _patientService.LinkPortalAccountAsync(
-                id,
-                request,
-                CurrentUserId(),
-                cancellationToken);
-            return Ok(patient);
-        }
-        catch (InvalidOperationException ex)
-        {
-            return BadRequest(new { error = ex.Message });
-        }
+        var patient = await _patientService.LinkPortalAccountAsync(
+            id,
+            request,
+            CurrentUserId(),
+            cancellationToken);
+        return Ok(patient);
     }
 
     [HttpGet("{id:int}")]
@@ -194,15 +180,8 @@ public async Task<ActionResult<PatientProfileDto>> RegisterPatient(
     [RequirePermission("Patients.Update")]
     public async Task<ActionResult<PatientProfileDto>> Update (int id, [FromBody] UpdatePatientRequestDto request, CancellationToken cancellationToken)
     {
-        try
-        {
-            var patient = await _patientService.UpdateAsync(id, request, CurrentUserId(), cancellationToken);
-            return Ok(patient);
-        }
-        catch(InvalidOperationException ex)
-        {
-            return BadRequest(new { error = ex.Message });
-        }
+        var patient = await _patientService.UpdateAsync(id, request, CurrentUserId(), cancellationToken);
+        return Ok(patient);
     }
 
     [HttpDelete("{id:int}")]

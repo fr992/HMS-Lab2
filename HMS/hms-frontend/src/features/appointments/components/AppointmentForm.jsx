@@ -559,6 +559,10 @@ function buildInitialForm(initialSlot) {
   };
 }
 
+function getPagedItems(response) {
+  return Array.isArray(response) ? response : response?.items ?? [];
+}
+
 export default function AppointmentForm({
   submitting,
   serverError,
@@ -593,8 +597,8 @@ export default function AppointmentForm({
       setPatientsLoading(true);
       setPatientsError(null);
       try {
-        const list = await fetchPatients();
-        if (!cancelled) setPatients(Array.isArray(list) ? list : []);
+        const response = await fetchPatients({ pageSize: 100 });
+        if (!cancelled) setPatients(getPagedItems(response));
       } catch (e) {
         if (!cancelled) setPatientsError(getApiErrorMessage(e));
       } finally {

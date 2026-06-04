@@ -30,41 +30,170 @@ namespace Identity.Infrastructure.Services.Patients;
      int? actorUserId,
      CancellationToken cancellationToken)
     {
-        await using var transaction = await _db.Database.BeginTransactionAsync(cancellationToken);
-        try
+        var strategy = _db.Database.CreateExecutionStrategy();
+
+        return await strategy.ExecuteAsync(async () =>
         {
-            // ALL validations inside transaction
-            await ValidatePrimaryDoctorAsync(request.PrimaryDoctorId, cancellationToken);
-
-            if (!string.IsNullOrWhiteSpace(request.PersonalNumber))
+            await using var transaction = await _db.Database.BeginTransactionAsync(cancellationToken);
+            try
             {
-                if (await _db.People.AnyAsync(p => p.PersonalNumber == request.PersonalNumber, cancellationToken))
-                    throw new ConflictException("A person with this personal number already exists.");
+                // ALL validations inside transaction
+                await ValidatePrimaryDoctorAsync(request.PrimaryDoctorId, cancellationToken);
+
+                if (!string.IsNullOrWhiteSpace(request.PersonalNumber))
+                {
+                    if (await _db.People.AnyAsync(p => p.PersonalNumber == request.PersonalNumber, cancellationToken))
+                        throw new ConflictException("A person with this personal number already exists.");
+                }
+
+                // Omitted or null in JSON = default true (back compat with clients that do not send the flag).
+                var withPortal = request.CreatePortalAccount ?? true;
+
+                User? user = null;
+                if (withPortal)
+                {
+                    if (string.IsNullOrWhiteSpace(request.UserName))
+                        throw new BadRequestException("Username is required when creating a portal account.");
+                    if (string.IsNullOrWhiteSpace(request.Email))
+                        throw new BadRequestException("Email is required when creating a portal account.");
+                    if (string.IsNullOrWhiteSpace(request.Password))
+                        throw new BadRequestException("Password is required when creating a portal account.");
+
+                    if (await _db.Users.AnyAsync(u => u.Email == request.Email, cancellationToken))
+                        throw new ConflictException("A user with this email already exists.");
+
+                    if (await _db.Users.AnyAsync(u => u.UserName == request.UserName, cancellationToken))
+                        throw new ConflictException("A patient with this username already exists.");
+
+                    user = new User
+                    {
+                        UserName = request.UserName.Trim(),
+                        Email = request.Email.Trim(),
+                        IsActive = true,
+                        CreatedAt = DateTime.UtcNow,
+                        UpdatedAt = DateTime.UtcNow,
+                        CreatedById = actorUserId,
+                        UpdatedById = actorUserId
+                    };
+                    user.PasswordHash = _passwordHasher.HashPassword(user, request.Password);
+                    _db.Users.Add(user);
+                    await _db.SaveChangesAsync(cancellationToken);
+
+                    // Assign Patient role
+                    var patientRole = await _db.Roles
+                        .FirstOrDefaultAsync(r => r.Name == "Patient", cancellationToken)
+                        ?? throw new InvalidOperationException("The Patient role is not configured in the system.");
+
+                    _db.UserRoles.Add(new UserRole
+                    {
+                        UserId = user.Id,
+                        RoleId = patientRole.Id,
+                        CreatedAt = DateTime.UtcNow,
+                        CreatedById = actorUserId
+                    });
+                    await _db.SaveChangesAsync(cancellationToken);
+                }
+
+                var person = new Person
+                {
+                    UserId = user?.Id,
+                    FirstName = request.FirstName,
+                    LastName = request.LastName,
+                    PersonalNumber = request.PersonalNumber,
+                    DateOfBirth = request.DateOfBirth,
+                    Gender = request.Gender,
+                    Phone = request.Phone,
+                    Address = request.Address,
+                    City = request.City,
+                    Country = request.Country,
+                    CreatedAt = DateTime.UtcNow,
+                    UpdatedAt = DateTime.UtcNow,
+                    CreatedById = actorUserId,
+                    UpdatedById = actorUserId
+                };
+                _db.People.Add(person);
+                await _db.SaveChangesAsync(cancellationToken);
+
+                var profile = new PatientProfile
+                {
+                    PersonId = person.Id,
+                    PatientNumber = string.Empty,
+                    InsuranceNumber = request.InsuranceNumber,
+                    BloodType = request.BloodType,
+                    PrimaryDoctorId = request.PrimaryDoctorId,
+                    CreatedAt = DateTime.UtcNow,
+                    UpdatedAt = DateTime.UtcNow,
+                    CreatedById = actorUserId,
+                    UpdatedById = actorUserId
+                };
+                _db.PatientProfiles.Add(profile);
+                await _db.SaveChangesAsync(cancellationToken);
+
+                profile.PatientNumber = GeneratePatientNumber(profile.Id);
+                profile.UpdatedAt = DateTime.UtcNow;
+                profile.UpdatedById = actorUserId;
+                await _db.SaveChangesAsync(cancellationToken);
+
+                await transaction.CommitAsync(cancellationToken);
+                return await MapToDtoAsync(profile.Id, cancellationToken);
             }
-
-            // Omitted or null in JSON = default true (back compat with clients that do not send the flag).
-            var withPortal = request.CreatePortalAccount ?? true;
-
-            User? user = null;
-            if (withPortal)
+            catch
             {
-                if (string.IsNullOrWhiteSpace(request.UserName))
-                    throw new BadRequestException("Username is required when creating a portal account.");
-                if (string.IsNullOrWhiteSpace(request.Email))
-                    throw new BadRequestException("Email is required when creating a portal account.");
-                if (string.IsNullOrWhiteSpace(request.Password))
-                    throw new BadRequestException("Password is required when creating a portal account.");
+                await transaction.RollbackAsync(cancellationToken);
+                throw;
+            }
+        });
+    }
 
-                if (await _db.Users.AnyAsync(u => u.Email == request.Email, cancellationToken))
+    public async Task<PatientProfileDto> LinkPortalAccountAsync(
+        int patientProfileId,
+        LinkPatientPortalRequestDto request,
+        int? actorUserId,
+        CancellationToken cancellationToken)
+    {
+        var strategy = _db.Database.CreateExecutionStrategy();
+
+        return await strategy.ExecuteAsync(async () =>
+        {
+            await using var transaction = await _db.Database.BeginTransactionAsync(cancellationToken);
+            try
+            {
+                var profile = await _db.PatientProfiles
+                    .Include(p => p.Person)
+                    .FirstOrDefaultAsync(p => p.Id == patientProfileId, cancellationToken);
+
+                if (profile is null)
+                    throw new NotFoundException("Patient not found.");
+
+                if (profile.Person.UserId != null)
+                    throw new ConflictException("This patient already has a portal account.");
+
+                if (string.IsNullOrWhiteSpace(request.UserName))
+                    throw new BadRequestException("Username is required.");
+                if (string.IsNullOrWhiteSpace(request.Email))
+                    throw new BadRequestException("Email is required.");
+                if (string.IsNullOrWhiteSpace(request.Password))
+                    throw new BadRequestException("Password is required.");
+
+                var userName = request.UserName.Trim();
+                var email = request.Email.Trim();
+
+                if (await _db.Users.AnyAsync(u => u.Email == email, cancellationToken))
                     throw new ConflictException("A user with this email already exists.");
 
-                if (await _db.Users.AnyAsync(u => u.UserName == request.UserName, cancellationToken))
+                if (await _db.Users.AnyAsync(u => u.UserName == userName, cancellationToken))
                     throw new ConflictException("A patient with this username already exists.");
 
-                user = new User
+                var patientRole = await _db.Roles
+                    .AsNoTracking()
+                    .FirstOrDefaultAsync(r => r.Name == "Patient", cancellationToken);
+                if (patientRole is null)
+                    throw new InvalidOperationException("The Patient role is not configured in the system.");
+
+                var user = new User
                 {
-                    UserName = request.UserName.Trim(),
-                    Email = request.Email.Trim(),
+                    UserName = userName,
+                    Email = email,
                     IsActive = true,
                     CreatedAt = DateTime.UtcNow,
                     UpdatedAt = DateTime.UtcNow,
@@ -75,151 +204,32 @@ namespace Identity.Infrastructure.Services.Patients;
                 _db.Users.Add(user);
                 await _db.SaveChangesAsync(cancellationToken);
 
-                // Assign Patient role
-                var patientRole = await _db.Roles
-                    .FirstOrDefaultAsync(r => r.Name == "Patient", cancellationToken)
-                    ?? throw new Exception("Patient role not found in database.");
-
                 _db.UserRoles.Add(new UserRole
                 {
                     UserId = user.Id,
                     RoleId = patientRole.Id,
+                    AssignedAt = DateTime.UtcNow,
                     CreatedAt = DateTime.UtcNow,
-                    CreatedById = actorUserId
+                    UpdatedAt = DateTime.UtcNow,
+                    CreatedById = actorUserId,
+                    UpdatedById = actorUserId
                 });
+
+                profile.Person.UserId = user.Id;
+                profile.Person.UpdatedAt = DateTime.UtcNow;
+                profile.Person.UpdatedById = actorUserId;
+
                 await _db.SaveChangesAsync(cancellationToken);
+                await transaction.CommitAsync(cancellationToken);
+
+                return await MapToDtoAsync(patientProfileId, cancellationToken);
             }
-
-            var person = new Person
+            catch
             {
-                UserId = user?.Id,
-                FirstName = request.FirstName,
-                LastName = request.LastName,
-                PersonalNumber = request.PersonalNumber,
-                DateOfBirth = request.DateOfBirth,
-                Gender = request.Gender,
-                Phone = request.Phone,
-                Address = request.Address,
-                City = request.City,
-                Country = request.Country,
-                CreatedAt = DateTime.UtcNow,
-                UpdatedAt = DateTime.UtcNow,
-                CreatedById = actorUserId,
-                UpdatedById = actorUserId
-            };
-            _db.People.Add(person);
-            await _db.SaveChangesAsync(cancellationToken);
-
-            var profile = new PatientProfile
-            {
-                PersonId = person.Id,
-                PatientNumber = string.Empty,
-                InsuranceNumber = request.InsuranceNumber,
-                BloodType = request.BloodType,
-                PrimaryDoctorId = request.PrimaryDoctorId,
-                CreatedAt = DateTime.UtcNow,
-                UpdatedAt = DateTime.UtcNow,
-                CreatedById = actorUserId,
-                UpdatedById = actorUserId
-            };
-            _db.PatientProfiles.Add(profile);
-            await _db.SaveChangesAsync(cancellationToken);
-
-            profile.PatientNumber = GeneratePatientNumber(profile.Id);
-            profile.UpdatedAt = DateTime.UtcNow;
-            profile.UpdatedById = actorUserId;
-            await _db.SaveChangesAsync(cancellationToken);
-
-            await transaction.CommitAsync(cancellationToken);
-            return await MapToDtoAsync(profile.Id, cancellationToken);
-        }
-        catch
-        {
-            await transaction.RollbackAsync(cancellationToken);
-            throw;
-        }
-    }
-
-    public async Task<PatientProfileDto> LinkPortalAccountAsync(
-        int patientProfileId,
-        LinkPatientPortalRequestDto request,
-        int? actorUserId,
-        CancellationToken cancellationToken)
-    {
-        await using var transaction = await _db.Database.BeginTransactionAsync(cancellationToken);
-        try
-        {
-            var profile = await _db.PatientProfiles
-                .Include(p => p.Person)
-                .FirstOrDefaultAsync(p => p.Id == patientProfileId, cancellationToken);
-
-            if (profile is null)
-                throw new NotFoundException("Patient not found.");
-
-            if (profile.Person.UserId != null)
-                throw new ConflictException("This patient already has a portal account.");
-
-            if (string.IsNullOrWhiteSpace(request.UserName))
-                throw new BadRequestException("Username is required.");
-            if (string.IsNullOrWhiteSpace(request.Email))
-                throw new BadRequestException("Email is required.");
-            if (string.IsNullOrWhiteSpace(request.Password))
-                throw new BadRequestException("Password is required.");
-
-            var userName = request.UserName.Trim();
-            var email = request.Email.Trim();
-
-            if (await _db.Users.AnyAsync(u => u.Email == email, cancellationToken))
-                throw new ConflictException("A user with this email already exists.");
-
-            if (await _db.Users.AnyAsync(u => u.UserName == userName, cancellationToken))
-                throw new ConflictException("A patient with this username already exists.");
-
-            var patientRole = await _db.Roles
-                .AsNoTracking()
-                .FirstOrDefaultAsync(r => r.Name == "Patient", cancellationToken);
-            if (patientRole is null)
-                throw new Exception("The Patient role is not configured in the system.");
-
-            var user = new User
-            {
-                UserName = userName,
-                Email = email,
-                IsActive = true,
-                CreatedAt = DateTime.UtcNow,
-                UpdatedAt = DateTime.UtcNow,
-                CreatedById = actorUserId,
-                UpdatedById = actorUserId
-            };
-            user.PasswordHash = _passwordHasher.HashPassword(user, request.Password);
-            _db.Users.Add(user);
-            await _db.SaveChangesAsync(cancellationToken);
-
-            _db.UserRoles.Add(new UserRole
-            {
-                UserId = user.Id,
-                RoleId = patientRole.Id,
-                AssignedAt = DateTime.UtcNow,
-                CreatedAt = DateTime.UtcNow,
-                UpdatedAt = DateTime.UtcNow,
-                CreatedById = actorUserId,
-                UpdatedById = actorUserId
-            });
-
-            profile.Person.UserId = user.Id;
-            profile.Person.UpdatedAt = DateTime.UtcNow;
-            profile.Person.UpdatedById = actorUserId;
-
-            await _db.SaveChangesAsync(cancellationToken);
-            await transaction.CommitAsync(cancellationToken);
-
-            return await MapToDtoAsync(patientProfileId, cancellationToken);
-        }
-        catch
-        {
-            await transaction.RollbackAsync(cancellationToken);
-            throw;
-        }
+                await transaction.RollbackAsync(cancellationToken);
+                throw;
+            }
+        });
     }
 
     public async Task<PatientProfileDto?> GetByIdAsync(int id, CancellationToken cancellationToken)

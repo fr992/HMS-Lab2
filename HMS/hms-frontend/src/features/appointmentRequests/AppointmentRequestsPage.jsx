@@ -6,10 +6,14 @@ import {
   CheckCircle2,
   Clock3,
   Mail,
+  MessageSquareText,
   Phone,
   RefreshCw,
   RotateCcw,
   Search,
+  Stethoscope,
+  X,
+  UserRound,
   XCircle,
 } from "lucide-react";
 import { toast } from "sonner";
@@ -89,7 +93,13 @@ function formatDateTime(value) {
 }
 
 function getFullName(request) {
-  return `${request.firstName ?? ""} ${request.lastName ?? ""}`.trim();
+  return `${request?.firstName ?? ""} ${request?.lastName ?? ""}`.trim();
+}
+
+function shortReason(reason) {
+  const text = String(reason ?? "").trim();
+  if (!text) return "No reason provided.";
+  return text.length > 120 ? `${text.slice(0, 120).trim()}...` : text;
 }
 
 function RequestStatusBadge({ status }) {
@@ -130,13 +140,13 @@ function getNextActions(status) {
   if (key === "pending") {
     return [
       { label: "Save doctor", status: APPOINTMENT_REQUEST_STATUS.PENDING },
-      { label: "Confirm", status: APPOINTMENT_REQUEST_STATUS.CONFIRMED },
+      { label: "Confirm", status: APPOINTMENT_REQUEST_STATUS.CONFIRMED, primary: true },
       { label: "Cancel", status: APPOINTMENT_REQUEST_STATUS.CANCELLED, danger: true },
     ];
   }
   if (key === "confirmed") {
     return [
-      { label: "Complete", status: APPOINTMENT_REQUEST_STATUS.COMPLETED },
+      { label: "Complete", status: APPOINTMENT_REQUEST_STATUS.COMPLETED, primary: true },
       { label: "Cancel", status: APPOINTMENT_REQUEST_STATUS.CANCELLED, danger: true },
     ];
   }
@@ -146,6 +156,229 @@ function getNextActions(status) {
     ];
   }
   return [];
+}
+
+function InfoLine({ label, value, href, icon }) {
+  const content = (
+    <>
+      <dt className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-slate-500">
+        {icon}
+        {label}
+      </dt>
+      <dd className="mt-1 min-w-0 text-sm font-medium text-slate-900">
+        <span className="break-words">{value || "-"}</span>
+      </dd>
+    </>
+  );
+
+  if (!href) {
+    return <div>{content}</div>;
+  }
+
+  return (
+    <a href={href} className="block rounded-lg transition hover:text-sky-700">
+      {content}
+    </a>
+  );
+}
+
+function RequestCard({ request, selected, onSelect }) {
+  const name = getFullName(request) || `Request #${request.id}`;
+  return (
+    <button
+      type="button"
+      onClick={onSelect}
+      className={[
+        "w-full rounded-lg border p-4 text-left shadow-sm transition",
+        selected
+          ? "border-sky-300 bg-sky-50/70 ring-2 ring-sky-100"
+          : "border-slate-200 bg-white hover:border-sky-200 hover:bg-slate-50",
+      ].join(" ")}
+    >
+      <div className="flex min-w-0 items-start justify-between gap-3">
+        <div className="min-w-0">
+          <h2 className="truncate text-sm font-semibold text-slate-950">{name}</h2>
+          <p className="mt-1 text-xs font-medium text-slate-500">
+            Preferred {formatDateOnly(request.preferredDate)}
+          </p>
+        </div>
+        <RequestStatusBadge status={request.status} />
+      </div>
+
+      <div className="mt-3 flex items-center gap-2 text-sm text-slate-600">
+        <Stethoscope className="h-4 w-4 shrink-0 text-slate-400" aria-hidden />
+        <span className="truncate">{request.doctorName || "Not assigned"}</span>
+      </div>
+
+      <p className="mt-3 line-clamp-2 text-sm leading-5 text-slate-600">
+        {shortReason(request.reasonForVisit)}
+      </p>
+
+      <span className="mt-3 inline-flex text-xs font-semibold text-sky-700">
+        View request
+      </span>
+    </button>
+  );
+}
+
+function RequestDetails({
+  request,
+  canManageStatus,
+  mutating,
+  doctorSelection,
+  selectedDoctor,
+  onDoctorChange,
+  onStatusChange,
+}) {
+  const name = getFullName(request) || `Request #${request.id}`;
+  const actions = getNextActions(request.status);
+  const isPending = statusKey(request.status) === "pending";
+
+  return (
+    <section>
+      <div className="border-b border-slate-100 p-5">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+          <div className="min-w-0">
+            <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+              Request details
+            </p>
+            <h2 className="mt-1 truncate text-xl font-semibold text-slate-950">
+              {name}
+            </h2>
+          </div>
+          <RequestStatusBadge status={request.status} />
+        </div>
+      </div>
+
+      <div className="space-y-5 p-5">
+        <div className="grid gap-4 sm:grid-cols-2">
+          <InfoLine
+            label="Requester"
+            value={name}
+            icon={<UserRound className="h-3.5 w-3.5" aria-hidden />}
+          />
+          <InfoLine
+            label="Email"
+            value={request.email}
+            href={request.email ? `mailto:${request.email}` : undefined}
+            icon={<Mail className="h-3.5 w-3.5" aria-hidden />}
+          />
+          <InfoLine
+            label="Phone"
+            value={request.phone}
+            href={request.phone ? `tel:${request.phone}` : undefined}
+            icon={<Phone className="h-3.5 w-3.5" aria-hidden />}
+          />
+          <InfoLine label="Preferred date" value={formatDateOnly(request.preferredDate)} />
+          <InfoLine label="Submitted" value={formatDateTime(request.createdAt)} />
+          <InfoLine label="Current status" value={STATUS_META[statusKey(request.status)]?.label ?? request.status} />
+        </div>
+
+        <div className="rounded-lg border border-slate-200 bg-slate-50/70 p-4">
+          <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-slate-500">
+            <MessageSquareText className="h-3.5 w-3.5" aria-hidden />
+            Reason / message
+          </div>
+          <p className="mt-2 whitespace-pre-wrap text-sm leading-6 text-slate-700">
+            {request.reasonForVisit || "No reason provided."}
+          </p>
+        </div>
+
+        <div className="rounded-lg border border-slate-200 p-4">
+          <div className="flex items-start justify-between gap-3">
+            <div>
+              <h3 className="text-sm font-semibold text-slate-950">Doctor assignment</h3>
+              <p className="mt-1 text-sm text-slate-500">
+                Current doctor: {request.doctorName || "Not assigned"}
+              </p>
+            </div>
+          </div>
+          <div className="mt-4">
+            {canManageStatus && isPending ? (
+              <DoctorSearchSelect
+                value={doctorSelection ?? request.doctorProfileId ?? ""}
+                onValueChange={onDoctorChange}
+                selectedDoctor={selectedDoctor}
+                placeholder="Search doctor by name or specialty"
+                emptyLabel="Not assigned"
+                minSearchLength={1}
+                disabled={mutating}
+              />
+            ) : (
+              <p className="text-sm font-medium text-slate-900">
+                {request.doctorName || "Not assigned"}
+              </p>
+            )}
+          </div>
+        </div>
+
+        {canManageStatus && actions.length > 0 && (
+          <div className="flex flex-wrap justify-end gap-2 border-t border-slate-100 pt-4">
+            {actions.map((action) => {
+              const Icon = action.icon;
+              return (
+                <button
+                  key={action.status}
+                  type="button"
+                  onClick={() => onStatusChange(action.status)}
+                  disabled={mutating}
+                  className={[
+                    "inline-flex h-10 items-center justify-center gap-2 rounded-lg px-4 text-sm font-semibold shadow-sm transition disabled:opacity-50",
+                    action.primary
+                      ? "bg-sky-600 text-white hover:bg-sky-700"
+                      : action.danger
+                        ? "border border-rose-200 bg-white text-rose-700 hover:bg-rose-50"
+                        : "border border-slate-200 bg-white text-slate-800 hover:bg-slate-50",
+                  ].join(" ")}
+                >
+                  {Icon && <Icon className="h-4 w-4" aria-hidden />}
+                  {mutating ? "Saving..." : action.label}
+                </button>
+              );
+            })}
+          </div>
+        )}
+      </div>
+    </section>
+  );
+}
+
+function RequestDetailsModal({ open, onClose, children }) {
+  if (!open) return null;
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/45 p-3 backdrop-blur-sm sm:p-6"
+      role="presentation"
+    >
+      <div
+        className="flex max-h-[90vh] w-full max-w-3xl flex-col overflow-hidden rounded-xl border border-slate-200 bg-white shadow-2xl"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="request-detail-title"
+      >
+        <div className="flex items-start justify-between gap-4 border-b border-slate-200 px-5 py-4">
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+              Online request
+            </p>
+            <h2 id="request-detail-title" className="mt-1 text-lg font-semibold text-slate-950">
+              Review request
+            </h2>
+          </div>
+          <button
+            type="button"
+            onClick={onClose}
+            className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-500 shadow-sm transition hover:bg-slate-50 hover:text-slate-900"
+            aria-label="Close request details"
+          >
+            <X className="h-4 w-4" aria-hidden />
+          </button>
+        </div>
+        <div className="min-h-0 overflow-y-auto">{children}</div>
+      </div>
+    </div>
+  );
 }
 
 export default function AppointmentRequestsPage() {
@@ -163,6 +396,7 @@ export default function AppointmentRequestsPage() {
   const [error, setError] = useState(null);
   const [mutatingId, setMutatingId] = useState(null);
   const [page, setPage] = useState(1);
+  const [selectedRequestId, setSelectedRequestId] = useState(null);
   const [doctorSelections, setDoctorSelections] = useState({});
   const [selectedDoctors, setSelectedDoctors] = useState({});
 
@@ -196,6 +430,16 @@ export default function AppointmentRequestsPage() {
     return () => window.clearTimeout(timer);
   }, [load]);
 
+  useEffect(() => {
+    setPage(1);
+  }, [search, statusFilter, preferredDate]);
+
+  useEffect(() => {
+    if (selectedRequestId && !items.some((item) => item.id === selectedRequestId)) {
+      setSelectedRequestId(null);
+    }
+  }, [items, selectedRequestId]);
+
   const showToast = useCallback((message, type = "success") => {
     toast[type === "error" ? "error" : type === "warning" ? "warning" : "success"](message);
   }, []);
@@ -203,8 +447,6 @@ export default function AppointmentRequestsPage() {
   useEffect(() => {
     if (error) showToast(error, "error");
   }, [error, showToast]);
-
-  const filteredItems = items;
 
   const counts = useMemo(() => {
     const next = {
@@ -221,28 +463,33 @@ export default function AppointmentRequestsPage() {
     return next;
   }, [items]);
 
-  useEffect(() => {
-    setPage(1);
-  }, [search, statusFilter, preferredDate]);
+  const selectedRequest = useMemo(
+    () => items.find((item) => item.id === selectedRequestId) ?? null,
+    [items, selectedRequestId]
+  );
 
-  const requestPage = { items: filteredItems, pagination };
+  const selectedDoctorIdFor = useCallback(
+    (request) => {
+      const raw = doctorSelections[request.id] ?? request.doctorProfileId ?? "";
+      const parsed = Number.parseInt(raw, 10);
+      return Number.isFinite(parsed) ? parsed : null;
+    },
+    [doctorSelections]
+  );
 
-  const selectedDoctorIdFor = (request) => {
-    const raw = doctorSelections[request.id] ?? request.doctorProfileId ?? "";
-    const parsed = Number.parseInt(raw, 10);
-    return Number.isFinite(parsed) ? parsed : null;
-  };
-
-  const selectedDoctorFor = (request) => {
-    const selected = selectedDoctors[request.id];
-    if (selected) return selected;
-    return request.doctorProfileId && request.doctorName
-      ? { id: request.doctorProfileId, fullName: request.doctorName }
-      : null;
-  };
+  const selectedDoctorFor = useCallback(
+    (request) => {
+      const selected = selectedDoctors[request.id];
+      if (selected) return selected;
+      return request.doctorProfileId && request.doctorName
+        ? { id: request.doctorProfileId, fullName: request.doctorName }
+        : null;
+    },
+    [selectedDoctors]
+  );
 
   const updateStatus = async (request, nextStatus) => {
-    if (!canManageStatus || mutatingId != null) return;
+    if (!request || !canManageStatus || mutatingId != null) return;
     const doctorProfileId = selectedDoctorIdFor(request);
     if (nextStatus === APPOINTMENT_REQUEST_STATUS.CONFIRMED && !doctorProfileId) {
       showToast("Assign a doctor before confirming this request.", "warning");
@@ -259,6 +506,22 @@ export default function AppointmentRequestsPage() {
     } finally {
       setMutatingId(null);
     }
+  };
+
+  const updateDoctorSelection = (requestId, nextValue, doctor) => {
+    setDoctorSelections((current) => ({
+      ...current,
+      [requestId]: nextValue,
+    }));
+    setSelectedDoctors((current) => {
+      const next = { ...current };
+      if (doctor) {
+        next[requestId] = doctor;
+      } else {
+        delete next[requestId];
+      }
+      return next;
+    });
   };
 
   return (
@@ -385,146 +648,74 @@ export default function AppointmentRequestsPage() {
         </div>
       </section>
 
-      <div className="scrollbar-none min-h-0 flex-1 overflow-auto rounded-lg border border-slate-200 bg-white shadow-sm">
-        {loading ? (
-          <div className="flex min-h-[16rem] items-center justify-center text-sm text-slate-500">
-            Loading requests...
+      <div className="min-h-0 flex-1">
+        <section className="flex min-h-[24rem] flex-col overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm">
+          <div className="border-b border-slate-100 px-4 py-3">
+            <h2 className="text-sm font-semibold text-slate-950">Online requests</h2>
+            <p className="mt-0.5 text-xs text-slate-500">
+              {pagination?.totalCount ?? items.length} matching request{(pagination?.totalCount ?? items.length) === 1 ? "" : "s"}
+            </p>
           </div>
-        ) : filteredItems.length === 0 ? (
-          <div className="flex min-h-[16rem] items-center justify-center p-8 text-center">
-            <div>
-              <CalendarClock className="mx-auto h-8 w-8 text-slate-300" aria-hidden />
-              <p className="mt-3 text-sm font-medium text-slate-900">
-                No requests found
-              </p>
-              <p className="mt-1 text-sm text-slate-500">
-                Adjust filters or refresh after a public form submission.
-              </p>
-            </div>
+
+          <div className="scrollbar-none min-h-0 flex-1 overflow-y-auto p-3">
+            {loading ? (
+              <div className="flex min-h-[16rem] items-center justify-center text-sm text-slate-500">
+                Loading requests...
+              </div>
+            ) : items.length === 0 ? (
+              <div className="flex min-h-[16rem] items-center justify-center p-6 text-center">
+                <div>
+                  <CalendarClock className="mx-auto h-8 w-8 text-slate-300" aria-hidden />
+                  <p className="mt-3 text-sm font-medium text-slate-900">
+                    No requests found
+                  </p>
+                  <p className="mt-1 text-sm text-slate-500">
+                    Adjust filters or refresh after a public form submission.
+                  </p>
+                </div>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {items.map((request) => (
+                  <RequestCard
+                    key={request.id}
+                    request={request}
+                    selected={request.id === selectedRequestId}
+                    onSelect={() => setSelectedRequestId(request.id)}
+                  />
+                ))}
+              </div>
+            )}
           </div>
-        ) : (
-          <div className="divide-y divide-slate-100">
-            {requestPage.items.map((request) => {
-              const actions = getNextActions(request.status);
-              const busy = mutatingId === request.id;
-              return (
-                <article key={request.id} className="p-4 transition hover:bg-slate-50/70">
-                  <div className="grid gap-4 xl:grid-cols-[1.2fr_1fr_1fr_auto] xl:items-start">
-                    <div className="min-w-0">
-                      <div className="flex flex-wrap items-center gap-2">
-                        <h2 className="truncate text-sm font-semibold text-slate-950">
-                          {getFullName(request) || `Request #${request.id}`}
-                        </h2>
-                        <RequestStatusBadge status={request.status} />
-                      </div>
-                      <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-600">
-                        {request.reasonForVisit}
-                      </p>
-                    </div>
 
-                    <div className="space-y-2 text-sm text-slate-600">
-                      <a
-                        href={`mailto:${request.email}`}
-                        className="flex min-w-0 items-center gap-2 hover:text-sky-700"
-                      >
-                        <Mail className="h-4 w-4 shrink-0 text-slate-400" aria-hidden />
-                        <span className="truncate">{request.email}</span>
-                      </a>
-                      <a
-                        href={`tel:${request.phone}`}
-                        className="flex min-w-0 items-center gap-2 hover:text-sky-700"
-                      >
-                        <Phone className="h-4 w-4 shrink-0 text-slate-400" aria-hidden />
-                        <span className="truncate">{request.phone}</span>
-                      </a>
-                    </div>
-
-                    <dl className="grid grid-cols-2 gap-3 text-sm xl:grid-cols-1">
-                      <div>
-                        <dt className="text-xs font-semibold uppercase tracking-wide text-slate-400">
-                          Preferred
-                        </dt>
-                        <dd className="mt-1 text-slate-800">
-                          {formatDateOnly(request.preferredDate)}
-                        </dd>
-                      </div>
-                      <div>
-                        <dt className="text-xs font-semibold uppercase tracking-wide text-slate-400">
-                          Submitted
-                        </dt>
-                        <dd className="mt-1 text-slate-800">
-                          {formatDateTime(request.createdAt)}
-                        </dd>
-                      </div>
-                      <div className="col-span-2 xl:col-span-1">
-                        <dt className="text-xs font-semibold uppercase tracking-wide text-slate-400">
-                          Doctor
-                        </dt>
-                        <dd className="mt-1">
-                          {canManageStatus && statusKey(request.status) === "pending" ? (
-                            <DoctorSearchSelect
-                              value={doctorSelections[request.id] ?? request.doctorProfileId ?? ""}
-                              onValueChange={(nextValue, doctor) => {
-                                setDoctorSelections((current) => ({
-                                  ...current,
-                                  [request.id]: nextValue,
-                                }));
-                                setSelectedDoctors((current) => {
-                                  const next = { ...current };
-                                  if (doctor) {
-                                    next[request.id] = doctor;
-                                  } else {
-                                    delete next[request.id];
-                                  }
-                                  return next;
-                                });
-                              }}
-                              selectedDoctor={selectedDoctorFor(request)}
-                              placeholder="Search name or specialty"
-                              emptyLabel="Assign doctor"
-                              minSearchLength={1}
-                              disabled={busy || mutatingId != null}
-                              inputClassName="h-9"
-                            />
-                          ) : (
-                            <span className="text-slate-800">
-                              {request.doctorName || "Unassigned"}
-                            </span>
-                          )}
-                        </dd>
-                      </div>
-                    </dl>
-
-                    <div className="flex flex-wrap gap-2 xl:justify-end">
-                      {canManageStatus &&
-                        actions.map((action) => {
-                          const Icon = action.icon;
-                          return (
-                            <button
-                              key={`${request.id}-${action.status}`}
-                              type="button"
-                              onClick={() => updateStatus(request, action.status)}
-                              disabled={busy || mutatingId != null}
-                              className={
-                                action.danger
-                                  ? "inline-flex h-9 items-center justify-center gap-2 rounded-lg border border-rose-200 bg-white px-3 text-sm font-medium text-rose-700 transition hover:bg-rose-50 disabled:opacity-50"
-                                  : "inline-flex h-9 items-center justify-center gap-2 rounded-lg border border-slate-200 bg-white px-3 text-sm font-medium text-slate-800 transition hover:bg-slate-50 disabled:opacity-50"
-                              }
-                            >
-                              {Icon && <Icon className="h-4 w-4" aria-hidden />}
-                              {busy ? "Saving..." : action.label}
-                            </button>
-                          );
-                        })}
-                    </div>
-                  </div>
-                </article>
-              );
-            })}
-          </div>
-        )}
-        <PaginationBar pagination={requestPage.pagination} loading={loading} onPageChange={setPage} />
+          <PaginationBar pagination={pagination} loading={loading} onPageChange={setPage} />
+        </section>
       </div>
+
+      <RequestDetailsModal
+        open={Boolean(selectedRequest)}
+        onClose={() => setSelectedRequestId(null)}
+      >
+        {selectedRequest && (
+          <RequestDetails
+            request={selectedRequest}
+            canManageStatus={canManageStatus}
+            mutating={selectedRequest ? mutatingId === selectedRequest.id : false}
+            doctorSelection={
+              selectedRequest ? doctorSelections[selectedRequest.id] : undefined
+            }
+            selectedDoctor={
+              selectedRequest ? selectedDoctorFor(selectedRequest) : null
+            }
+            onDoctorChange={(nextValue, doctor) => {
+              if (selectedRequest) updateDoctorSelection(selectedRequest.id, nextValue, doctor);
+            }}
+            onStatusChange={(nextStatus) => {
+              if (selectedRequest) void updateStatus(selectedRequest, nextStatus);
+            }}
+          />
+        )}
+      </RequestDetailsModal>
     </div>
   );
 }
