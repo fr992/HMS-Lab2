@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { useParams } from "react-router-dom";
 import DiagnosesSection from "./components/DiagnosesSection";
+import PrescriptionsSection from "./components/PrescriptionsSection";
 import { encountersApi } from "./api/encountersApi";
 
 export default function PatientEncounterDiagnosesPage() {
@@ -16,11 +17,11 @@ export default function PatientEncounterDiagnosesPage() {
         setLoading(true);
         setError("");
 
-      const res = await encountersApi.getPatientEncounterPanel(encounterId);        
-      setPanel(res.data);
+        const res = await encountersApi.getPatientEncounterPanel(encounterId);
+        setPanel(res.data);
       } catch (err) {
         console.error(err);
-        setError("Failed to load diagnosis data.");
+        setError("Failed to load encounter data.");
       } finally {
         setLoading(false);
       }
@@ -29,16 +30,16 @@ export default function PatientEncounterDiagnosesPage() {
     load();
   }, [encounterId]);
 
-  if (loading) return <div className="p-6">Loading diagnoses...</div>;
+  if (loading) return <div className="p-6">Loading encounter details...</div>;
   if (error) return <div className="p-6 text-red-600">{error}</div>;
-  if (!panel) return <div className="p-6">No diagnosis data found.</div>;
+  if (!panel) return <div className="p-6">No encounter data found.</div>;
 
   return (
     <div className="space-y-6 p-6">
       <div>
-        <h1 className="text-2xl font-bold">My Diagnoses</h1>
+        <h1 className="text-2xl font-bold">My Encounter Details</h1>
         <p className="text-sm text-muted-foreground">
-          Diagnoses recorded during this visit.
+          Diagnoses and prescriptions recorded during this visit.
         </p>
       </div>
 
@@ -48,6 +49,8 @@ export default function PatientEncounterDiagnosesPage() {
         isOpen={false}
         saving={false}
       />
+
+      <PrescriptionsSection prescriptions={panel.prescriptions} />
     </div>
   );
 }

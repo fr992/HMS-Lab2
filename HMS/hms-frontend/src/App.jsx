@@ -26,6 +26,7 @@ import AppointmentRequestsPage from "@/features/appointmentRequests/AppointmentR
 import LandingPage from "@/pages/home/LandingPage";
 import EncountersListPage from "@/features/encounters/EncountersListPage";
 import EncounterPanelPage from "@/features/encounters/EncounterPanelPage";
+import EncounterPrintPage from "@/features/encounters/EncounterPrintPage";
 import PatientEncounterDiagnosesPage from "@/features/encounters/PatientEncounterDiagnosesPage";
 import PatientEncountersListPage from "@/features/encounters/PatientEncountersListPage";
 import MedicationsPage from "@/features/medications/MedicationsPage";
@@ -153,6 +154,14 @@ export default function App() {
               element={
                 <PermissionRoute anyPermission={["Encounters.Read"]}>
                   <EncountersListPage />
+                </PermissionRoute>
+              }
+            />
+            <Route
+              path="encounters/:encounterId/print"
+              element={
+                <PermissionRoute anyPermission={["Encounters.Read"]}>
+                  <EncounterPrintPage />
                 </PermissionRoute>
               }
             />
@@ -383,6 +392,14 @@ export default function App() {
               }
             />
             <Route
+              path="encounters/:encounterId/print"
+              element={
+                <PermissionRoute anyPermission={["Encounters.Read"]}>
+                  <EncounterPrintPage />
+                </PermissionRoute>
+              }
+            />
+            <Route
               path="encounters/:encounterId"
               element={
                 <PermissionRoute anyPermission={["Encounters.Read"]}>
@@ -432,6 +449,10 @@ export default function App() {
               <Route path="payments" element={<PatientInvoicesPage />} />
               <Route path="lab-results" element={<PatientLabResultsPage />} />
               <Route path="encounters" element={<PatientEncountersListPage />} />
+              <Route
+                path="encounters/:encounterId/print"
+                element={<EncounterPrintPage />}
+              />
               <Route
                 path="encounters/:encounterId/diagnoses"
                 element={<PatientEncounterDiagnosesPage />}

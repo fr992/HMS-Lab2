@@ -37,14 +37,15 @@ export default function PatientLabResultsPage() {
     try {
       const response = await downloadMyLabResultAttachment(result.id);
       const fileName = getDownloadFileName(response, result.attachmentFileName || `lab-result-${result.id}`);
-      const url = window.URL.createObjectURL(response.data);
+      const blob = toDownloadBlob(response, result);
+      const url = window.URL.createObjectURL(blob);
       const link = document.createElement("a");
       link.href = url;
       link.download = fileName;
       document.body.appendChild(link);
       link.click();
       link.remove();
-      window.URL.revokeObjectURL(url);
+      window.setTimeout(() => window.URL.revokeObjectURL(url), 1000);
     } catch (error) {
       setState((current) => ({ ...current, status: "ready", error: getApiErrorMessage(error) }));
     } finally {
@@ -124,6 +125,25 @@ function Info({ label, value }) {
 
 function getDownloadFileName(response, fallback) {
   const disposition = response.headers?.["content-disposition"];
-  const match = /filename\*?=(?:UTF-8''|")?([^";]+)/i.exec(disposition || "");
-  return match ? decodeURIComponent(match[1].replaceAll('"', "")) : fallback;
+  const encodedMatch = /filename\*=UTF-8''([^;]+)/i.exec(disposition || "");
+  if (encodedMatch) return decodeURIComponent(encodedMatch[1].replaceAll('"', ""));
+
+  const quotedMatch = /filename="([^"]+)"/i.exec(disposition || "");
+  if (quotedMatch) return quotedMatch[1];
+
+  const plainMatch = /filename=([^;]+)/i.exec(disposition || "");
+  return plainMatch ? plainMatch[1].trim() : fallback;
+}
+
+function toDownloadBlob(response, result) {
+  if (response.data instanceof Blob && response.data.type) return response.data;
+
+  const contentType =
+    response.headers?.["content-type"] ||
+    result.attachmentContentType ||
+    "application/octet-stream";
+
+  return response.data instanceof Blob
+    ? new Blob([response.data], { type: contentType })
+    : new Blob([response.data], { type: contentType });
 }

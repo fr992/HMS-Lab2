@@ -13,6 +13,9 @@ import { encountersApi } from "./api/encountersApi";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { getPagedItems, getPagination, PaginationBar } from "@/lib/pagination.jsx";
+
+const PAGE_SIZE = 30;
 
 function formatDate(value) {
   if (!value) return "-";
@@ -136,7 +139,7 @@ function PatientEncounterCard({ encounter }) {
         <div className="flex justify-end border-t border-slate-100 pt-4">
           <Button asChild>
             <Link to={`/patient/encounters/${encounter.id}/diagnoses`}>
-              View Diagnoses
+              View Details
               <ChevronRight className="h-4 w-4" aria-hidden />
             </Link>
           </Button>
@@ -148,6 +151,8 @@ function PatientEncounterCard({ encounter }) {
 
 export default function PatientEncountersListPage() {
   const [encounters, setEncounters] = useState([]);
+  const [pagination, setPagination] = useState(null);
+  const [page, setPage] = useState(1);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
@@ -158,14 +163,19 @@ export default function PatientEncountersListPage() {
       try {
         setLoading(true);
         setError("");
-        const response = await encountersApi.getPatientEncounters();
+        const response = await encountersApi.getPatientEncounters({
+          page,
+          pageSize: PAGE_SIZE,
+        });
         if (!cancelled) {
-          setEncounters(Array.isArray(response.data) ? response.data : []);
+          setEncounters(getPagedItems(response.data));
+          setPagination(getPagination(response.data));
         }
       } catch (err) {
         console.error("Failed to load patient encounters", err);
         if (!cancelled) {
           setEncounters([]);
+          setPagination(null);
           setError(
             err?.response?.data?.error ||
               "Failed to load your encounters. Please try again."
@@ -183,7 +193,7 @@ export default function PatientEncountersListPage() {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [page]);
 
   return (
     <div className="flex h-full min-h-0 flex-1 flex-col gap-5">
@@ -231,11 +241,14 @@ export default function PatientEncountersListPage() {
           </div>
         </div>
       ) : (
-        <div className="grid gap-4 xl:grid-cols-2">
-          {encounters.map((encounter) => (
-            <PatientEncounterCard key={encounter.id} encounter={encounter} />
-          ))}
-        </div>
+        <>
+          <div className="grid gap-4 xl:grid-cols-2">
+            {encounters.map((encounter) => (
+              <PatientEncounterCard key={encounter.id} encounter={encounter} />
+            ))}
+          </div>
+          <PaginationBar pagination={pagination} loading={loading} onPageChange={setPage} />
+        </>
       )}
     </div>
   );

@@ -8,7 +8,7 @@ public sealed class HmsDbContextFactory : IDesignTimeDbContextFactory<HmsDbConte
     public HmsDbContext CreateDbContext(string[] args)
     {
         var connectionString = Environment.GetEnvironmentVariable("HMS_EF_CONNECTION")
-            ?? "Server=localhost\\SQLEXPRESS01;Database=HMS;Trusted_Connection=True;MultipleActiveResultSets=true;TrustServerCertificate=True";
+            ?? "Server=Olta;Database=HMS;Trusted_Connection=True;MultipleActiveResultSets=true;TrustServerCertificate=True";
 
         var options = new DbContextOptionsBuilder<HmsDbContext>()
             .UseSqlServer(connectionString)

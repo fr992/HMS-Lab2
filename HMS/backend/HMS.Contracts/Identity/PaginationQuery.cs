@@ -26,5 +26,11 @@ public sealed class PaginationQuery
         };
     }
 
+    public int Limit
+    {
+        get => _pageSize;
+        set => PageSize = value;
+    }
+
     public string? Search { get; set; }
 }

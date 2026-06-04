@@ -10,6 +10,7 @@ public class EncounterDto
 
     public int DoctorProfileId { get; set; }
     public string DoctorName { get; set; } = string.Empty;
+    public string? DepartmentName { get; set; }
 
     public int? AppointmentId { get; set; }
 

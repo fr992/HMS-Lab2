@@ -7,8 +7,8 @@ export const encountersApi = {
   getPatientEncounterPanel: (encounterId) =>
     apiClient.get(`/encounters/${encounterId}/patient-panel`),
 
-  getPatientEncounters: () =>
-    apiClient.get("/encounters/patient"),
+  getPatientEncounters: (params) =>
+    apiClient.get("/encounters/patient", { params }),
 
   getActiveMedications: () =>
     apiClient.get("/admin/medications", { params: { isActive: true, pageSize: 100 } }),

@@ -49,21 +49,31 @@ public sealed class EncountersController : ControllerBase
 
     [HttpGet]
     [RequirePermission("Encounters.Read")]
-    public async Task<ActionResult<List<EncounterDto>>> GetAll(
+    public async Task<IActionResult> GetAll(
         [FromQuery] int? patientProfileId,
         [FromQuery] int? doctorProfileId,
         [FromQuery] string? search,
+        [FromQuery] PaginationQuery pagination,
         CancellationToken cancellationToken)
     {
         try
         {
-            var result = await _encounterService.GetEncountersAsync(
-                patientProfileId,
-                doctorProfileId,
-                search,
-                CurrentUserId(),
-                CurrentUserRoles(),
-                cancellationToken);
+            object result = HasPaginationRequest()
+                ? await _encounterService.GetEncountersAsync(
+                    patientProfileId,
+                    doctorProfileId,
+                    search,
+                    CurrentUserId(),
+                    CurrentUserRoles(),
+                    pagination,
+                    cancellationToken)
+                : await _encounterService.GetEncountersAsync(
+                    patientProfileId,
+                    doctorProfileId,
+                    search,
+                    CurrentUserId(),
+                    CurrentUserRoles(),
+                    cancellationToken);
 
             return Ok(result);
         }
@@ -162,15 +172,29 @@ public sealed class EncountersController : ControllerBase
 
     [HttpGet("patient")]
     [Authorize]
-    public async Task<ActionResult<List<EncounterDto>>> GetPatientEncounters(
+    public async Task<IActionResult> GetPatientEncounters(
+    [FromQuery] PaginationQuery pagination,
     CancellationToken cancellationToken)
     {
-        var result = await _encounterService.GetPatientEncountersAsync(
-            CurrentUserId(),
-            cancellationToken);
+        object result = HasPaginationRequest()
+            ? await _encounterService.GetPatientEncountersAsync(
+                CurrentUserId(),
+                pagination,
+                cancellationToken)
+            : await _encounterService.GetPatientEncountersAsync(
+                CurrentUserId(),
+                cancellationToken);
 
         return Ok(result);
     }
+
+    private bool HasPaginationRequest()
+    {
+        return Request.Query.ContainsKey("page")
+            || Request.Query.ContainsKey("pageSize")
+            || Request.Query.ContainsKey("limit");
+    }
+
     private int? CurrentUserId()
     {
         var value = User.FindFirstValue(ClaimTypes.NameIdentifier);

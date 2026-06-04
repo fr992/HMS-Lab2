@@ -22,6 +22,9 @@ export async function fetchMyLabResults() {
 export async function downloadMyLabResultAttachment(id) {
   const response = await apiClient.get(`/me/lab-results/${id}/download`, {
     responseType: "blob",
+    headers: {
+      Accept: "application/pdf,image/*,application/octet-stream",
+    },
   });
   return response;
 }

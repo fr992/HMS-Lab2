@@ -9,6 +9,7 @@ import {
   ClipboardCheck,
   LoaderCircle,
   Plus,
+  Printer,
   Search,
   X,
 } from "lucide-react";
@@ -383,6 +384,10 @@ export default function EncounterPanelPage() {
   const canCreateInvoice = auth.hasPermission("Invoices.Create");
   const listPath =
     auth.userRole === "Admin" ? "/admin/encounters" : "/doctor/encounters";
+  const printPath =
+    auth.userRole === "Admin"
+      ? `/admin/encounters/${encounterId}/print`
+      : `/doctor/encounters/${encounterId}/print`;
   const prescriptionPaging = pageItems(prescriptions, prescriptionPage);
   const labRequestPaging = pageItems(labRequests, labRequestPage);
   const filteredMedications = filterMedications(medications, medicationSearch);
@@ -597,6 +602,12 @@ export default function EncounterPanelPage() {
         </div>
 
         <div className="flex flex-wrap items-center gap-2 md:flex-nowrap lg:justify-end">
+          <Button asChild type="button" variant="outline" className="h-9 whitespace-nowrap px-3">
+            <Link to={printPath} target="_blank" rel="noreferrer">
+              <Printer className="mr-2 h-4 w-4" aria-hidden />
+              Print Patient Report
+            </Link>
+          </Button>
           {canAssignNurseTask && (
             <Button type="button" variant="outline" onClick={openNurseTaskDialog} className="h-9 whitespace-nowrap px-3">
               <ClipboardCheck className="mr-2 h-4 w-4" aria-hidden />

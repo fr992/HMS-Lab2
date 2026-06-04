@@ -15,6 +15,9 @@ import apiClient from "@/api/apiClient";
 import { useAuth } from "@/auth/AuthContext";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { getPagedItems, getPagination, PaginationBar } from "@/lib/pagination.jsx";
+
+const PAGE_SIZE = 30;
 
 function formatDate(value) {
   if (!value) return "-";
@@ -185,7 +188,7 @@ function EncounterRow({ encounter, panelBasePath }) {
 
 function DoctorEncounterList({ encounters, panelBasePath }) {
   return (
-    <div className="overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm">
+    <div className="scrollbar-none min-h-0 flex-1 overflow-auto rounded-lg border border-slate-200 bg-white shadow-sm">
       {encounters.map((encounter) => (
         <EncounterRow
           key={encounter.id}
@@ -286,6 +289,8 @@ export default function EncountersListPage() {
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState(null);
   const [searchTerm, setSearchTerm] = useState("");
+  const [page, setPage] = useState(1);
+  const [pagination, setPagination] = useState(null);
   const isAdmin = auth.userRole === "Admin";
   const panelBasePath = isAdmin ? "/admin/encounters" : "/doctor/encounters";
 
@@ -293,9 +298,14 @@ export default function EncountersListPage() {
     setError(null);
     try {
       const res = await apiClient.get("/encounters", {
-        params: isAdmin && searchTerm.trim() ? { search: searchTerm.trim() } : undefined,
+        params: {
+          page,
+          pageSize: PAGE_SIZE,
+          ...(searchTerm.trim() ? { search: searchTerm.trim() } : {}),
+        },
       });
-      setEncounters(Array.isArray(res.data) ? res.data : []);
+      setEncounters(getPagedItems(res.data));
+      setPagination(getPagination(res.data));
     } catch (err) {
       console.error("Failed to load encounters", err);
       setError(
@@ -303,11 +313,12 @@ export default function EncountersListPage() {
           "Failed to load encounters. Please try again."
       );
       setEncounters([]);
+      setPagination(null);
     } finally {
       setLoading(false);
       setRefreshing(false);
     }
-  }, [isAdmin, searchTerm]);
+  }, [page, searchTerm]);
 
   useEffect(() => {
     const timer = window.setTimeout(() => {
@@ -316,6 +327,10 @@ export default function EncountersListPage() {
 
     return () => window.clearTimeout(timer);
   }, [load]);
+
+  useEffect(() => {
+    setPage(1);
+  }, [searchTerm]);
 
   const filteredEncounters = useMemo(
     () => filterEncounters(encounters, searchTerm, isAdmin),
@@ -395,7 +410,7 @@ export default function EncountersListPage() {
             </Button>
           </div>
           <p className="mt-2 text-xs text-slate-500">
-            Showing {filteredEncounters.length} of {encounters.length} encounters
+            Showing {filteredEncounters.length} of {pagination?.totalCount ?? encounters.length} encounters
           </p>
         </section>
       )}
@@ -426,16 +441,24 @@ export default function EncountersListPage() {
           </div>
         </div>
       ) : isAdmin ? (
-        <AdminGroupedEncounters
-          key={doctorGroups.map((group) => group.key).join("|")}
-          groups={doctorGroups}
-          panelBasePath={panelBasePath}
-        />
+        <>
+          <div className="min-h-0 flex-1 overflow-auto">
+            <AdminGroupedEncounters
+              key={doctorGroups.map((group) => group.key).join("|")}
+              groups={doctorGroups}
+              panelBasePath={panelBasePath}
+            />
+          </div>
+          <PaginationBar pagination={pagination} loading={loading} onPageChange={setPage} />
+        </>
       ) : (
-        <DoctorEncounterList
-          encounters={filteredEncounters}
-          panelBasePath={panelBasePath}
-        />
+        <>
+          <DoctorEncounterList
+            encounters={filteredEncounters}
+            panelBasePath={panelBasePath}
+          />
+          <PaginationBar pagination={pagination} loading={loading} onPageChange={setPage} />
+        </>
       )}
     </div>
   );

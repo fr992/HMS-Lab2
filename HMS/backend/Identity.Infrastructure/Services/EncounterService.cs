@@ -2,6 +2,7 @@ using HMS.Application.Abstractions.Identity;
 using HMS.Application.Exceptions;
 using HMS.Contracts.Identity;
 using HMS.Persistence;
+using Identity.Infrastructure.Common;
 using Identity.Domain.Entities;
 using Microsoft.EntityFrameworkCore;
 
@@ -100,6 +101,9 @@ public sealed class EncounterService : IEncounterService
 
                 DoctorProfileId = e.DoctorProfileId,
                 DoctorName = e.DoctorProfile.StaffProfile.Person.FirstName + " " + e.DoctorProfile.StaffProfile.Person.LastName,
+                DepartmentName = e.DoctorProfile.StaffProfile.Department != null
+                    ? e.DoctorProfile.StaffProfile.Department.Name
+                    : null,
 
                 AppointmentId = e.AppointmentId,
 
@@ -127,6 +131,47 @@ public sealed class EncounterService : IEncounterService
         IEnumerable<string> actorRoles,
         CancellationToken cancellationToken)
     {
+        var query = await BuildEncountersQueryAsync(
+            patientProfileId,
+            doctorProfileId,
+            search,
+            actorUserId,
+            actorRoles,
+            cancellationToken);
+
+        return await ProjectEncounterList(query)
+            .ToListAsync(cancellationToken);
+    }
+
+    public async Task<PaginatedResponse<EncounterDto>> GetEncountersAsync(
+        int? patientProfileId,
+        int? doctorProfileId,
+        string? search,
+        int? actorUserId,
+        IEnumerable<string> actorRoles,
+        PaginationQuery pagination,
+        CancellationToken cancellationToken)
+    {
+        var query = await BuildEncountersQueryAsync(
+            patientProfileId,
+            doctorProfileId,
+            search,
+            actorUserId,
+            actorRoles,
+            cancellationToken);
+
+        return await ProjectEncounterList(query)
+            .ToPaginatedResponseAsync(pagination, cancellationToken);
+    }
+
+    private async Task<IQueryable<Encounter>> BuildEncountersQueryAsync(
+        int? patientProfileId,
+        int? doctorProfileId,
+        string? search,
+        int? actorUserId,
+        IEnumerable<string> actorRoles,
+        CancellationToken cancellationToken)
+    {
         var roleList = actorRoles as IList<string> ?? actorRoles.ToList();
         var effectiveDoctorProfileId = await ResolveEffectiveDoctorProfileIdAsync(
             doctorProfileId,
@@ -134,9 +179,7 @@ public sealed class EncounterService : IEncounterService
             roleList,
             cancellationToken);
 
-        var query = _db.Encounters
-            .AsNoTracking()
-            .AsQueryable();
+        var query = _db.Encounters.AsNoTracking().AsQueryable();
 
         var normalizedSearch = string.IsNullOrWhiteSpace(search) ? null : search.Trim();
         if ((HasRole(roleList, "Admin") || HasRole(roleList, "SuperAdmin")) && normalizedSearch is null)
@@ -167,7 +210,12 @@ public sealed class EncounterService : IEncounterService
                 || e.DoctorProfile.StaffProfile.Person.LastName.Contains(normalizedSearch));
         }
 
-        return await query
+        return query;
+    }
+
+    private IQueryable<EncounterDto> ProjectEncounterList(IQueryable<Encounter> query)
+    {
+        return query
             .OrderByDescending(e => e.StartedAt)
             .Select(e => new EncounterDto
             {
@@ -179,6 +227,9 @@ public sealed class EncounterService : IEncounterService
 
                 DoctorProfileId = e.DoctorProfileId,
                 DoctorName = e.DoctorProfile.StaffProfile.Person.FirstName + " " + e.DoctorProfile.StaffProfile.Person.LastName,
+                DepartmentName = e.DoctorProfile.StaffProfile.Department != null
+                    ? e.DoctorProfile.StaffProfile.Department.Name
+                    : null,
 
                 AppointmentId = e.AppointmentId,
 
@@ -194,8 +245,7 @@ public sealed class EncounterService : IEncounterService
                     .Count(d => d.EncounterId == e.Id),
                 PrescriptionsCount = _db.Prescriptions
                     .Count(p => p.EncounterId == e.Id),
-            })
-            .ToListAsync(cancellationToken);
+            });
     }
 
     private async Task<int?> ResolveEffectiveDoctorProfileIdAsync(
@@ -353,6 +403,9 @@ public sealed class EncounterService : IEncounterService
                     PatientName = e.PatientProfile.Person.FirstName + " " + e.PatientProfile.Person.LastName,
                     DoctorProfileId = e.DoctorProfileId,
                     DoctorName = e.DoctorProfile.StaffProfile.Person.FirstName + " " + e.DoctorProfile.StaffProfile.Person.LastName,
+                    DepartmentName = e.DoctorProfile.StaffProfile.Department != null
+                        ? e.DoctorProfile.StaffProfile.Department.Name
+                        : null,
                     AppointmentId = e.AppointmentId,
                     EncounterType = e.EncounterType,
                     StartedAt = e.StartedAt,
@@ -612,36 +665,27 @@ public sealed class EncounterService : IEncounterService
         if (currentUserId == null)
             return new List<EncounterDto>();
 
-        return await _db.Encounters
-            .AsNoTracking()
-            .Where(e => e.PatientProfile.Person.UserId == currentUserId.Value)
-            .OrderByDescending(e => e.StartedAt)
-            .Select(e => new EncounterDto
-            {
-                Id = e.Id,
-                EncounterNumber = e.EncounterNumber,
-
-                PatientProfileId = e.PatientProfileId,
-                PatientName = e.PatientProfile.Person.FirstName + " " + e.PatientProfile.Person.LastName,
-
-                DoctorProfileId = e.DoctorProfileId,
-                DoctorName = e.DoctorProfile.StaffProfile.Person.FirstName + " " + e.DoctorProfile.StaffProfile.Person.LastName,
-
-                AppointmentId = e.AppointmentId,
-                EncounterType = e.EncounterType,
-
-                StartedAt = e.StartedAt,
-                EndedAt = e.EndedAt,
-                ClosedAt = e.ClosedAt,
-
-                Status = e.Status,
-                Notes = e.Notes,
-                DiagnosesCount = _db.Diagnoses
-                    .Count(d => d.EncounterId == e.Id),
-                PrescriptionsCount = _db.Prescriptions
-                    .Count(p => p.EncounterId == e.Id)
-            })
+        return await ProjectEncounterList(BuildPatientEncountersQuery(currentUserId.Value))
             .ToListAsync(cancellationToken);
+    }
+
+    public async Task<PaginatedResponse<EncounterDto>> GetPatientEncountersAsync(
+        int? currentUserId,
+        PaginationQuery pagination,
+        CancellationToken cancellationToken)
+    {
+        if (currentUserId == null)
+            return PaginatedResponse<EncounterDto>.Create([], pagination.Page, pagination.PageSize, 0);
+
+        return await ProjectEncounterList(BuildPatientEncountersQuery(currentUserId.Value))
+            .ToPaginatedResponseAsync(pagination, cancellationToken);
+    }
+
+    private IQueryable<Encounter> BuildPatientEncountersQuery(int currentUserId)
+    {
+        return _db.Encounters
+            .AsNoTracking()
+            .Where(e => e.PatientProfile.Person.UserId == currentUserId);
     }
 
     private async Task ValidateAppointmentLinkAsync(

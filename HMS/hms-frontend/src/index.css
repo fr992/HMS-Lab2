@@ -255,9 +255,278 @@ section[id] {
   display: none;
 }
 
+.encounter-print-header {
+  display: flex;
+  justify-content: space-between;
+  gap: 24px;
+  border-bottom: 2px solid #0f172a;
+  padding-bottom: 18px;
+  margin-bottom: 22px;
+}
+
+.encounter-print-logo {
+  width: 64px;
+  height: 64px;
+  object-fit: contain;
+}
+
+.encounter-print-kicker {
+  margin: 0 0 6px;
+  color: #475569;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.encounter-print-header h1 {
+  margin: 0;
+  font-size: 28px;
+  line-height: 1.1;
+}
+
+.encounter-print-contact {
+  margin: 8px 0 0;
+  max-width: 34rem;
+  color: #475569;
+  font-size: 13px;
+}
+
+.encounter-print-meta {
+  min-width: 12rem;
+  text-align: right;
+}
+
+.encounter-print-meta strong,
+.encounter-print-meta span {
+  display: block;
+}
+
+.encounter-print-meta strong {
+  font-size: 15px;
+}
+
+.encounter-print-meta span {
+  margin-top: 8px;
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.encounter-print-section {
+  break-inside: avoid;
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  padding: 16px;
+  margin-bottom: 16px;
+}
+
+.encounter-print-section h2 {
+  margin: 0 0 14px;
+  font-size: 16px;
+  line-height: 1.25;
+}
+
+.encounter-print-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px 22px;
+  margin: 0;
+}
+
+.encounter-print-grid-compact {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  margin-bottom: 12px;
+}
+
+.encounter-print-field dt {
+  color: #64748b;
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.encounter-print-field dd {
+  margin: 3px 0 0;
+  color: #0f172a;
+  font-size: 13px;
+  font-weight: 650;
+  overflow-wrap: anywhere;
+}
+
+.encounter-print-text-block {
+  margin-top: 16px;
+  border-top: 1px solid #e2e8f0;
+  padding-top: 12px;
+}
+
+.encounter-print-text-block h3 {
+  margin: 0 0 6px;
+  color: #64748b;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.encounter-print-text-block p,
+.encounter-print-empty {
+  margin: 0;
+  color: #334155;
+  font-size: 13px;
+  line-height: 1.55;
+  white-space: pre-wrap;
+}
+
+.encounter-print-stack {
+  display: grid;
+  gap: 12px;
+}
+
+.encounter-print-subsection,
+.encounter-print-lab-item {
+  break-inside: avoid;
+  border: 1px solid #e2e8f0;
+  border-radius: 6px;
+  padding: 12px;
+}
+
+.encounter-print-subsection-header {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 10px;
+  font-size: 13px;
+}
+
+.encounter-print-subsection-header span {
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.encounter-print-list,
+.encounter-print-result-list {
+  display: grid;
+  gap: 10px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.encounter-print-list li {
+  break-inside: avoid;
+  border: 1px solid #e2e8f0;
+  border-radius: 6px;
+  padding: 11px 12px;
+}
+
+.encounter-print-list strong,
+.encounter-print-list span {
+  display: block;
+}
+
+.encounter-print-list strong {
+  color: #0f172a;
+  font-size: 13px;
+}
+
+.encounter-print-list span {
+  margin-top: 4px;
+  color: #475569;
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+.encounter-print-result-list {
+  gap: 6px;
+  margin-top: 8px;
+}
+
+.encounter-print-result-list li {
+  color: #334155;
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+.encounter-print-subsection p,
+.encounter-print-lab-item p {
+  margin: 6px 0 0;
+  color: #334155;
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+.encounter-print-lab-item {
+  margin-top: 10px;
+}
+
+.encounter-print-lab-item > strong,
+.encounter-print-lab-item > span {
+  display: block;
+}
+
+.encounter-print-lab-item > span {
+  margin-top: 3px;
+  color: #64748b;
+  font-size: 12px;
+}
+
+.encounter-print-table-wrap {
+  overflow-x: auto;
+}
+
+.encounter-print-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12px;
+}
+
+.encounter-print-table th,
+.encounter-print-table td {
+  border: 1px solid #cbd5e1;
+  padding: 7px 8px;
+  text-align: left;
+  vertical-align: top;
+}
+
+.encounter-print-table th {
+  background: #f8fafc;
+  color: #334155;
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.encounter-print-footer {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 24px;
+  margin-top: 28px;
+  border-top: 1px solid #cbd5e1;
+  padding-top: 16px;
+}
+
+.encounter-print-footer p {
+  margin: 0 0 6px;
+  color: #475569;
+  font-size: 12px;
+}
+
+.encounter-print-stamp {
+  width: 132px;
+  height: 132px;
+  object-fit: contain;
+  opacity: 0.9;
+}
+
 @media print {
   @page {
-    margin: 18mm;
+    size: A4;
+    margin: 16mm;
   }
 
   body {
@@ -270,6 +539,11 @@ section[id] {
 
   .appointment-print-document,
   .appointment-print-document * {
+    visibility: visible !important;
+  }
+
+  .encounter-print-document,
+  .encounter-print-document * {
     visibility: visible !important;
   }
 
@@ -360,5 +634,57 @@ section[id] {
     display: grid;
     grid-template-columns: 1fr 1fr;
     gap: 16px;
+  }
+
+  .encounter-print-toolbar {
+    display: none !important;
+  }
+
+  .encounter-print-shell {
+    padding: 0 !important;
+    background: #ffffff !important;
+  }
+
+  .encounter-print-document {
+    display: block !important;
+    position: absolute;
+    inset: 0 auto auto 0;
+    width: 100%;
+    min-height: auto !important;
+    max-width: none !important;
+    box-shadow: none !important;
+    padding: 0 !important;
+    color: #0f172a;
+    background: #ffffff;
+    font-family: "Geist Variable", Arial, sans-serif;
+  }
+
+  .encounter-print-section,
+  .encounter-print-subsection,
+  .encounter-print-lab-item,
+  .encounter-print-list li,
+  .encounter-print-footer {
+    break-inside: avoid;
+  }
+
+  .encounter-print-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .encounter-print-grid-compact {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+
+  .encounter-print-section {
+    border-color: #94a3b8;
+  }
+
+  .encounter-print-table th {
+    background: #f1f5f9 !important;
+  }
+
+  .encounter-print-table th,
+  .encounter-print-table td {
+    border-color: #94a3b8;
   }
 }

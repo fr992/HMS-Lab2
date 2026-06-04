@@ -13,6 +13,14 @@ public interface IEncounterService
         int? actorUserId,
         IEnumerable<string> actorRoles,
         CancellationToken cancellationToken);
+    Task<PaginatedResponse<EncounterDto>> GetEncountersAsync(
+        int? patientProfileId,
+        int? doctorProfileId,
+        string? search,
+        int? actorUserId,
+        IEnumerable<string> actorRoles,
+        PaginationQuery pagination,
+        CancellationToken cancellationToken);
     Task<EncounterDto> UpdateAsync(int id, UpdateEncounterDto request, int? actorUserId, CancellationToken cancellationToken);
     Task<EncounterDto> UpdateStatusAsync(int id, UpdateEncounterStatusDto request, int? actorUserId, CancellationToken cancellationToken);
     Task<EncounterPanelDto?> GetPanelAsync(
@@ -22,4 +30,8 @@ public interface IEncounterService
         CancellationToken cancellationToken = default);
     Task<EncounterPanelDto?> GetPatientPanelAsync(int id, int? currentUserId, CancellationToken cancellationToken);
     Task<List<EncounterDto>> GetPatientEncountersAsync(int? currentUserId, CancellationToken cancellationToken);
+    Task<PaginatedResponse<EncounterDto>> GetPatientEncountersAsync(
+        int? currentUserId,
+        PaginationQuery pagination,
+        CancellationToken cancellationToken);
 }
