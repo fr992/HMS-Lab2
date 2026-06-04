@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Building2, Pencil, Plus, RefreshCw, Trash2, X } from "lucide-react";
+import { AlertTriangle, Building2, Pencil, Plus, RefreshCw, Trash2, X } from "lucide-react";
 import { toast } from "sonner";
 import { useAuth } from "@/auth/AuthContext";
 import {
@@ -35,6 +35,8 @@ export default function DepartmentsPage() {
   const [formOpen, setFormOpen] = useState(false);
   const [editing, setEditing] = useState(null);
   const [form, setForm] = useState(EMPTY_FORM);
+  const [deleteTarget, setDeleteTarget] = useState(null);
+  const [deleteError, setDeleteError] = useState("");
 
   const showToast = useCallback((message, type = "success") => {
     toast[type === "error" ? "error" : type === "warning" ? "warning" : "success"](message);
@@ -99,6 +101,18 @@ export default function DepartmentsPage() {
     setFormOpen(false);
   }
 
+  function openDelete(department) {
+    if (!canDelete || saving) return;
+    setDeleteTarget(department);
+    setDeleteError("");
+  }
+
+  function closeDelete() {
+    if (saving) return;
+    setDeleteTarget(null);
+    setDeleteError("");
+  }
+
   async function handleSubmit(event) {
     event.preventDefault();
     if (saving) return;
@@ -134,20 +148,19 @@ export default function DepartmentsPage() {
     }
   }
 
-  async function handleDelete(department) {
-    if (!canDelete || saving) return;
-
-    const confirmed = window.confirm(`Delete ${department.name}? This is only allowed when nothing references it.`);
-    if (!confirmed) return;
+  async function handleDelete() {
+    if (!canDelete || saving || !deleteTarget) return;
 
     setSaving(true);
+    setDeleteError("");
     try {
-      await deleteDepartment(department.id);
+      await deleteDepartment(deleteTarget.id);
       showToast("Department deleted.");
-      if (editing?.id === department.id) closeForm();
+      if (editing?.id === deleteTarget.id) closeForm();
+      setDeleteTarget(null);
       await load({ refresh: true });
     } catch (e) {
-      showToast(getApiErrorMessage(e), "error");
+      setDeleteError(getApiErrorMessage(e));
     } finally {
       setSaving(false);
     }
@@ -244,7 +257,7 @@ export default function DepartmentsPage() {
                         {canDelete && (
                           <button
                             type="button"
-                            onClick={() => void handleDelete(department)}
+                            onClick={() => openDelete(department)}
                             disabled={saving}
                             className="inline-flex size-8 items-center justify-center rounded-md border border-rose-200 text-rose-700 transition hover:bg-rose-50 disabled:opacity-50"
                             aria-label={`Delete ${department.name}`}
@@ -332,6 +345,69 @@ export default function DepartmentsPage() {
                 </button>
               </div>
             </form>
+          </section>
+        </div>
+      )}
+
+      {deleteTarget && (
+        <div
+          className="fixed inset-0 z-50 flex items-end justify-center bg-slate-950/50 p-4 sm:items-center"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="delete-department-title"
+        >
+          <button
+            type="button"
+            className="absolute inset-0 cursor-default"
+            aria-label="Close delete confirmation"
+            onClick={saving ? undefined : closeDelete}
+          />
+          <section className="relative w-full max-w-md overflow-hidden rounded-xl border border-slate-200 bg-white shadow-2xl">
+            <div className="flex items-start gap-4 border-b border-slate-200 px-5 py-4">
+              <div className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-rose-50 text-rose-600">
+                <AlertTriangle className="size-5" aria-hidden />
+              </div>
+              <div className="min-w-0">
+                <h2 id="delete-department-title" className="text-base font-semibold text-slate-950">
+                  Delete department
+                </h2>
+                <p className="mt-1 text-sm text-slate-600">
+                  This will remove "{deleteTarget.name}" from the department directory.
+                </p>
+              </div>
+            </div>
+
+            <div className="space-y-4 bg-slate-50 px-5 py-4">
+              <p className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+                Deletion is only allowed when no staff, beds, or appointments reference this department.
+              </p>
+
+              {deleteError && (
+                <div className="rounded-lg border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-900" role="alert">
+                  {deleteError}
+                </div>
+              )}
+
+              <div className="flex justify-end gap-2 border-t border-slate-200 pt-4">
+                <button
+                  type="button"
+                  onClick={closeDelete}
+                  disabled={saving}
+                  className="inline-flex h-10 items-center justify-center rounded-lg border border-slate-200 bg-white px-4 text-sm font-medium text-slate-700 transition hover:bg-slate-50 disabled:opacity-50"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={() => void handleDelete()}
+                  disabled={saving}
+                  className="inline-flex h-10 items-center justify-center gap-2 rounded-lg bg-rose-600 px-4 text-sm font-medium text-white transition hover:bg-rose-700 disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  <Trash2 className="size-4" aria-hidden />
+                  {saving ? "Deleting..." : "Delete department"}
+                </button>
+              </div>
+            </div>
           </section>
         </div>
       )}
