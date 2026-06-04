@@ -146,6 +146,10 @@ namespace HMS.Persistence.Migrations
 
                     b.HasIndex("ReleasedByUserId");
 
+                    b.HasIndex("BedId", "ReleasedAt");
+
+                    b.HasIndex("PatientProfileId", "ReleasedAt");
+
                     b.ToTable("BedAssignments", (string)null);
                 });
 
@@ -302,6 +306,8 @@ namespace HMS.Persistence.Migrations
 
                     b.HasIndex("StaffProfileId")
                         .IsUnique();
+
+                    b.HasIndex("IsActive", "StaffProfileId");
 
                     b.ToTable("DoctorProfiles");
                 });
@@ -541,6 +547,10 @@ namespace HMS.Persistence.Migrations
 
                     b.HasIndex("Status");
 
+                    b.HasIndex("Status", "CreatedAt");
+
+                    b.HasIndex("Status", "DueAt");
+
                     b.ToTable("NurseTasks", (string)null);
                 });
 
@@ -631,6 +641,8 @@ namespace HMS.Persistence.Migrations
 
                     b.HasKey("Id");
 
+                    b.HasIndex("CreatedAt");
+
                     b.HasIndex("PatientNumber")
                         .IsUnique();
 
@@ -638,6 +650,8 @@ namespace HMS.Persistence.Migrations
                         .IsUnique();
 
                     b.HasIndex("PrimaryDoctorId");
+
+                    b.HasIndex("PrimaryDoctorId", "CreatedAt");
 
                     b.ToTable("PatientProfiles");
                 });
@@ -707,6 +721,8 @@ namespace HMS.Persistence.Migrations
 
                     b.HasIndex("Status");
 
+                    b.HasIndex("Status", "PaidAt");
+
                     b.ToTable("Payments", (string)null);
                 });
 
@@ -738,20 +754,25 @@ namespace HMS.Persistence.Migrations
 
                     b.Property<string>("FirstName")
                         .IsRequired()
-                        .HasColumnType("nvarchar(max)");
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
 
                     b.Property<string>("Gender")
-                        .HasColumnType("nvarchar(max)");
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
 
                     b.Property<string>("LastName")
                         .IsRequired()
-                        .HasColumnType("nvarchar(max)");
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
 
                     b.Property<string>("PersonalNumber")
-                        .HasColumnType("nvarchar(max)");
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
 
                     b.Property<string>("Phone")
-                        .HasColumnType("nvarchar(max)");
+                        .HasMaxLength(30)
+                        .HasColumnType("nvarchar(30)");
 
                     b.Property<DateTime>("UpdatedAt")
                         .HasColumnType("datetime2");
@@ -764,11 +785,19 @@ namespace HMS.Persistence.Migrations
 
                     b.HasKey("Id");
 
+                    b.HasIndex("PersonalNumber");
+
+                    b.HasIndex("Phone");
+
                     b.HasIndex("UserId")
                         .IsUnique()
                         .HasFilter("[UserId] IS NOT NULL");
 
-                    b.ToTable("People");
+                    b.HasIndex("LastName", "FirstName");
+
+                    b.HasIndex("Gender", "LastName", "FirstName");
+
+                    b.ToTable("People", (string)null);
                 });
 
             modelBuilder.Entity("HMS.Domain.Entities.Specialization", b =>
@@ -1189,7 +1218,13 @@ namespace HMS.Persistence.Migrations
 
                     b.HasIndex("DoctorProfileId", "StartedAt");
 
+                    b.HasIndex("DoctorProfileId", "Status");
+
+                    b.HasIndex("PatientProfileId", "ClosedAt");
+
                     b.HasIndex("PatientProfileId", "StartedAt");
+
+                    b.HasIndex("Status", "StartedAt");
 
                     b.ToTable("Encounters", (string)null);
                 });
@@ -1312,6 +1347,12 @@ namespace HMS.Persistence.Migrations
 
                     b.HasIndex("Status");
 
+                    b.HasIndex("EncounterId", "RequestedAt");
+
+                    b.HasIndex("RequestedByDoctorId", "RequestedAt");
+
+                    b.HasIndex("Status", "RequestedAt");
+
                     b.ToTable("LabRequests", (string)null);
                 });
 
@@ -1357,6 +1398,8 @@ namespace HMS.Persistence.Migrations
                     b.HasIndex("LabTestId");
 
                     b.HasIndex("Status");
+
+                    b.HasIndex("Status", "CreatedAt");
 
                     b.ToTable("LabRequestItems", (string)null);
                 });

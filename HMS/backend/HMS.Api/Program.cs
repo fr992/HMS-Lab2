@@ -229,10 +229,21 @@ static void ConfigureSerilog(
         .Enrich.WithMachineName()
         .Enrich.WithThreadId()
         .WriteTo.Seq(seqUrl, restrictedToMinimumLevel: LogEventLevel.Verbose)
-        .WriteTo.MSSqlServer(
-            connectionString: sqlConnectionString,
-            sinkOptions: sqlSinkOptions,
-            restrictedToMinimumLevel: LogEventLevel.Warning);
+        .WriteTo.Logger(auditLogger => auditLogger
+            .Filter.ByIncludingOnly(ShouldPersistToAdminAuditLog)
+            .WriteTo.MSSqlServer(
+                connectionString: sqlConnectionString,
+                sinkOptions: sqlSinkOptions,
+                restrictedToMinimumLevel: LogEventLevel.Information));
+}
+
+static bool ShouldPersistToAdminAuditLog(LogEvent logEvent)
+{
+    if (logEvent.Level >= LogEventLevel.Error)
+        return true;
+
+    return logEvent.Properties.TryGetValue("PersistToAuditLog", out var value)
+        && value is ScalarValue { Value: true };
 }
 
 static string GetRequiredConfigurationValue(IConfiguration configuration, string key)

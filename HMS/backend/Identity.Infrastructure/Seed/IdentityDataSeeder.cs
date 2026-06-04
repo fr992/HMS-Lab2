@@ -228,7 +228,6 @@ public sealed class IdentityDataSeeder
 
         await EnsureSuperAdminAssignmentAsync(cancellationToken);
         await EnsureDefaultSettingsAsync(cancellationToken);
-        await EnsureSampleAuditLogsIfEmptyAsync(cancellationToken);
     }
 
     private async Task EnsureDefaultSettingsAsync(CancellationToken cancellationToken)
@@ -256,47 +255,6 @@ public sealed class IdentityDataSeeder
         }
 
         await _db.SaveChangesAsync(cancellationToken);
-    }
-
-    private async Task EnsureSampleAuditLogsIfEmptyAsync(CancellationToken cancellationToken)
-    {
-        if (await _db.AuditLogs.AnyAsync(cancellationToken))
-            return;
-
-        var now = DateTime.UtcNow;
-        var admin = await _db.Users.OrderBy(u => u.Id).FirstOrDefaultAsync(cancellationToken);
-
-        _db.AuditLogs.Add(new AuditLog
-        {
-            UserId = null,
-            Action = "Seed.Completed",
-            Entity = "Database",
-            EntityId = null,
-            OldValue = null,
-            NewValue = "Initial roles and permissions are ready.",
-            IpAddress = null,
-            CreatedAt = now,
-            UpdatedAt = now
-        });
-
-        if (admin is not null)
-        {
-            _db.AuditLogs.Add(new AuditLog
-            {
-                UserId = admin.Id,
-                Action = "User.Bootstrap",
-                Entity = "User",
-                EntityId = admin.Id,
-                OldValue = null,
-                NewValue = admin.UserName,
-                IpAddress = null,
-                CreatedAt = now,
-                UpdatedAt = now
-            });
-        }
-
-        await _db.SaveChangesAsync(cancellationToken);
-        _logger.LogInformation("Seeded sample audit log entries (table was empty).");
     }
 
     private async Task EnsureRolesAsync(CancellationToken cancellationToken)

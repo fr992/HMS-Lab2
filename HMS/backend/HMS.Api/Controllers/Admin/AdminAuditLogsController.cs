@@ -144,6 +144,10 @@ public sealed class AdminAuditLogsController : ControllerBase
             FROM {tableName}
             WHERE (@from IS NULL OR [TimeStamp] >= @from)
               AND (@to IS NULL OR [TimeStamp] <= @to)
+              AND (
+                  [Level] IN ('Error', 'Fatal')
+                  OR CONVERT(nvarchar(max), [Properties]) LIKE '%PersistToAuditLog%'
+              )
               AND (@level IS NULL OR [Level] = @level)
               AND (
                   @search IS NULL
@@ -182,6 +186,10 @@ public sealed class AdminAuditLogsController : ControllerBase
             FROM {tableName}
             WHERE (@from IS NULL OR [TimeStamp] >= @from)
               AND (@to IS NULL OR [TimeStamp] <= @to)
+              AND (
+                  [Level] IN ('Error', 'Fatal')
+                  OR CONVERT(nvarchar(max), [Properties]) LIKE '%PersistToAuditLog%'
+              )
               AND (@level IS NULL OR [Level] = @level)
               AND (
                   @search IS NULL
@@ -234,7 +242,8 @@ public sealed class AdminAuditLogsController : ControllerBase
             return null;
 
         var trimmed = level.Trim();
-        return trimmed.Equals("Fatal", StringComparison.OrdinalIgnoreCase) ||
+        return trimmed.Equals("Information", StringComparison.OrdinalIgnoreCase) ||
+               trimmed.Equals("Fatal", StringComparison.OrdinalIgnoreCase) ||
                trimmed.Equals("Error", StringComparison.OrdinalIgnoreCase) ||
                trimmed.Equals("Warning", StringComparison.OrdinalIgnoreCase)
             ? char.ToUpperInvariant(trimmed[0]) + trimmed[1..].ToLowerInvariant()

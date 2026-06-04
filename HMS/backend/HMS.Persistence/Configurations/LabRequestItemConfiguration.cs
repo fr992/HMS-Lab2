@@ -22,6 +22,7 @@ public sealed class LabRequestItemConfiguration : IEntityTypeConfiguration<LabRe
         builder.HasIndex(lri => lri.LabRequestId);
         builder.HasIndex(lri => lri.LabTestId);
         builder.HasIndex(lri => lri.Status);
+        builder.HasIndex(lri => new { lri.Status, lri.CreatedAt });
 
         builder.HasOne(lri => lri.LabRequest)
             .WithMany(lr => lr.Items)

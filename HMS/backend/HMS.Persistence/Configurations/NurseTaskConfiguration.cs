@@ -57,5 +57,7 @@ public sealed class NurseTaskConfiguration : IEntityTypeConfiguration<NurseTask>
         builder.HasIndex(x => x.AssignedToNurseId);
         builder.HasIndex(x => x.Status);
         builder.HasIndex(x => x.DueAt);
+        builder.HasIndex(x => new { x.Status, x.CreatedAt });
+        builder.HasIndex(x => new { x.Status, x.DueAt });
     }
 }

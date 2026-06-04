@@ -34,6 +34,9 @@ public sealed class LabRequestConfiguration : IEntityTypeConfiguration<LabReques
         builder.HasIndex(lr => lr.RequestedByDoctorId);
         builder.HasIndex(lr => lr.Status);
         builder.HasIndex(lr => lr.RequestedAt);
+        builder.HasIndex(lr => new { lr.Status, lr.RequestedAt });
+        builder.HasIndex(lr => new { lr.EncounterId, lr.RequestedAt });
+        builder.HasIndex(lr => new { lr.RequestedByDoctorId, lr.RequestedAt });
 
         builder.HasOne(lr => lr.Encounter)
             .WithMany(e => e.LabRequests)

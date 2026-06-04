@@ -63,5 +63,7 @@ public sealed class BedAssignmentConfiguration : IEntityTypeConfiguration<BedAss
         builder.HasIndex(x => x.EncounterId);
         builder.HasIndex(x => x.AssignedAt);
         builder.HasIndex(x => x.ReleasedAt);
+        builder.HasIndex(x => new { x.PatientProfileId, x.ReleasedAt });
+        builder.HasIndex(x => new { x.BedId, x.ReleasedAt });
     }
 }

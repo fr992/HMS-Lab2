@@ -16,8 +16,10 @@ public static class DependencyInjection
             ?? configuration.GetConnectionString("Default")
             ?? throw new InvalidOperationException("ConnectionStrings:HMS or ConnectionStrings:Default is required.");
 
-        services.AddDbContext<HmsDbContext>(options =>
-            options.UseSqlServer(sqlConnectionString));
+        services.AddDbContextPool<HmsDbContext>(options =>
+            options.UseSqlServer(
+                sqlConnectionString,
+                sqlOptions => sqlOptions.EnableRetryOnFailure()));
 
         var mongoDbSettings = GetRequiredMongoSettings(configuration);
 

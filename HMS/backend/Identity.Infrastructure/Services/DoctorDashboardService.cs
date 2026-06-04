@@ -112,15 +112,29 @@ public sealed class DoctorDashboardService : IDoctorDashboardService
             })
             .ToListAsync(cancellationToken);
 
-        var relatedPatientIdsQuery = _db.PatientProfiles
+        var recentPatientIds = await _db.PatientProfiles
             .Where(p => p.PrimaryDoctorId == doctor.Id)
-            .Select(p => p.Id)
-            .Concat(interactedPatientIds)
-            .Distinct();
+            .Select(p => new { PatientProfileId = p.Id, ActivityAt = p.CreatedAt })
+            .Concat(_db.Appointments
+                .Where(a => a.DoctorProfileId == doctor.Id)
+                .Select(a => new { a.PatientProfileId, ActivityAt = a.ScheduledStart }))
+            .Concat(_db.Encounters
+                .Where(e => e.DoctorProfileId == doctor.Id)
+                .Select(e => new { e.PatientProfileId, ActivityAt = e.StartedAt }))
+            .GroupBy(x => x.PatientProfileId)
+            .Select(group => new
+            {
+                PatientProfileId = group.Key,
+                LastActivityAt = group.Max(x => x.ActivityAt)
+            })
+            .OrderByDescending(x => x.LastActivityAt)
+            .Take(5)
+            .Select(x => x.PatientProfileId)
+            .ToListAsync(cancellationToken);
 
         var recentPatientBase = await _db.PatientProfiles
             .AsNoTracking()
-            .Where(p => relatedPatientIdsQuery.Contains(p.Id))
+            .Where(p => recentPatientIds.Contains(p.Id))
             .Select(p => new
             {
                 p.Id,
@@ -133,11 +147,9 @@ public sealed class DoctorDashboardService : IDoctorDashboardService
             })
             .ToListAsync(cancellationToken);
 
-        var relatedPatientIds = recentPatientBase.Select(p => p.Id).ToList();
-
         var latestAppointments = await _db.Appointments
             .AsNoTracking()
-            .Where(a => a.DoctorProfileId == doctor.Id && relatedPatientIds.Contains(a.PatientProfileId))
+            .Where(a => a.DoctorProfileId == doctor.Id && recentPatientIds.Contains(a.PatientProfileId))
             .GroupBy(a => a.PatientProfileId)
             .Select(g => g
                 .OrderByDescending(a => a.ScheduledStart)
@@ -153,7 +165,7 @@ public sealed class DoctorDashboardService : IDoctorDashboardService
 
         var latestEncounters = await _db.Encounters
             .AsNoTracking()
-            .Where(e => e.DoctorProfileId == doctor.Id && relatedPatientIds.Contains(e.PatientProfileId))
+            .Where(e => e.DoctorProfileId == doctor.Id && recentPatientIds.Contains(e.PatientProfileId))
             .GroupBy(e => e.PatientProfileId)
             .Select(g => g
                 .OrderByDescending(e => e.StartedAt)
@@ -275,8 +287,26 @@ public sealed class DoctorDashboardService : IDoctorDashboardService
             })
             .ToListAsync(cancellationToken);
 
+        var recentPatientIds = await _db.PatientProfiles
+            .Select(p => new { PatientProfileId = p.Id, ActivityAt = p.CreatedAt })
+            .Concat(_db.Appointments
+                .Select(a => new { a.PatientProfileId, ActivityAt = a.ScheduledStart }))
+            .Concat(_db.Encounters
+                .Select(e => new { e.PatientProfileId, ActivityAt = e.StartedAt }))
+            .GroupBy(x => x.PatientProfileId)
+            .Select(group => new
+            {
+                PatientProfileId = group.Key,
+                LastActivityAt = group.Max(x => x.ActivityAt)
+            })
+            .OrderByDescending(x => x.LastActivityAt)
+            .Take(5)
+            .Select(x => x.PatientProfileId)
+            .ToListAsync(cancellationToken);
+
         var recentPatientBase = await _db.PatientProfiles
             .AsNoTracking()
+            .Where(p => recentPatientIds.Contains(p.Id))
             .Select(p => new
             {
                 p.Id,
@@ -289,11 +319,9 @@ public sealed class DoctorDashboardService : IDoctorDashboardService
             })
             .ToListAsync(cancellationToken);
 
-        var patientIds = recentPatientBase.Select(p => p.Id).ToList();
-
         var latestAppointments = await _db.Appointments
             .AsNoTracking()
-            .Where(a => patientIds.Contains(a.PatientProfileId))
+            .Where(a => recentPatientIds.Contains(a.PatientProfileId))
             .GroupBy(a => a.PatientProfileId)
             .Select(g => g
                 .OrderByDescending(a => a.ScheduledStart)
@@ -309,7 +337,7 @@ public sealed class DoctorDashboardService : IDoctorDashboardService
 
         var latestEncounters = await _db.Encounters
             .AsNoTracking()
-            .Where(e => patientIds.Contains(e.PatientProfileId))
+            .Where(e => recentPatientIds.Contains(e.PatientProfileId))
             .GroupBy(e => e.PatientProfileId)
             .Select(g => g
                 .OrderByDescending(e => e.StartedAt)

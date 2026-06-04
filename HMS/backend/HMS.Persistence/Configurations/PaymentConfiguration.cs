@@ -43,5 +43,6 @@ public sealed class PaymentConfiguration : IEntityTypeConfiguration<Payment>
         builder.HasIndex(x => x.PaymentMethod);
         builder.HasIndex(x => x.PaidAt);
         builder.HasIndex(x => x.ReceivedByUserId);
+        builder.HasIndex(x => new { x.Status, x.PaidAt });
     }
 }

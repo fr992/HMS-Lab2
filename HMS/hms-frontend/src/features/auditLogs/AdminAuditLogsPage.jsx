@@ -17,12 +17,14 @@ import { getPagedItems, getPagination, PaginationBar } from "@/lib/pagination.js
 
 const LEVEL_OPTIONS = [
   { value: "all", label: "All audit levels" },
+  { value: "Information", label: "Information" },
   { value: "Warning", label: "Warning" },
   { value: "Error", label: "Error" },
   { value: "Fatal", label: "Fatal" },
 ];
 
 const LEVEL_STYLES = {
+  Information: "bg-sky-50 text-sky-800 ring-sky-200",
   Warning: "bg-amber-50 text-amber-800 ring-amber-200",
   Error: "bg-rose-50 text-rose-800 ring-rose-200",
   Fatal: "bg-fuchsia-50 text-fuchsia-800 ring-fuchsia-200",
@@ -128,7 +130,7 @@ export default function AdminAuditLogsPage() {
             Administration
           </p>
           <p className="mt-1.5 max-w-3xl text-sm text-slate-600">
-            Review Warning, Error, and Fatal events stored in SQL Server.
+            Review important audit events stored in SQL Server. Seq keeps the full application log stream.
           </p>
         </div>
 
@@ -386,7 +388,7 @@ function EmptyState() {
         <ShieldAlert className="mx-auto size-8 text-slate-300" aria-hidden />
         <p className="mt-3 text-sm font-medium text-slate-900">No audit logs found</p>
         <p className="mt-1 text-sm text-slate-500">
-          Adjust filters or trigger a Warning, Error, or Fatal event.
+          Adjust filters or trigger an important audit event.
         </p>
       </div>
     </div>

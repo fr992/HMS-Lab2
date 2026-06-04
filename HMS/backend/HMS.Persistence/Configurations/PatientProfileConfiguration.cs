@@ -9,6 +9,10 @@ public sealed class PatientProfileConfiguration : IEntityTypeConfiguration<Patie
     public void Configure(EntityTypeBuilder<PatientProfile> builder)
     {
         builder.HasIndex(p => p.PatientNumber).IsUnique();
+        builder.HasIndex(p => p.PersonId).IsUnique();
+        builder.HasIndex(p => p.PrimaryDoctorId);
+        builder.HasIndex(p => p.CreatedAt);
+        builder.HasIndex(p => new { p.PrimaryDoctorId, p.CreatedAt });
 
         builder.Property(p => p.PatientNumber)
             .IsRequired()

@@ -113,16 +113,31 @@ public sealed class DashboardController : ControllerBase
     {
         var months = LastMonths(6);
         var start = months[0].Start;
-        var encounters = await _db.Encounters.AsNoTracking()
+        var encounterGroups = await _db.Encounters.AsNoTracking()
             .Where(x => x.StartedAt >= start)
-            .Select(x => new { x.StartedAt, x.EncounterType })
+            .GroupBy(x => new
+            {
+                x.StartedAt.Year,
+                x.StartedAt.Month,
+                IsInpatient = x.EncounterType == "inpatient" || x.EncounterType == "admission"
+            })
+            .Select(group => new
+            {
+                group.Key.Year,
+                group.Key.Month,
+                group.Key.IsInpatient,
+                Count = group.Count()
+            })
             .ToListAsync(cancellationToken);
+        var encounterCounts = encounterGroups.ToDictionary(
+            x => (x.Year, x.Month, x.IsInpatient),
+            x => x.Count);
 
         return Ok(months.Select(month => new
         {
             month = month.Label,
-            inpatient = encounters.Count(x => IsInMonth(x.StartedAt, month.Start) && IsInpatient(x.EncounterType)),
-            outpatient = encounters.Count(x => IsInMonth(x.StartedAt, month.Start) && !IsInpatient(x.EncounterType))
+            inpatient = encounterCounts.GetValueOrDefault((month.Start.Year, month.Start.Month, true)),
+            outpatient = encounterCounts.GetValueOrDefault((month.Start.Year, month.Start.Month, false))
         }));
     }
 
@@ -132,17 +147,25 @@ public sealed class DashboardController : ControllerBase
     {
         var months = LastMonths(6);
         var start = months[0].Start;
-        var payments = await _db.Payments.AsNoTracking()
+        var paymentGroups = await _db.Payments.AsNoTracking()
             .Where(x => x.Status == PaymentStatus.Paid && x.PaidAt != null && x.PaidAt >= start)
-            .Select(x => new { PaidAt = x.PaidAt!.Value, x.Amount })
+            .GroupBy(x => new { x.PaidAt!.Value.Year, x.PaidAt!.Value.Month })
+            .Select(group => new
+            {
+                group.Key.Year,
+                group.Key.Month,
+                Amount = group.Sum(x => x.Amount)
+            })
             .ToListAsync(cancellationToken);
+        var revenueByMonth = paymentGroups.ToDictionary(
+            x => (x.Year, x.Month),
+            x => x.Amount);
 
         return Ok(months.Select(month => new
         {
             month = month.Label,
-            revenue = decimal.ToInt32(Math.Round(payments
-                .Where(x => IsInMonth(x.PaidAt, month.Start))
-                .Sum(x => x.Amount) / 1000m))
+            revenue = decimal.ToInt32(Math.Round(
+                revenueByMonth.GetValueOrDefault((month.Start.Year, month.Start.Month)) / 1000m))
         }));
     }
 
@@ -286,13 +309,6 @@ public sealed class DashboardController : ControllerBase
             .Select(date => (date, date.ToString("MMM")))
             .ToList();
     }
-
-    private static bool IsInMonth(DateTime value, DateTime month) =>
-        value >= month && value < month.AddMonths(1);
-
-    private static bool IsInpatient(string? type) =>
-        string.Equals(type, "inpatient", StringComparison.OrdinalIgnoreCase) ||
-        string.Equals(type, "admission", StringComparison.OrdinalIgnoreCase);
 
     private static int WardOccupancy(IEnumerable<BedOccupancyRow> beds, string ward)
     {

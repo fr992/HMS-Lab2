@@ -255,6 +255,7 @@ public sealed class AdminRolesController : ControllerBase
         return _logger.BeginScope(new Dictionary<string, object?>
         {
             ["Signal"] = LogSignals.IAM,
+            ["PersistToAuditLog"] = true,
             ["IamEvent"] = iamEvent,
             ["ActorUserId"] = CurrentUserId(),
             ["RoleId"] = roleId,

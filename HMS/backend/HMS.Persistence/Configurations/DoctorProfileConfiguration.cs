@@ -12,5 +12,10 @@ public class DoctorProfileConfiguration : IEntityTypeConfiguration<DoctorProfile
             .WithOne(s => s.DoctorProfile)
             .HasForeignKey<DoctorProfile>(d => d.StaffProfileId)
             .OnDelete(DeleteBehavior.NoAction);
+
+        builder.HasIndex(d => d.StaffProfileId)
+            .IsUnique();
+
+        builder.HasIndex(d => new { d.IsActive, d.StaffProfileId });
     }
 }
