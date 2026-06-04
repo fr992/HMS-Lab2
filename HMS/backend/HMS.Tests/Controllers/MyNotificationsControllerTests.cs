@@ -64,4 +64,24 @@ public sealed class MyNotificationsControllerTests
         Assert.IsType<NoContentResult>(result);
         _notificationService.Verify(service => service.ClearAllAsync(63, It.IsAny<CancellationToken>()), Times.Once);
     }
+
+    [Fact]
+    public async Task MarkAllAsRead_PassesCurrentUser()
+    {
+        var result = await _controller.MarkAllAsRead(CancellationToken.None);
+
+        Assert.IsType<NoContentResult>(result);
+        _notificationService.Verify(service => service.MarkAllAsReadAsync(63, It.IsAny<CancellationToken>()), Times.Once);
+    }
+
+    [Fact]
+    public async Task Clear_PassesNotificationIdAndCurrentUser()
+    {
+        var result = await _controller.Clear("notification-id", CancellationToken.None);
+
+        Assert.IsType<NoContentResult>(result);
+        _notificationService.Verify(
+            service => service.ClearAsync("notification-id", 63, It.IsAny<CancellationToken>()),
+            Times.Once);
+    }
 }
