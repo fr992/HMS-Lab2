@@ -283,8 +283,17 @@ export default function Sidebar() {
             </Section>
           )}
 
-        {isAdmin && (canReadMedications || canReadLabTests || canReadLabRequests || canReadInvoices || canReadPayments) && (
+        {isAdmin && (canReadMedications || canReadLabTests || canReadLabRequests || canReadInvoices || canReadPayments || isAdmin) && (
           <Section title="Operations" collapsed={collapsed}>
+            {isAdmin && (
+              <NavLink
+                to="/admin/departments"
+                icon={Building2}
+                label="Departments"
+                className={linkClass("/admin/departments")}
+                collapsed={collapsed}
+              />
+            )}
             {canReadMedications && (
               <NavLink
                 to="/medications"
@@ -539,15 +548,6 @@ export default function Sidebar() {
                 icon={UserRoundCog}
                 label="Staff"
                 className={linkClass("/admin/staff")}
-                collapsed={collapsed}
-              />
-            )}
-            {isAdmin && (
-              <NavLink
-                to="/admin/departments"
-                icon={Building2}
-                label="Departments"
-                className={linkClass("/admin/departments")}
                 collapsed={collapsed}
               />
             )}
