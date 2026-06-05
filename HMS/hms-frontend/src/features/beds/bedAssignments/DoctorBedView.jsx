@@ -73,6 +73,16 @@ function bedLocation(bed) {
     .join(" / ");
 }
 
+function bedRequestChangeNotes(bed, intent, reason) {
+  const location = bedLocation(bed) || "the current bed";
+  const base =
+    intent === "release"
+      ? `[Bed release request] Please review release for ${location}.`
+      : `[Bed change request] Please review reassignment from ${location}.`;
+  const trimmedReason = String(reason ?? "").trim();
+  return trimmedReason ? `${base}\nReason: ${trimmedReason}` : base;
+}
+
 function initialsFromName(value) {
   return (
     String(value ?? "")
@@ -96,6 +106,7 @@ export default function DoctorBedView() {
   const [pagination, setPagination] = useState(null);
   const [search, setSearch] = useState("");
   const [selectedBed, setSelectedBed] = useState(null);
+  const [requestDialog, setRequestDialog] = useState({ bed: null, intent: "change", reason: "" });
   const [requesting, setRequesting] = useState(false);
 
   const loadBeds = useCallback(async (page = 1, { append = false, refresh = false } = {}) => {
@@ -132,7 +143,17 @@ export default function DoctorBedView() {
     if (error) toast.error(error);
   }, [error]);
 
-  async function requestBedAction(bed, intent) {
+  function openRequestDialog(bed, intent) {
+    setRequestDialog({ bed, intent, reason: "" });
+  }
+
+  function closeRequestDialog() {
+    setRequestDialog({ bed: null, intent: "change", reason: "" });
+  }
+
+  async function requestBedAction(event) {
+    event.preventDefault();
+    const { bed, intent, reason } = requestDialog;
     if (!bed?.encounterId) {
       toast.error("This bed assignment is not linked to an encounter.");
       return;
@@ -143,13 +164,11 @@ export default function DoctorBedView() {
       await createBedAssignmentRequest(bed.encounterId, {
         priority: "routine",
         preferredWard: bed.ward || bed.departmentName || null,
-        notes:
-          intent === "release"
-            ? `[Bed release request] Please review release for ${bedLocation(bed)}.`
-            : `[Bed change request] Please review reassignment from ${bedLocation(bed)}.`,
+        notes: bedRequestChangeNotes(bed, intent, reason),
       });
       toast.success(intent === "release" ? "Bed release request sent." : "Bed change request sent.");
       setSelectedBed(null);
+      closeRequestDialog();
       await loadBeds(1, { refresh: true });
     } catch (e) {
       toast.error(getApiErrorMessage(e));
@@ -291,8 +310,20 @@ export default function DoctorBedView() {
         <BedDetailsModal
           bed={selectedBed}
           requesting={requesting}
-          onRequest={requestBedAction}
+          onRequest={openRequestDialog}
           onClose={() => setSelectedBed(null)}
+        />
+      )}
+
+      {requestDialog.bed && (
+        <BedChangeRequestDialog
+          bed={requestDialog.bed}
+          intent={requestDialog.intent}
+          reason={requestDialog.reason}
+          saving={requesting}
+          onReason={(reason) => setRequestDialog((current) => ({ ...current, reason }))}
+          onClose={closeRequestDialog}
+          onSubmit={requestBedAction}
         />
       )}
     </div>
@@ -396,7 +427,7 @@ function BedDetailsModal({ bed, requesting, onRequest, onClose }) {
 
   return (
     <div className="hms-modal-overlay" role="dialog" aria-modal="true">
-      <section className="hms-modal-panel max-w-2xl">
+      <section className="hms-modal-panel-scroll max-w-2xl">
         <div className="hms-modal-header">
           <div>
             <div className="flex flex-wrap items-center gap-2">
@@ -457,7 +488,7 @@ function BedDetailsModal({ bed, requesting, onRequest, onClose }) {
             </div>
           )}
 
-          <div className="flex flex-wrap justify-end gap-2 border-t border-slate-200 pt-4">
+          <div className="sticky bottom-0 -mx-6 -mb-5 flex flex-wrap justify-end gap-2 border-t border-slate-200 bg-white px-6 py-4">
             <button
               type="button"
               onClick={onClose}
@@ -487,6 +518,50 @@ function BedDetailsModal({ bed, requesting, onRequest, onClose }) {
             )}
           </div>
         </div>
+      </section>
+    </div>
+  );
+}
+
+function BedChangeRequestDialog({ bed, intent, reason, saving, onReason, onClose, onSubmit }) {
+  const release = intent === "release";
+  return (
+    <div className="hms-modal-overlay z-[60]" role="dialog" aria-modal="true">
+      <section className="hms-modal-panel max-w-xl">
+        <div className="hms-modal-header">
+          <div>
+            <h2 className="text-xl font-semibold text-slate-950">
+              {release ? "Request Bed Release" : "Request Bed Change"}
+            </h2>
+            <p className="mt-1.5 text-sm text-slate-600">
+              {bedLocation(bed) || "Current bed"}
+            </p>
+          </div>
+          <button type="button" onClick={onClose} className="hms-modal-close" aria-label="Close">
+            <X className="size-5" aria-hidden />
+          </button>
+        </div>
+        <form onSubmit={onSubmit} className="hms-modal-body">
+          <label className="block">
+            <span className="text-sm font-semibold text-slate-900">Reason</span>
+            <textarea
+              value={reason}
+              onChange={(event) => onReason(event.target.value)}
+              disabled={saving}
+              rows={5}
+              placeholder={release ? "Why should this bed be released?" : "Why does this patient need a bed change?"}
+              className="mt-2 w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 shadow-sm outline-none transition placeholder:text-slate-400 focus:border-sky-500 focus:ring-2 focus:ring-sky-500/20"
+            />
+          </label>
+          <div className="hms-modal-footer -mx-6 -mb-5">
+            <button type="button" onClick={onClose} disabled={saving} className="h-10 rounded-lg border border-slate-200 bg-white px-4 text-sm font-medium text-slate-700 transition hover:bg-slate-50 disabled:opacity-50">
+              Cancel
+            </button>
+            <button type="submit" disabled={saving} className="h-10 rounded-lg bg-sky-600 px-4 text-sm font-medium text-white transition hover:bg-sky-700 disabled:opacity-50">
+              {saving ? "Submitting..." : release ? "Send Release Request" : "Send Change Request"}
+            </button>
+          </div>
+        </form>
       </section>
     </div>
   );

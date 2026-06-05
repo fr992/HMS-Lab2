@@ -104,6 +104,26 @@ function formatDate(value) {
   return date.toLocaleString();
 }
 
+function bedLocation(bed) {
+  return [
+    bed?.departmentName || bed?.ward,
+    bed?.roomNumber ? `Room ${bed.roomNumber}` : null,
+    bed?.bedNumber ? `Bed ${bed.bedNumber}` : null,
+  ]
+    .filter(Boolean)
+    .join(" - ");
+}
+
+function bedRequestChangeNotes(bed, intent, reason) {
+  const location = bedLocation(bed) || "the current bed";
+  const base =
+    intent === "release"
+      ? `[Bed release request] Please review release for ${location}.`
+      : `[Bed change request] Please review reassignment from ${location}.`;
+  const trimmedReason = String(reason ?? "").trim();
+  return trimmedReason ? `${base}\nReason: ${trimmedReason}` : base;
+}
+
 function pageItems(items, page) {
   const totalPages = Math.max(1, Math.ceil(items.length / HISTORY_PAGE_SIZE));
   const safePage = Math.min(Math.max(page, 1), totalPages);
@@ -222,6 +242,7 @@ export default function EncounterPanelPage() {
   const [relatedError, setRelatedError] = useState("");
   const [nurseTaskForm, setNurseTaskForm] = useState(EMPTY_NURSE_TASK_FORM);
   const [bedRequestForm, setBedRequestForm] = useState(EMPTY_BED_REQUEST_FORM);
+  const [currentBedRequest, setCurrentBedRequest] = useState({ intent: "change", reason: "" });
   const [invoiceDialogOpen, setInvoiceDialogOpen] = useState(false);
 
   useEffect(() => {
@@ -519,6 +540,7 @@ export default function EncounterPanelPage() {
     setActionDialog(null);
     setNurseTaskForm(EMPTY_NURSE_TASK_FORM);
     setBedRequestForm(EMPTY_BED_REQUEST_FORM);
+    setCurrentBedRequest({ intent: "change", reason: "" });
     setPrescriptionForm(EMPTY_PRESCRIPTION_FORM);
     setMedicationSearch("");
     setLabRequestForm(EMPTY_LAB_REQUEST_FORM);
@@ -569,6 +591,34 @@ export default function EncounterPanelPage() {
         notes: bedRequestForm.notes.trim() || null,
       });
       showToast("Bed request submitted.");
+      closeActionDialog();
+      await loadPanel(encounterId);
+      await loadRelatedEncounterData();
+    } catch (err) {
+      showToast(getBedApiErrorMessage(err), "error");
+    } finally {
+      setActionSaving(false);
+    }
+  }
+
+  function openCurrentBedRequest(intent) {
+    setCurrentBedRequest({ intent, reason: "" });
+    setActionDialog("currentBedRequest");
+  }
+
+  async function handleCurrentBedRequest(event) {
+    event.preventDefault();
+    if (actionSaving || !currentBed) return;
+
+    const intent = currentBedRequest.intent || "change";
+    setActionSaving(true);
+    try {
+      await createBedAssignmentRequest(encounterId, {
+        priority: "routine",
+        preferredWard: currentBed.departmentName || currentBed.ward || null,
+        notes: bedRequestChangeNotes(currentBed, intent, currentBedRequest.reason),
+      });
+      showToast(intent === "release" ? "Bed release request submitted." : "Bed change request submitted.");
       closeActionDialog();
       await loadPanel(encounterId);
       await loadRelatedEncounterData();
@@ -661,8 +711,11 @@ export default function EncounterPanelPage() {
               loading={relatedLoading}
               error={relatedError}
               canRequest={canRequestBed && !currentBed && !pendingBedRequest}
+              canRequestChange={canRequestBed && Boolean(currentBed) && !pendingBedRequest}
+              actionSaving={actionSaving}
               requestPending={Boolean(pendingBedRequest)}
               onRequest={openBedRequestDialog}
+              onCurrentBedRequest={openCurrentBedRequest}
             />
           )}
           {canReadNurseTasks && (
@@ -882,6 +935,18 @@ export default function EncounterPanelPage() {
         />
       )}
 
+      {actionDialog === "currentBedRequest" && (
+        <CurrentBedRequestDialog
+          bed={currentBed}
+          intent={currentBedRequest.intent}
+          reason={currentBedRequest.reason}
+          saving={actionSaving}
+          onReason={(reason) => setCurrentBedRequest((current) => ({ ...current, reason }))}
+          onClose={closeActionDialog}
+          onSubmit={handleCurrentBedRequest}
+        />
+      )}
+
       {actionDialog === "prescription" && (
         <PrescriptionDialog
           form={prescriptionForm}
@@ -959,26 +1024,53 @@ function CurrentBedCard({
   loading,
   error,
   canRequest,
+  canRequestChange,
+  actionSaving,
   requestPending,
   onRequest,
+  onCurrentBedRequest,
 }) {
   const assignment = bed?.currentAssignment;
 
   return (
     <Card>
-      <CardHeader className="flex flex-row items-center justify-between gap-3">
+      <CardHeader className="flex flex-row flex-wrap items-center justify-between gap-3">
         <CardTitle>Current Bed Assignment</CardTitle>
-        {canRequest && (
-          <Button type="button" size="sm" variant="outline" onClick={onRequest}>
-            <Plus className="mr-2 h-4 w-4" aria-hidden />
-            Request Bed
-          </Button>
-        )}
-        {requestPending && (
-          <Button type="button" size="sm" variant="outline" disabled>
-            Bed Request Pending
-          </Button>
-        )}
+        <div className="flex flex-wrap justify-end gap-2">
+          {canRequest && (
+            <Button type="button" size="sm" variant="outline" onClick={onRequest}>
+              <Plus className="mr-2 h-4 w-4" aria-hidden />
+              Request Bed
+            </Button>
+          )}
+          {canRequestChange && (
+            <>
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                disabled={actionSaving}
+                onClick={() => onCurrentBedRequest("change")}
+              >
+                Request bed change
+              </Button>
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                disabled={actionSaving}
+                onClick={() => onCurrentBedRequest("release")}
+              >
+                Request release
+              </Button>
+            </>
+          )}
+          {requestPending && (
+            <Button type="button" size="sm" variant="outline" disabled>
+              Bed Request Pending
+            </Button>
+          )}
+        </div>
       </CardHeader>
       <CardContent>
         {loading ? (
@@ -1291,6 +1383,42 @@ function RequestBedDialog({
             >
               {saving ? "Submitting..." : "Submit Request"}
             </button>
+          </div>
+        </form>
+      </section>
+    </div>
+  );
+}
+
+function CurrentBedRequestDialog({ bed, intent, reason, saving, onReason, onClose, onSubmit }) {
+  const release = intent === "release";
+  return (
+    <div className="hms-modal-overlay" role="dialog" aria-modal="true">
+      <section className="hms-modal-panel max-w-xl">
+        <DialogHeader
+          icon={BedDouble}
+          title={release ? "Request Bed Release" : "Request Bed Change"}
+          subtitle={bedLocation(bed) || "Current bed assignment"}
+          onClose={onClose}
+        />
+        <form onSubmit={onSubmit} className="hms-modal-body">
+          <FormField label="Reason">
+            <Textarea
+              value={reason}
+              onChange={(event) => onReason(event.target.value)}
+              disabled={saving}
+              rows={5}
+              placeholder={release ? "Why should this bed be released?" : "Why does this patient need a bed change?"}
+              className="resize-none bg-white"
+            />
+          </FormField>
+          <div className="hms-modal-footer -mx-6 -mb-5">
+            <Button type="button" variant="outline" onClick={onClose} disabled={saving}>
+              Cancel
+            </Button>
+            <Button type="submit" disabled={saving}>
+              {saving ? "Submitting..." : release ? "Send Release Request" : "Send Change Request"}
+            </Button>
           </div>
         </form>
       </section>

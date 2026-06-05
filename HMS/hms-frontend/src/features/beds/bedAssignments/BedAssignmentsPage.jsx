@@ -135,6 +135,16 @@ function bedLocation(bed) {
     .join(" / ");
 }
 
+function bedRequestChangeNotes(bed, intent, reason) {
+  const location = bedLocation(bed) || "the current bed";
+  const base =
+    intent === "release"
+      ? `[Bed release request] Please review release for ${location}.`
+      : `[Bed change request] Please review reassignment from ${location}.`;
+  const trimmedReason = String(reason ?? "").trim();
+  return trimmedReason ? `${base}\nReason: ${trimmedReason}` : base;
+}
+
 function statusMeta(status) {
   const key = normalize(status);
   if (key === "available") {
@@ -243,6 +253,12 @@ function isBedChangeRequest(request) {
     .includes("[bed change request]");
 }
 
+function bedRequestTypeLabel(request) {
+  if (isBedReleaseRequest(request)) return "Bed release request";
+  if (isBedChangeRequest(request)) return "Bed change request";
+  return "Bed request";
+}
+
 function requestCreatorName(request) {
   return request?.createdByUserName || request?.requestedByDoctorName || "-";
 }
@@ -282,7 +298,6 @@ export default function BedAssignmentsPage({ readOnly = false, requestsOnly = fa
   const canAssignBedRequests = !readOnly && auth.hasPermission("BedAssignmentRequests.Assign");
   const canRejectBedRequests = !readOnly && auth.hasPermission("BedAssignmentRequests.Reject");
   const canRequestBedChange =
-    !readOnly &&
     (auth.hasPermission("BedAssignmentRequests.Create") ||
       isRequesterOnlyRole);
 
@@ -310,6 +325,7 @@ export default function BedAssignmentsPage({ readOnly = false, requestsOnly = fa
   const [patientSearch, setPatientSearch] = useState("");
   const [encounterSearch, setEncounterSearch] = useState("");
   const [releaseNotes, setReleaseNotes] = useState("");
+  const [bedChangeReason, setBedChangeReason] = useState("");
   const [rejectNotes, setRejectNotes] = useState("");
   const [requestSearch, setRequestSearch] = useState("");
   const [debouncedRequestSearch, setDebouncedRequestSearch] = useState("");
@@ -732,7 +748,15 @@ export default function BedAssignmentsPage({ readOnly = false, requestsOnly = fa
     setDialog({ type: "release", bed, assignment: bed.currentAssignment });
   }
 
-  async function handleRequestBedChange(bed, intent = "change") {
+  function openBedChangeRequest(bed, intent = "change") {
+    setBedChangeReason("");
+    setDialog({ type: "bedChangeRequest", bed, assignment: bed.currentAssignment, intent });
+  }
+
+  async function handleRequestBedChange(event) {
+    event.preventDefault();
+    const bed = dialog.bed;
+    const intent = dialog.intent || "change";
     const encounterId = bed?.currentAssignment?.encounterId;
     if (!encounterId) {
       showToast("This bed assignment is not linked to an encounter.", "error");
@@ -744,10 +768,7 @@ export default function BedAssignmentsPage({ readOnly = false, requestsOnly = fa
       await createBedAssignmentRequest(encounterId, {
         priority: "routine",
         preferredWard: bed?.ward || bed?.departmentName || null,
-        notes:
-          intent === "release"
-            ? `[Bed release request] Please review release for ${bedLocation(bed)}.`
-            : `[Bed change request] Please review reassignment from ${bedLocation(bed)}.`,
+        notes: bedRequestChangeNotes(bed, intent, bedChangeReason),
       });
       showToast(intent === "release" ? "Bed release request sent." : "Bed change request sent.");
       closeDialog();
@@ -766,6 +787,7 @@ export default function BedAssignmentsPage({ readOnly = false, requestsOnly = fa
     setPatientSearch("");
     setEncounterSearch("");
     setReleaseNotes("");
+    setBedChangeReason("");
     setRejectNotes("");
     setSelectedRequestId(null);
   }
@@ -1036,7 +1058,8 @@ export default function BedAssignmentsPage({ readOnly = false, requestsOnly = fa
       )}
 
       {canReadBedRequests && (
-        <section className="flex h-136 max-h-[calc(100vh-23rem)] min-h-120 flex-col overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm">
+        <section className="grid min-h-120 gap-4 lg:h-136 lg:max-h-[calc(100vh-23rem)] lg:grid-cols-[22rem_minmax(0,1fr)]">
+          <div className="flex min-h-120 flex-col overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm lg:min-h-0">
             <div className="border-b border-slate-200 p-4">
               <div className="flex items-start justify-between gap-3">
                 <div>
@@ -1102,6 +1125,21 @@ export default function BedAssignmentsPage({ readOnly = false, requestsOnly = fa
                 )}
               </div>
             )}
+          </div>
+
+          {selectedBedRequest ? (
+            <RequestDetailPanel
+              request={selectedBedRequest}
+              encounterHref={encounterRouteForRequest(selectedBedRequest, auth)}
+              canAssign={canAssignBedRequests}
+              canReject={canRejectBedRequests}
+              onAssign={openRequestAssign}
+              onReject={openRequestReject}
+              onClose={() => setSelectedRequestId(null)}
+            />
+          ) : (
+            <RequestDetailEmptyState />
+          )}
         </section>
       )}
 
@@ -1173,18 +1211,6 @@ export default function BedAssignmentsPage({ readOnly = false, requestsOnly = fa
         />
       )}
 
-      {selectedBedRequest && (
-        <RequestDetailDialog
-          request={selectedBedRequest}
-          encounterHref={encounterRouteForRequest(selectedBedRequest, auth)}
-          canAssign={canAssignBedRequests}
-          canReject={canRejectBedRequests}
-          onAssign={openRequestAssign}
-          onReject={openRequestReject}
-          onClose={() => setSelectedRequestId(null)}
-        />
-      )}
-
       {requestDialog.type === "assignRequest" && (
         <RequestAssignDialog
           request={requestDialog.request}
@@ -1227,11 +1253,24 @@ export default function BedAssignmentsPage({ readOnly = false, requestsOnly = fa
         <ViewDialog
           bed={dialog.bed}
           assignment={dialog.assignment}
+          saving={saving}
           canRelease={canRelease}
           canRequestBedChange={canRequestBedChange && !canAssign && !canRelease}
           onRelease={openRelease}
-          onRequestBedChange={handleRequestBedChange}
+          onRequestBedChange={openBedChangeRequest}
           onClose={closeDialog}
+        />
+      )}
+
+      {dialog.type === "bedChangeRequest" && (
+        <BedChangeRequestDialog
+          bed={dialog.bed}
+          intent={dialog.intent}
+          reason={bedChangeReason}
+          saving={saving}
+          onReason={setBedChangeReason}
+          onClose={closeDialog}
+          onSubmit={handleRequestBedChange}
         />
       )}
     </div>
@@ -1295,8 +1334,7 @@ function RequestFilterBar({
 function RequestQueueItem({ request, selected, onSelect }) {
   const currentBed = currentBedFromRequest(request);
   const urgent = ["urgent", "stat"].includes(normalize(request.priority));
-  const changeRequest = isBedChangeRequest(request);
-  const releaseRequest = isBedReleaseRequest(request);
+  const requestType = bedRequestTypeLabel(request);
   const selectedClass = selected
     ? "border-blue-300 bg-blue-50 shadow-sm ring-1 ring-blue-100"
     : urgent
@@ -1326,7 +1364,7 @@ function RequestQueueItem({ request, selected, onSelect }) {
         <div className="min-w-0">
           <p className="truncate text-xs text-slate-500">{formatDateTime(request.requestedAt)}</p>
           <p className="mt-1 truncate text-xs text-slate-500">
-            {changeRequest ? "Bed change" : releaseRequest ? "Bed release" : "Bed request"} · {currentBed || request.preferredWard || "Ward not set"}
+            {requestType} · {currentBed || request.preferredWard || "Ward not set"}
           </p>
         </div>
         <div className="flex items-center gap-2">
@@ -1340,27 +1378,30 @@ function RequestQueueItem({ request, selected, onSelect }) {
   );
 }
 
-function RequestDetailDialog({ request, encounterHref, canAssign, canReject, onAssign, onReject, onClose }) {
+function RequestDetailPanel({ request, encounterHref, canAssign, canReject, onAssign, onReject, onClose }) {
   const currentBed = currentBedFromRequest(request);
   const reason = requestReason(request);
   const pending = normalize(request.status) === "pending";
   const changeRequest = isBedChangeRequest(request);
   const releaseRequest = isBedReleaseRequest(request);
+  const requestType = bedRequestTypeLabel(request);
   const actionLabel = releaseRequest ? "Approve Release" : changeRequest ? "Approve & Change Bed" : "Assign Bed";
 
   return (
-    <div className="hms-modal-overlay-mobile" role="dialog" aria-modal="true">
-      <section className="hms-modal-panel-scroll max-w-4xl">
+    <section className="flex min-h-120 flex-col overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm lg:min-h-0">
         <div className="shrink-0 border-b border-slate-200 p-4 sm:p-5">
           <div className="flex items-start justify-between gap-4">
             <div className="min-w-0">
               <div className="flex flex-wrap items-center gap-2">
                 <h2 className="truncate text-xl font-semibold text-slate-950">{request.patientName || "Patient"}</h2>
-                <span className={`inline-flex rounded-full px-2.5 py-1 text-xs font-medium ring-1 ring-inset ${requestPriorityClasses(request.priority)}`}>
-                  {request.priority || "routine"}
-                </span>
-                <StatusBadge status={request.status} />
-              </div>
+              <span className={`inline-flex rounded-full px-2.5 py-1 text-xs font-medium ring-1 ring-inset ${requestPriorityClasses(request.priority)}`}>
+                {request.priority || "routine"}
+              </span>
+              <span className="inline-flex rounded-full bg-slate-100 px-2.5 py-1 text-xs font-medium text-slate-700 ring-1 ring-inset ring-slate-200">
+                {requestType}
+              </span>
+              <StatusBadge status={request.status} />
+            </div>
               <p className="mt-1 text-sm text-slate-500">
                 {[request.patientNumber, request.encounterNumber || `Encounter #${request.encounterId}`].filter(Boolean).join(" - ")}
               </p>
@@ -1372,7 +1413,7 @@ function RequestDetailDialog({ request, encounterHref, canAssign, canReject, onA
         </div>
 
         <div className="scrollbar-none min-h-0 flex-1 overflow-y-auto bg-slate-50 p-4 sm:p-5">
-          <div className="grid gap-4 lg:grid-cols-2">
+          <div className="grid gap-4 xl:grid-cols-2">
             <section className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
               <h3 className="text-sm font-semibold text-slate-950">Patient Info</h3>
               <div className="mt-3 grid gap-3 sm:grid-cols-2">
@@ -1380,6 +1421,7 @@ function RequestDetailDialog({ request, encounterHref, canAssign, canReject, onA
                 <InfoLine label="Encounter" value={request.encounterNumber || request.encounterId || "-"} />
                 <InfoLine label="Requested by" value={requestCreatorName(request)} />
                 <InfoLine label="Requested date" value={formatDateTime(request.requestedAt)} />
+                <InfoLine label="Request type" value={requestType} />
                 <InfoLine label="Preferred ward" value={request.preferredWard || "-"} />
                 <InfoLine label="Current bed" value={currentBed || "-"} />
               </div>
@@ -1425,8 +1467,21 @@ function RequestDetailDialog({ request, encounterHref, canAssign, canReject, onA
             </button>
           )}
         </div>
-      </section>
-    </div>
+    </section>
+  );
+}
+
+function RequestDetailEmptyState() {
+  return (
+    <section className="flex min-h-120 items-center justify-center rounded-lg border border-dashed border-slate-200 bg-white p-8 text-center shadow-sm lg:min-h-0">
+      <div>
+        <Eye className="mx-auto size-10 text-slate-300" aria-hidden />
+        <p className="mt-3 text-sm font-semibold text-slate-950">Select a request</p>
+        <p className="mt-1 max-w-sm text-sm text-slate-500">
+          Open a bed request from the queue to review patient details and take action.
+        </p>
+      </div>
+    </section>
   );
 }
 
@@ -2042,6 +2097,7 @@ function RequestAssignDialog({
   const currentBed = currentBedFromRequest(request);
   const reason = requestReason(request);
   const isChangeRequest = isBedChangeRequest(request);
+  const requestType = bedRequestTypeLabel(request);
   const bedsByRoom = useMemo(() => {
     const sourceBeds = availableBeds;
     const groups = new Map();
@@ -2103,6 +2159,7 @@ function RequestAssignDialog({
                       ["Patient", request?.patientName || "-"],
                       ["Patient Number", request?.patientNumber || "-"],
                       ["Encounter", request?.encounterNumber || request?.encounterId || "-"],
+                      ["Request type", requestType],
                       ["Current room/bed", currentBed || "-"],
                       ["Preferred ward", request?.preferredWard || "-"],
                       ["Requesting user", requestCreatorName(request)],
@@ -2350,9 +2407,54 @@ function ReleaseDialog({ bed, assignment, saving, releaseNotes, onReleaseNotes, 
   );
 }
 
+function BedChangeRequestDialog({ bed, intent, reason, saving, onReason, onClose, onSubmit }) {
+  const release = intent === "release";
+  return (
+    <div className="hms-modal-overlay" role="dialog" aria-modal="true">
+      <section className="hms-modal-panel max-w-xl">
+        <div className="hms-modal-header">
+          <div>
+            <h2 className="text-xl font-semibold text-slate-950">
+              {release ? "Request Bed Release" : "Request Bed Change"}
+            </h2>
+            <p className="mt-1.5 text-sm text-slate-600">
+              {bedLocation(bed) || "Current bed"}
+            </p>
+          </div>
+          <button type="button" onClick={onClose} className="hms-modal-close" aria-label="Close">
+            <X className="size-5" aria-hidden />
+          </button>
+        </div>
+        <form onSubmit={onSubmit} className="hms-modal-body">
+          <label className="block">
+            <span className="text-sm font-semibold text-slate-900">Reason</span>
+            <textarea
+              value={reason}
+              onChange={(event) => onReason(event.target.value)}
+              disabled={saving}
+              rows={5}
+              placeholder={release ? "Why should this bed be released?" : "Why does this patient need a bed change?"}
+              className="mt-2 w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 shadow-sm outline-none transition placeholder:text-slate-400 focus:border-sky-500 focus:ring-2 focus:ring-sky-500/20"
+            />
+          </label>
+          <div className="hms-modal-footer -mx-6 -mb-5">
+            <button type="button" onClick={onClose} disabled={saving} className="h-10 rounded-lg border border-slate-200 bg-white px-4 text-sm font-medium text-slate-700 transition hover:bg-slate-50 disabled:opacity-50">
+              Cancel
+            </button>
+            <button type="submit" disabled={saving} className="h-10 rounded-lg bg-sky-600 px-4 text-sm font-medium text-white transition hover:bg-sky-700 disabled:opacity-50">
+              {saving ? "Submitting..." : release ? "Send Release Request" : "Send Change Request"}
+            </button>
+          </div>
+        </form>
+      </section>
+    </div>
+  );
+}
+
 function ViewDialog({
   bed,
   assignment,
+  saving,
   canRelease,
   canRequestBedChange,
   onRelease,
@@ -2360,10 +2462,11 @@ function ViewDialog({
   onClose,
 }) {
   const meta = statusMeta(bed?.status);
-  const activeAssignment = assignment && !assignment.releasedAt && normalize(bed?.status) === "occupied";
+  const currentAssignment = assignment || bed?.currentAssignment || null;
+  const activeAssignment = currentAssignment && !currentAssignment.releasedAt && normalize(bed?.status) === "occupied";
   return (
     <div className="hms-modal-overlay" role="dialog" aria-modal="true">
-      <section className="hms-modal-panel max-w-4xl">
+      <section className="hms-modal-panel-scroll max-w-4xl">
         <div className="hms-modal-header">
           <div>
             <div className="flex flex-wrap items-center gap-2">
@@ -2380,22 +2483,23 @@ function ViewDialog({
             <X className="size-5" aria-hidden />
           </button>
         </div>
-        <div className="grid gap-4 bg-slate-50 px-6 py-5 lg:grid-cols-[1.15fr_0.85fr]">
+        <div className="min-h-0 flex-1 overflow-y-auto bg-slate-50 px-6 py-5">
+        <div className="grid gap-4 lg:grid-cols-[1.15fr_0.85fr]">
           <div className="space-y-4">
             <div className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
               <div className="flex items-start gap-3">
                 <div className="flex size-12 shrink-0 items-center justify-center rounded-full bg-blue-50 text-sm font-semibold text-blue-700">
-                  {initialsFromName(assignment?.patientName)}
+                  {initialsFromName(currentAssignment?.patientName)}
                 </div>
                 <div className="min-w-0 flex-1">
                   <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Patient</p>
                   <h3 className="mt-1 truncate text-base font-semibold text-slate-950">
-                    {assignment?.patientName || "Unassigned"}
+                    {currentAssignment?.patientName || "Unassigned"}
                   </h3>
                   <div className="mt-2 grid gap-2 text-sm sm:grid-cols-2">
-                    <InfoLine label="Patient number" value={assignment?.patientNumber || "-"} />
-                    <InfoLine label="Encounter" value={assignment?.encounterNumber || assignment?.encounterId || "-"} />
-                    <InfoLine label="Assignment status" value={assignment ? (assignment.releasedAt ? "Released" : "Active") : "Unassigned"} />
+                    <InfoLine label="Patient number" value={currentAssignment?.patientNumber || "-"} />
+                    <InfoLine label="Encounter" value={currentAssignment?.encounterNumber || currentAssignment?.encounterId || "-"} />
+                    <InfoLine label="Assignment status" value={currentAssignment ? (currentAssignment.releasedAt ? "Released" : "Active") : "Unassigned"} />
                   </div>
                 </div>
               </div>
@@ -2404,10 +2508,10 @@ function ViewDialog({
             <div className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
               <h3 className="mb-3 text-sm font-semibold text-slate-950">Assignment timeline</h3>
               <div className="grid gap-3 sm:grid-cols-2">
-                <InfoLine label="Assigned date" value={formatDateTime(assignment?.assignedAt)} />
-                <InfoLine label="Assigned by" value={userDisplayName(assignment?.assignedByUserName, assignment?.assignedByUserId)} />
-                <InfoLine label="Released date" value={formatDateTime(assignment?.releasedAt)} />
-                <InfoLine label="Released by" value={userDisplayName(assignment?.releasedByUserName, assignment?.releasedByUserId)} />
+                <InfoLine label="Assigned date" value={formatDateTime(currentAssignment?.assignedAt)} />
+                <InfoLine label="Assigned by" value={userDisplayName(currentAssignment?.assignedByUserName, currentAssignment?.assignedByUserId)} />
+                <InfoLine label="Released date" value={formatDateTime(currentAssignment?.releasedAt)} />
+                <InfoLine label="Released by" value={userDisplayName(currentAssignment?.releasedByUserName, currentAssignment?.releasedByUserId)} />
               </div>
             </div>
           </div>
@@ -2423,16 +2527,18 @@ function ViewDialog({
               </div>
             </div>
 
-          {(assignment?.notes || assignment?.releaseNotes || bed?.notes) && (
+          {(currentAssignment?.notes || currentAssignment?.releaseNotes || bed?.notes) && (
             <div className="rounded-lg border border-slate-200 bg-white p-4 text-sm text-slate-700 shadow-sm">
               <h3 className="mb-2 text-sm font-semibold text-slate-950">Notes</h3>
-              {assignment?.notes && <p>{assignment.notes}</p>}
-              {assignment?.releaseNotes && <p className="mt-2">{assignment.releaseNotes}</p>}
+              {currentAssignment?.notes && <p>{currentAssignment.notes}</p>}
+              {currentAssignment?.releaseNotes && <p className="mt-2">{currentAssignment.releaseNotes}</p>}
               {bed?.notes && <p className="mt-2">{bed.notes}</p>}
             </div>
           )}
           </div>
-          <div className="flex justify-end gap-2 border-t border-slate-200 pt-4 lg:col-span-2">
+        </div>
+        </div>
+          <div className="flex shrink-0 flex-wrap justify-end gap-2 border-t border-slate-200 bg-white px-6 py-4">
             <button type="button" onClick={onClose} className="h-10 rounded-lg border border-slate-200 bg-white px-4 text-sm font-medium text-slate-700 transition hover:bg-slate-50">
               Close
             </button>
@@ -2440,6 +2546,7 @@ function ViewDialog({
               <button
                 type="button"
                 onClick={() => onRelease(bed)}
+                disabled={saving}
                 className="h-10 rounded-lg bg-sky-600 px-4 text-sm font-medium text-white transition hover:bg-sky-700"
               >
                 Release bed
@@ -2450,21 +2557,22 @@ function ViewDialog({
                 <button
                   type="button"
                   onClick={() => onRequestBedChange(bed, "change")}
-                  className="h-10 rounded-lg border border-sky-200 bg-white px-4 text-sm font-medium text-sky-700 transition hover:bg-sky-50"
+                  disabled={saving}
+                  className="h-10 rounded-lg border border-sky-200 bg-white px-4 text-sm font-medium text-sky-700 transition hover:bg-sky-50 disabled:opacity-60"
                 >
                   Request bed change
                 </button>
                 <button
                   type="button"
                   onClick={() => onRequestBedChange(bed, "release")}
-                  className="h-10 rounded-lg bg-sky-600 px-4 text-sm font-medium text-white transition hover:bg-sky-700"
+                  disabled={saving}
+                  className="h-10 rounded-lg bg-sky-600 px-4 text-sm font-medium text-white transition hover:bg-sky-700 disabled:opacity-60"
                 >
                   Request release
                 </button>
               </>
             )}
           </div>
-        </div>
       </section>
     </div>
   );
