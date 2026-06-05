@@ -3,6 +3,8 @@ using HMS.Contracts.Identity;
 using HMS.Domain.Entities;
 using HMS.Tests.TestSupport;
 using Identity.Domain.Entities;
+using Microsoft.AspNetCore.Hosting;
+using Moq;
 
 namespace HMS.Tests.Controllers;
 
@@ -78,6 +80,29 @@ public sealed class PublicControllersTests
         Assert.Equal(1, stats.Departments);
         Assert.Equal(1, stats.Specialties);
         Assert.Equal(1, stats.Appointments);
+    }
+
+    [Fact]
+    public async Task PublicSettings_ReturnsOnlyAllowlistedPublicSettings()
+    {
+        await using var db = HmsDbContextTestFactory.Create();
+        db.Settings.AddRange(
+            new Setting { Key = "hospital.name", Value = "Care Center", UpdatedAt = DateTime.UtcNow },
+            new Setting { Key = "landing.heroTitle", Value = "Care that listens.", UpdatedAt = DateTime.UtcNow },
+            new Setting { Key = "system.maintenanceMode", Value = "true", UpdatedAt = DateTime.UtcNow },
+            new Setting { Key = "security.sessionTimeoutMinutes", Value = "15", UpdatedAt = DateTime.UtcNow });
+        await db.SaveChangesAsync();
+        var environment = new Mock<IWebHostEnvironment>();
+        environment.SetupGet(item => item.ContentRootPath).Returns(AppContext.BaseDirectory);
+        var controller = new PublicSettingsController(db, environment.Object);
+
+        var result = await controller.Get(CancellationToken.None);
+
+        var settings = ControllerTestHelper.AssertOkValue(result);
+        Assert.Equal("Care Center", settings["hospital.name"]);
+        Assert.Equal("Care that listens.", settings["landing.heroTitle"]);
+        Assert.DoesNotContain("system.maintenanceMode", settings.Keys);
+        Assert.DoesNotContain("security.sessionTimeoutMinutes", settings.Keys);
     }
 
     private static DoctorProfile CreateDoctor(

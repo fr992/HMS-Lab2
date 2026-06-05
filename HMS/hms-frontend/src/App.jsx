@@ -1,4 +1,5 @@
 import { BrowserRouter, Route, Routes } from "react-router-dom";
+import { useEffect } from "react";
 import LoginPage from "@/pages/auth/LoginPage";
 import AdminLayout from "@/layouts/AdminLayout";
 import MainLayout from "@/layouts/MainLayout";
@@ -47,11 +48,17 @@ import BedManagement from "@/features/beds/bedManagement/BedManagement";
 import ProfilePage from "@/features/profile/ProfilePage";
 import StaffOverviewPage from "@/features/staffOverview/OverviewPage";
 import DepartmentsPage from "@/features/departments/DepartmentsPage";
+import {
+  getPublicSetting,
+  getShortHospitalName,
+  usePublicSettings,
+} from "@/features/landing/publicSettings";
 
 
 export default function App() {
   return (
     <AuthProvider>
+      <BrandingDocumentSync />
       <BrowserRouter>
         <Routes>
           <Route element={<MainLayout />}>
@@ -475,4 +482,34 @@ export default function App() {
       </BrowserRouter>
     </AuthProvider>
   );
+}
+
+function BrandingDocumentSync() {
+  const { settings } = usePublicSettings();
+  const shortHospitalName = getShortHospitalName(settings);
+  const logoUrl = getPublicSetting(settings, "hospital.logoUrl");
+
+  useEffect(() => {
+    document.title = `${shortHospitalName} — Hospital Management`;
+  }, [shortHospitalName]);
+
+  useEffect(() => {
+    updateIconLink("icon", logoUrl);
+    updateIconLink("apple-touch-icon", logoUrl);
+  }, [logoUrl]);
+
+  return null;
+}
+
+function updateIconLink(rel, href) {
+  if (!href) return;
+
+  let link = document.querySelector(`link[rel="${rel}"]`);
+  if (!link) {
+    link = document.createElement("link");
+    link.rel = rel;
+    document.head.appendChild(link);
+  }
+
+  link.href = href;
 }

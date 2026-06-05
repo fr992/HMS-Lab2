@@ -1,5 +1,6 @@
 import { ClipboardCheck, HeartHandshake, ShieldCheck, Workflow } from "lucide-react";
 import { DIRECTORS } from "@/features/landing/landingData";
+import { getPublicSetting, usePublicSettings } from "@/features/landing/publicSettings";
 
 const ACCENT_STYLES = {
   sky: {
@@ -27,6 +28,9 @@ const ACCENT_STYLES = {
 const CARD_ICONS = [ShieldCheck, Workflow, ClipboardCheck, HeartHandshake];
 
 export default function DirectorsSection() {
+  const { settings } = usePublicSettings();
+  const aboutText = getPublicSetting(settings, "landing.aboutText");
+
   return (
     <section id="leadership" className="bg-white py-20 sm:py-24">
       <div className="mx-auto grid max-w-7xl gap-10 px-6 lg:grid-cols-[0.85fr_1.4fr] lg:px-8">
@@ -36,8 +40,7 @@ export default function DirectorsSection() {
             Clinical leadership with a clear operating rhythm.
           </h2>
           <p className="mt-4 max-w-md text-sm leading-7 text-cyan-800/75">
-            Senior clinicians, nursing leads, and front-desk operations work from
-            the same care record so every handoff has context.
+            {aboutText}
           </p>
           <div className="mt-8 grid max-w-md gap-3 sm:grid-cols-2">
             <Signal label="Live registry data" value="Patient counts" />

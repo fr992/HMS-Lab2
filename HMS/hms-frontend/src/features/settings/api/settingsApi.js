@@ -47,3 +47,15 @@ export async function updateSetting(id, body) {
   const { data } = await api.put(`/admin/settings/${id}`, payload);
   return data;
 }
+
+export async function uploadLogoSetting(file) {
+  const formData = new FormData();
+  formData.append("file", file);
+
+  const { data } = await api.post("/admin/settings/logo", formData, {
+    headers: {
+      "Content-Type": "multipart/form-data",
+    },
+  });
+  return data;
+}

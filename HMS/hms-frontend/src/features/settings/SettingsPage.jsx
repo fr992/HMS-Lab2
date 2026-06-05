@@ -1,9 +1,12 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import {
   Bell,
   Building2,
   CalendarDays,
   CreditCard,
+  ImagePlus,
+  Globe2,
   RefreshCw,
   Save,
   Search,
@@ -16,6 +19,7 @@ import {
   fetchSettingsUntilKeys,
   getApiErrorMessage,
   updateSetting,
+  uploadLogoSetting,
 } from "@/features/settings/api/settingsApi";
 import { getPagedItems } from "@/lib/pagination.jsx";
 
@@ -25,7 +29,28 @@ const SETTING_SECTIONS = [
     title: "General",
     subtitle: "Manage hospital-wide configuration",
     icon: Building2,
-    keys: ["hospital.name", "hospital.email", "hospital.phone", "hospital.address"],
+    keys: [
+      "hospital.name",
+      "hospital.logoUrl",
+      "hospital.email",
+      "hospital.phone",
+      "hospital.address",
+      "hospital.emergencyPhone",
+      "hospital.workingHours",
+    ],
+  },
+  {
+    id: "website",
+    title: "Website Content",
+    subtitle: "Manage public landing page copy",
+    icon: Globe2,
+    keys: [
+      "landing.heroTitle",
+      "landing.heroSubtitle",
+      "landing.aboutText",
+      "landing.emergencyContactText",
+      "landing.footerText",
+    ],
   },
   {
     id: "notifications",
@@ -75,20 +100,63 @@ const SETTING_META = {
     description: "Shown across the portal and public-facing pages.",
     type: "text",
   },
+  "hospital.logoUrl": {
+    label: "Hospital logo URL",
+    description: "Logo shown on public pages and supported print views.",
+    type: "image",
+  },
   "hospital.email": {
     label: "Hospital email",
     description: "Primary address used for hospital communication.",
     type: "text",
+    inputType: "email",
   },
   "hospital.phone": {
     label: "Hospital phone",
     description: "Primary hospital contact phone number.",
     type: "text",
+    inputType: "tel",
   },
   "hospital.address": {
     label: "Hospital address",
     description: "Primary hospital address.",
     type: "textarea",
+  },
+  "hospital.emergencyPhone": {
+    label: "Emergency phone",
+    description: "Public emergency contact phone number.",
+    type: "text",
+    inputType: "tel",
+  },
+  "hospital.workingHours": {
+    label: "Working hours",
+    description: "Public working hours summary.",
+    type: "textarea",
+  },
+  "landing.heroTitle": {
+    label: "Hero title",
+    description: "Main headline on the public landing page.",
+    type: "textarea",
+  },
+  "landing.heroSubtitle": {
+    label: "Hero description",
+    description: "Supporting copy under the public landing page headline.",
+    type: "textarea",
+  },
+  "landing.aboutText": {
+    label: "About text",
+    description: "Copy shown in the public website services section.",
+    type: "textarea",
+  },
+  "landing.emergencyContactText": {
+    label: "Emergency contact text",
+    description: "Short label shown beside the emergency number.",
+    type: "text",
+  },
+  "landing.footerText": {
+    label: "Footer text",
+    description: "Small public website footer notice.",
+    type: "text",
   },
   "notifications.emailEnabled": {
     label: "Email notifications",
@@ -168,10 +236,12 @@ function isDirty(setting, draftValues) {
 }
 
 export default function SettingsPage() {
+  const queryClient = useQueryClient();
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [uploadingLogo, setUploadingLogo] = useState(false);
   const [error, setError] = useState("");
   const [search, setSearch] = useState("");
   const [draftValues, setDraftValues] = useState({});
@@ -306,10 +376,43 @@ export default function SettingsPage() {
           ? "Setting saved."
           : `${dirtySettings.length} settings saved.`
       );
+      await queryClient.invalidateQueries({ queryKey: ["public-settings"] });
     } catch (err) {
       showToast(getApiErrorMessage(err), "error");
     } finally {
       setSaving(false);
+    }
+  }
+
+  async function uploadLogo(file) {
+    if (!file || uploadingLogo) return;
+
+    if (!file.type.startsWith("image/")) {
+      showToast("Choose an image file for the logo.", "error");
+      return;
+    }
+
+    setUploadingLogo(true);
+    try {
+      const updatedSetting = await uploadLogoSetting(file);
+      setItems((previous) =>
+        previous.map((item) =>
+          item.key === updatedSetting.key || item.id === updatedSetting.id
+            ? updatedSetting
+            : item
+        )
+      );
+      setDraftValues((previous) => {
+        const next = { ...previous };
+        delete next[updatedSetting.key];
+        return next;
+      });
+      await queryClient.invalidateQueries({ queryKey: ["public-settings"] });
+      showToast("Logo uploaded.");
+    } catch (err) {
+      showToast(getApiErrorMessage(err), "error");
+    } finally {
+      setUploadingLogo(false);
     }
   }
 
@@ -385,7 +488,9 @@ export default function SettingsPage() {
                   section={section}
                   draftValues={draftValues}
                   saving={saving}
+                  uploadingLogo={uploadingLogo}
                   onChange={updateDraft}
+                  onUploadLogo={uploadLogo}
                 />
               ) : (
                 <SettingsSectionCard
@@ -393,7 +498,9 @@ export default function SettingsPage() {
                   section={section}
                   draftValues={draftValues}
                   saving={saving}
+                  uploadingLogo={uploadingLogo}
                   onChange={updateDraft}
+                  onUploadLogo={uploadLogo}
                 />
               )
             ))}
@@ -442,14 +549,11 @@ function HospitalInformationCard({
   section,
   draftValues,
   saving,
+  uploadingLogo,
   onChange,
+  onUploadLogo,
 }) {
   const Icon = section.icon;
-  const settingsByKey = new Map(section.settings.map((setting) => [setting.key, setting]));
-  const name = settingsByKey.get("hospital.name");
-  const phone = settingsByKey.get("hospital.phone");
-  const email = settingsByKey.get("hospital.email");
-  const address = settingsByKey.get("hospital.address");
 
   return (
     <section className="rounded-lg border border-slate-200 bg-white shadow-sm xl:col-span-2">
@@ -474,39 +578,17 @@ function HospitalInformationCard({
 
       <div className="p-4">
         <div className="grid gap-4 md:grid-cols-2">
-          {name && (
+          {section.settings.map((setting) => (
             <HospitalFormField
-              setting={name}
+              key={setting.key}
+              setting={setting}
               draftValues={draftValues}
-              disabled={saving}
+              disabled={saving || uploadingLogo}
               onChange={onChange}
+              onUploadLogo={onUploadLogo}
+              className={SETTING_META[setting.key]?.type === "textarea" ? "md:col-span-2" : ""}
             />
-          )}
-          {phone && (
-            <HospitalFormField
-              setting={phone}
-              draftValues={draftValues}
-              disabled={saving}
-              onChange={onChange}
-            />
-          )}
-          {email && (
-            <HospitalFormField
-              setting={email}
-              draftValues={draftValues}
-              disabled={saving}
-              onChange={onChange}
-            />
-          )}
-          {address && (
-            <HospitalFormField
-              setting={address}
-              draftValues={draftValues}
-              disabled={saving}
-              onChange={onChange}
-              className="md:col-span-2"
-            />
-          )}
+          ))}
         </div>
       </div>
     </section>
@@ -518,6 +600,7 @@ function HospitalFormField({
   draftValues,
   disabled,
   onChange,
+  onUploadLogo,
   className = "",
 }) {
   const meta = SETTING_META[setting.key] ?? {
@@ -537,6 +620,7 @@ function HospitalFormField({
         value={controlValue(setting, draftValues)}
         disabled={disabled}
         onChange={onChange}
+        onUploadLogo={onUploadLogo}
         variant="form"
       />
     </label>
@@ -547,7 +631,9 @@ function SettingsSectionCard({
   section,
   draftValues,
   saving,
+  uploadingLogo,
   onChange,
+  onUploadLogo,
 }) {
   const Icon = section.icon;
 
@@ -576,8 +662,9 @@ function SettingsSectionCard({
             key={setting.key}
             setting={setting}
             draftValues={draftValues}
-            disabled={saving}
+            disabled={saving || uploadingLogo}
             onChange={onChange}
+            onUploadLogo={onUploadLogo}
           />
         ))}
       </div>
@@ -590,6 +677,7 @@ function SettingControlRow({
   draftValues,
   disabled,
   onChange,
+  onUploadLogo,
 }) {
   const meta = SETTING_META[setting.key] ?? {
     label: setting.key,
@@ -614,14 +702,67 @@ function SettingControlRow({
           value={value}
           disabled={disabled}
           onChange={onChange}
+          onUploadLogo={onUploadLogo}
         />
       </div>
     </div>
   );
 }
 
-function SettingInput({ setting, meta, value, disabled, onChange, variant = "row" }) {
+function SettingInput({ setting, meta, value, disabled, onChange, onUploadLogo, variant = "row" }) {
   const isForm = variant === "form";
+
+  if (meta.type === "image") {
+    const inputId = `setting-file-${setting.key.replaceAll(".", "-")}`;
+    const handleFiles = (files) => {
+      const file = files?.[0];
+      if (file) void onUploadLogo?.(file);
+    };
+
+    return (
+      <div className="w-full min-w-0">
+        <label
+          htmlFor={inputId}
+          onDragOver={(event) => event.preventDefault()}
+          onDrop={(event) => {
+            event.preventDefault();
+            if (!disabled) handleFiles(event.dataTransfer.files);
+          }}
+          className={[
+            "flex min-h-28 cursor-pointer items-center gap-4 rounded-xl border border-dashed border-slate-300 bg-slate-50/70 p-4 text-sm transition hover:border-sky-300 hover:bg-sky-50/60",
+            disabled ? "pointer-events-none opacity-60" : "",
+            isForm ? "" : "lg:w-80",
+          ].join(" ")}
+        >
+          <span className="flex size-14 shrink-0 items-center justify-center overflow-hidden rounded-lg bg-white ring-1 ring-slate-200">
+            {value ? (
+              <img src={value} alt="" className="size-full object-contain" />
+            ) : (
+              <ImagePlus className="size-5 text-slate-400" aria-hidden />
+            )}
+          </span>
+          <span className="min-w-0">
+            <span className="block font-semibold text-slate-900">Upload logo</span>
+            <span className="mt-1 block text-slate-500">Drop an image here or choose a file.</span>
+            <span className="mt-2 block truncate text-xs font-medium text-slate-400">
+              PNG, JPG, WebP, or GIF up to 2 MB
+            </span>
+          </span>
+        </label>
+        <input
+          id={inputId}
+          type="file"
+          accept="image/png,image/jpeg,image/webp,image/gif"
+          disabled={disabled}
+          className="sr-only"
+          onChange={(event) => {
+            handleFiles(event.target.files);
+            event.target.value = "";
+          }}
+        />
+      </div>
+    );
+  }
 
   if (meta.type === "boolean") {
     const checked = normalizeBoolean(value);
@@ -703,7 +844,7 @@ function SettingInput({ setting, meta, value, disabled, onChange, variant = "row
 
   return (
     <input
-      type="text"
+      type={meta.inputType ?? "text"}
       value={value}
       disabled={disabled}
       onChange={(event) => onChange(setting.key, event.target.value)}
