@@ -19,6 +19,7 @@ import {
 } from "@/features/landing/api/appointmentRequestApi";
 import DoctorSearchSelect from "@/features/patients/components/DoctorSearchSelect";
 import { appointmentRequestSchema } from "@/features/landing/schemas/appointmentRequestSchema";
+import { getPublicSetting, usePublicSettings } from "@/features/landing/publicSettings";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -47,7 +48,11 @@ const dateInputClass =
 
 export default function AppointmentForm() {
   const { submitted, setSubmitted, reset: resetSubmitted } = useAppointmentStore();
+  const { settings } = usePublicSettings();
   const [selectedDoctor, setSelectedDoctor] = useState(null);
+  const workingHours = getPublicSetting(settings, "hospital.workingHours");
+  const emergencyText = getPublicSetting(settings, "landing.emergencyContactText");
+  const emergencyPhone = getPublicSetting(settings, "hospital.emergencyPhone");
   const form = useForm({
     resolver: zodResolver(appointmentRequestSchema),
     defaultValues,
@@ -85,8 +90,8 @@ export default function AppointmentForm() {
 
           <div className="mt-8 grid max-w-md gap-3">
             <ContactSignal icon={CalendarCheck} title="Appointment review" text="Requests are checked by the reception workflow." />
-            <ContactSignal icon={Clock3} title="Business-day response" text="The team follows up after reviewing your details." />
-            <ContactSignal icon={Phone} title="Direct confirmation" text="You receive the final time by phone or email." />
+            <ContactSignal icon={Clock3} title="Working hours" text={workingHours} />
+            <ContactSignal icon={Phone} title={emergencyText} text={emergencyPhone} />
           </div>
         </div>
 

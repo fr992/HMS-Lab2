@@ -14,7 +14,7 @@ import {
   FALLBACK_LANDING_STATS,
 } from "@/features/landing/landingData";
 import { fetchLandingStats } from "@/features/landing/api/landingStatsApi";
-import { HOSPITAL_FULL_NAME } from "@/config/branding";
+import { getPublicSetting, usePublicSettings } from "@/features/landing/publicSettings";
 
 const numberFormatter = new Intl.NumberFormat("en-US");
 
@@ -104,7 +104,10 @@ export default function HeroSection() {
     queryFn: fetchLandingStats,
     staleTime: 5 * 60 * 1000,
   });
+  const { settings } = usePublicSettings();
   const stats = normalizeStats(data);
+  const heroTitle = getPublicSetting(settings, "landing.heroTitle");
+  const heroSubtitle = getPublicSetting(settings, "landing.heroSubtitle");
 
   return (
     <section id="home" className="bg-[#f7fbfd]">
@@ -116,14 +119,11 @@ export default function HeroSection() {
           </div>
 
           <h1 className="mt-8 max-w-3xl text-5xl font-semibold leading-[1.05] text-cyan-950 sm:text-6xl">
-            Premium care,{" "}
-            <span className="text-blue-600">close to home.</span>
+            {heroTitle}
           </h1>
 
           <p className="mt-6 max-w-2xl text-base leading-8 text-cyan-800/75 sm:text-lg">
-            {HOSPITAL_FULL_NAME} brings together specialist care, connected diagnostics,
-            and coordinated teams so every patient journey feels clear from the
-            first visit.
+            {heroSubtitle}
           </p>
 
           <div className="mt-9 flex flex-wrap gap-3">

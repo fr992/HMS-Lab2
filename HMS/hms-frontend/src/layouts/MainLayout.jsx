@@ -1,7 +1,11 @@
 import { Link, Outlet } from "react-router-dom";
-import { BriefcaseMedical, Clock3, LogIn, MapPin, Phone } from "lucide-react";
+import { BriefcaseMedical, Clock3, LogIn, Mail, MapPin, Phone } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { HOSPITAL_FULL_NAME, HOSPITAL_LOGO_PATH, HOSPITAL_NAME } from "@/config/branding";
+import {
+  getPublicSetting,
+  getShortHospitalName,
+  usePublicSettings,
+} from "@/features/landing/publicSettings";
 
 const NAV_LINKS = [
   { href: "#leadership", label: "Services" },
@@ -11,16 +15,26 @@ const NAV_LINKS = [
 ];
 
 export default function MainLayout() {
+  const { settings } = usePublicSettings();
+  const hospitalName = getPublicSetting(settings, "hospital.name");
+  const shortHospitalName = getShortHospitalName(settings);
+  const logoUrl = getPublicSetting(settings, "hospital.logoUrl");
+  const address = getPublicSetting(settings, "hospital.address");
+  const email = getPublicSetting(settings, "hospital.email");
+  const phone = getPublicSetting(settings, "hospital.phone");
+  const workingHours = getPublicSetting(settings, "hospital.workingHours");
+  const footerText = getPublicSetting(settings, "landing.footerText");
+
   return (
     <div className="min-h-screen bg-white text-cyan-950">
       <header className="sticky top-0 z-45 border-b border-cyan-100 bg-white/90 backdrop-blur-xl">
         <div className="mx-auto flex max-w-7xl flex-wrap items-center gap-3 px-6 py-4 lg:px-8">
           <a href="#home" className="flex items-center gap-3">
             <span className="inline-flex size-9 items-center justify-center overflow-hidden rounded-md bg-white shadow-sm shadow-blue-700/20 ring-1 ring-cyan-100">
-              <img src={HOSPITAL_LOGO_PATH} alt="" className="size-8 object-contain" />
+              <img src={logoUrl} alt="" className="size-8 object-contain" />
             </span>
             <span className="flex flex-col leading-none">
-              <span className="text-sm font-semibold text-cyan-950">{HOSPITAL_NAME}</span>
+              <span className="text-sm font-semibold text-cyan-950">{shortHospitalName}</span>
               <span className="mt-1 text-xs font-medium text-cyan-700">Hospital</span>
             </span>
           </a>
@@ -62,23 +76,27 @@ export default function MainLayout() {
               <BriefcaseMedical className="size-4" />
             </span>
             <div>
-              <p className="font-semibold text-cyan-950">{HOSPITAL_FULL_NAME}</p>
-              <p className="mt-0.5 text-xs text-cyan-700/70">Copyright 2026. All rights reserved.</p>
+              <p className="font-semibold text-cyan-950">{hospitalName}</p>
+              <p className="mt-0.5 text-xs text-cyan-700/70">{footerText}</p>
             </div>
           </div>
 
           <div className="flex flex-wrap items-center gap-x-5 gap-y-2 text-xs font-medium text-cyan-700/80">
             <span className="inline-flex items-center gap-1.5">
               <MapPin className="size-3.5 text-blue-600" />
-              {HOSPITAL_NAME} Campus
+              {address}
             </span>
             <span className="inline-flex items-center gap-1.5">
               <Clock3 className="size-3.5 text-blue-600" />
-              24/7 Emergency Care
+              {workingHours}
             </span>
             <span className="inline-flex items-center gap-1.5">
               <Phone className="size-3.5 text-blue-600" />
-              +383 44 123 456
+              {phone}
+            </span>
+            <span className="inline-flex items-center gap-1.5">
+              <Mail className="size-3.5 text-blue-600" />
+              {email}
             </span>
           </div>
 

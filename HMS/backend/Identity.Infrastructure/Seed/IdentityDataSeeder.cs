@@ -185,9 +185,17 @@ public sealed class IdentityDataSeeder
     private static readonly (string Key, string Value, string Description)[] DefaultSettings =
     [
         ("hospital.name", "Nexora Hospital", "Primary hospital display name."),
+        ("hospital.logoUrl", "/nexora-logo.png", "Public hospital logo URL."),
         ("hospital.email", "contact@nexora.local", "Public contact email for hospital communications."),
         ("hospital.phone", "+1 (555) 123-4567", "Primary hospital contact phone number."),
         ("hospital.address", "123 Medical Avenue, Healthcare City", "Primary hospital address."),
+        ("hospital.emergencyPhone", "+1 (555) 911-0000", "Public emergency contact phone number."),
+        ("hospital.workingHours", "Open 24/7 for emergency care. Clinics: Mon-Fri, 8:00 AM - 6:00 PM.", "Public working hours summary."),
+        ("landing.heroTitle", "Premium care, close to home.", "Primary public website hero title."),
+        ("landing.heroSubtitle", "Nexora Hospital brings together specialist care, connected diagnostics, and coordinated teams so every patient journey feels clear from the first visit.", "Primary public website hero description."),
+        ("landing.aboutText", "Senior clinicians, nursing leads, and front-desk operations work from the same care record so every handoff has context.", "Public website about section text."),
+        ("landing.emergencyContactText", "24/7 Emergency Care", "Public emergency contact label."),
+        ("landing.footerText", "Copyright 2026. All rights reserved.", "Public website footer text."),
         ("notifications.emailEnabled", "true", "Enables outbound email notifications."),
         ("notifications.smsEnabled", "false", "Enables outbound SMS notifications."),
         ("notifications.systemAlertsEnabled", "true", "Enables administrative system alert notifications."),
