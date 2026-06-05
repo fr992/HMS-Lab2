@@ -2,30 +2,36 @@ using HMS.Application.Abstractions.Identity;
 using HMS.Application.Exceptions;
 using HMS.Contracts.Identity;
 using HMS.Domain.Entities;
-using HMS.Persistence;
+using Identity.Domain.Entities;
+using HMS.Application.Abstractions.Persistence;
 using Microsoft.EntityFrameworkCore;
 
 namespace Identity.Infrastructure.Services;
 
 public sealed class PatientContactService : IPatientContactService
 {
-    private readonly HmsDbContext _db;
+    private readonly IHmsRepository _db;
 
-    public PatientContactService(HmsDbContext db)
+    private readonly IUnitOfWork _unitOfWork;
+
+    public PatientContactService(IHmsRepository db,
+        IUnitOfWork unitOfWork)
     {
         _db = db;
+
+        _unitOfWork = unitOfWork;
     }
 
     public async Task<IReadOnlyList<PatientContactDto>?> GetByPatientIdAsync(
         int patientProfileId,
         CancellationToken cancellationToken = default)
     {
-        if (!await _db.PatientProfiles
+        if (!await _db.Query<PatientProfile>()
                 .AsNoTracking()
                 .AnyAsync(p => p.Id == patientProfileId, cancellationToken))
             return null;
 
-        return await _db.PatientContacts
+        return await _db.Query<PatientContact>()
             .AsNoTracking()
             .Where(c => c.PatientProfileId == patientProfileId)
             .OrderBy(c => c.Id)
@@ -45,7 +51,7 @@ public sealed class PatientContactService : IPatientContactService
         IReadOnlyList<PatientContactDto> contacts,
         CancellationToken cancellationToken = default)
     {
-        var patient = await _db.PatientProfiles
+        var patient = await _db.Query<PatientProfile>()
             .Include(p => p.Contacts)
             .FirstOrDefaultAsync(p => p.Id == patientProfileId, cancellationToken);
 
@@ -55,7 +61,7 @@ public sealed class PatientContactService : IPatientContactService
         if (contacts.Count(c => c.IsPrimary) > 1)
             throw new ConflictException("Only one primary contact is allowed.");
 
-        _db.PatientContacts.RemoveRange(patient.Contacts);
+        _db.RemoveRange<PatientContact>(patient.Contacts);
 
         var newContacts = contacts.Select(c => new PatientContact
         {
@@ -67,7 +73,7 @@ public sealed class PatientContactService : IPatientContactService
             IsPrimary = c.IsPrimary
         });
 
-        await _db.PatientContacts.AddRangeAsync(newContacts, cancellationToken);
-        await _db.SaveChangesAsync(cancellationToken);
+        await _db.AddRangeAsync<PatientContact>(newContacts, cancellationToken);
+        await _unitOfWork.SaveChangesAsync(cancellationToken);
     }
 }

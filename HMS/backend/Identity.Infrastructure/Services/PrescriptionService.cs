@@ -1,7 +1,7 @@
-﻿using HMS.Application.Abstractions.Identity;
+using HMS.Application.Abstractions.Identity;
 using HMS.Contracts.Identity;
 using HMS.Application.Exceptions;
-using HMS.Persistence;
+using HMS.Application.Abstractions.Persistence;
 using HMS.Domain.Entities;
 using Microsoft.EntityFrameworkCore;
 using Identity.Domain.Entities;
@@ -10,11 +10,16 @@ namespace Identity.Infrastructure.Services.Patients;
 
 public sealed class PrescriptionService : IPrescriptionService
 {
-    private readonly HmsDbContext _db;
+    private readonly IHmsRepository _db;
 
-    public PrescriptionService(HmsDbContext db)
+    private readonly IUnitOfWork _unitOfWork;
+
+    public PrescriptionService(IHmsRepository db,
+        IUnitOfWork unitOfWork)
     {
         _db = db;
+
+        _unitOfWork = unitOfWork;
     }
 
     public async Task<PrescriptionDto> CreateAsync(
@@ -25,7 +30,7 @@ public sealed class PrescriptionService : IPrescriptionService
         if (request.Items.Count == 0)
             throw new BadRequestException("Prescription must contain at least one item.");
 
-        var encounter = await _db.Encounters
+        var encounter = await _db.Query<Encounter>()
             .AsNoTracking()
             .FirstOrDefaultAsync(e => e.Id == request.EncounterId, cancellationToken);
 
@@ -35,7 +40,7 @@ public sealed class PrescriptionService : IPrescriptionService
         if (encounter.Status != EncounterStatus.Open)
             throw new ConflictException("Prescription can only be created for an open encounter.");
 
-        var doctorExists = await _db.DoctorProfiles
+        var doctorExists = await _db.Query<DoctorProfile>()
             .AnyAsync(d => d.Id == request.PrescribedByDoctorId, cancellationToken);
 
         if (!doctorExists)
@@ -49,7 +54,7 @@ public sealed class PrescriptionService : IPrescriptionService
              .Distinct()
              .ToList();
 
-         var existingMedicationIds = await _db.Medications
+         var existingMedicationIds = await _db.Query<Medication>()
              .Where(m => medicationIds.Contains(m.Id))
              .Select(m => m.Id)
              .ToListAsync(cancellationToken);
@@ -110,8 +115,8 @@ public sealed class PrescriptionService : IPrescriptionService
             }).ToList()
         };
 
-        _db.Prescriptions.Add(prescription);
-        await _db.SaveChangesAsync(cancellationToken);
+        _db.Add<Prescription>(prescription);
+        await _unitOfWork.SaveChangesAsync(cancellationToken);
 
         return await GetByIdAsync(prescription.Id, cancellationToken)
             ?? throw new Exception("Prescription was created but could not be loaded.");
@@ -121,7 +126,7 @@ public sealed class PrescriptionService : IPrescriptionService
         int id,
         CancellationToken cancellationToken)
     {
-        return await _db.Prescriptions
+        return await _db.Query<Prescription>()
             .AsNoTracking()
             .Include(p => p.PrescribedByDoctor)
                 .ThenInclude(d => d.StaffProfile)
@@ -162,7 +167,7 @@ public sealed class PrescriptionService : IPrescriptionService
         int? doctorProfileId,
         CancellationToken cancellationToken)
     {
-        var query = _db.Prescriptions
+        var query = _db.Query<Prescription>()
             .AsNoTracking()
             .Include(p => p.Encounter)
             .Include(p => p.PrescribedByDoctor)
@@ -216,7 +221,7 @@ public sealed class PrescriptionService : IPrescriptionService
         int? actorUserId,
         CancellationToken cancellationToken)
     {
-        var prescription = await _db.Prescriptions
+        var prescription = await _db.Query<Prescription>()
             .FirstOrDefaultAsync(p => p.Id == id, cancellationToken);
 
         if (prescription == null)
@@ -235,7 +240,7 @@ public sealed class PrescriptionService : IPrescriptionService
         prescription.UpdatedAt = DateTime.UtcNow;
         prescription.UpdatedById = actorUserId;
 
-        await _db.SaveChangesAsync(cancellationToken);
+        await _unitOfWork.SaveChangesAsync(cancellationToken);
 
         return await GetByIdAsync(prescription.Id, cancellationToken)
             ?? throw new Exception("Prescription was updated but could not be loaded.");

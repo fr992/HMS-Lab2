@@ -2,7 +2,8 @@ using HMS.Application.Abstractions.Identity;
 using HMS.Application.Exceptions;
 using HMS.Contracts.Identity;
 using HMS.Domain.Entities;
-using HMS.Persistence;
+using Identity.Domain.Entities;
+using HMS.Application.Abstractions.Persistence;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Data.SqlClient;
@@ -15,16 +16,22 @@ public sealed class StripeService : IStripeService
 {
     private const string OnlinePaymentMethod = "online";
 
-    private readonly HmsDbContext _db;
+    private readonly IHmsRepository _db;
+
+
+    private readonly IUnitOfWork _unitOfWork;
     private readonly IConfiguration _configuration;
     private readonly IPaymentService _paymentService;
 
     public StripeService(
-        HmsDbContext db,
+        IHmsRepository db,
+        IUnitOfWork unitOfWork,
         IConfiguration configuration,
         IPaymentService paymentService)
     {
         _db = db;
+
+        _unitOfWork = unitOfWork;
         _configuration = configuration;
         _paymentService = paymentService;
 
@@ -70,7 +77,7 @@ public sealed class StripeService : IStripeService
         if (invoiceId <= 0)
             throw new BadRequestException("Invoice is required.");
 
-        var invoice = await _db.Invoices
+        var invoice = await _db.Query<HMS.Domain.Entities.Invoice>()
             .AsNoTracking()
             .Where(x => x.Id == invoiceId)
             .Select(x => new
@@ -94,7 +101,7 @@ public sealed class StripeService : IStripeService
         if (invoice.Status == InvoiceStatus.Cancelled)
             throw new ConflictException("Cancelled invoices cannot be paid online.");
 
-        var paidAmount = await _db.Payments
+        var paidAmount = await _db.Query<Payment>()
             .AsNoTracking()
             .Where(x => x.InvoiceId == invoice.Id && x.Status == PaymentStatus.Paid)
             .SumAsync(x => x.Amount, cancellationToken);
@@ -103,7 +110,7 @@ public sealed class StripeService : IStripeService
         if (remainingAmount <= 0)
             throw new ConflictException("Invoice is already paid.");
 
-        var payment = await _db.Payments
+        var payment = await _db.Query<Payment>()
             .Where(x =>
                 x.InvoiceId == invoice.Id &&
                 x.Status == PaymentStatus.Pending &&
@@ -125,7 +132,7 @@ public sealed class StripeService : IStripeService
                 CreatedById = patientUserId,
                 UpdatedById = patientUserId
             };
-            _db.Payments.Add(payment);
+            _db.Add<Payment>(payment);
             await SaveStripePaymentChangesAsync(cancellationToken);
         }
         else if (payment.Amount != remainingAmount)
@@ -193,7 +200,7 @@ public sealed class StripeService : IStripeService
         int paymentId,
         CancellationToken cancellationToken)
     {
-        var payment = await _db.Payments
+        var payment = await _db.Query<Payment>()
             .Include(x => x.Invoice)
             .FirstOrDefaultAsync(x => x.Id == paymentId, cancellationToken);
 
@@ -281,8 +288,8 @@ public sealed class StripeService : IStripeService
 
         var paymentId = TryGetPaymentId(session);
         var payment = paymentId.HasValue
-            ? await _db.Payments.FirstOrDefaultAsync(x => x.Id == paymentId.Value, cancellationToken)
-            : await _db.Payments.FirstOrDefaultAsync(x => x.StripeSessionId == session.Id, cancellationToken);
+            ? await _db.Query<Payment>().FirstOrDefaultAsync(x => x.Id == paymentId.Value, cancellationToken)
+            : await _db.Query<Payment>().FirstOrDefaultAsync(x => x.StripeSessionId == session.Id, cancellationToken);
 
         if (payment is null)
             return null;
@@ -319,7 +326,7 @@ public sealed class StripeService : IStripeService
     {
         try
         {
-            await _db.SaveChangesAsync(cancellationToken);
+            await _unitOfWork.SaveChangesAsync(cancellationToken);
         }
         catch (DbUpdateException exception) when (IsMissingStripeColumn(exception))
         {

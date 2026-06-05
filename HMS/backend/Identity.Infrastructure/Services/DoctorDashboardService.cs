@@ -1,7 +1,8 @@
 using HMS.Application.Abstractions.Identity;
 using HMS.Application.Exceptions;
 using HMS.Contracts.Identity;
-using HMS.Persistence;
+using HMS.Domain.Entities;
+using HMS.Application.Abstractions.Persistence;
 using Identity.Domain.Entities;
 using Microsoft.EntityFrameworkCore;
 
@@ -9,11 +10,16 @@ namespace Identity.Infrastructure.Services;
 
 public sealed class DoctorDashboardService : IDoctorDashboardService
 {
-    private readonly HmsDbContext _db;
+    private readonly IHmsRepository _db;
 
-    public DoctorDashboardService(HmsDbContext db)
+    private readonly IUnitOfWork _unitOfWork;
+
+    public DoctorDashboardService(IHmsRepository db,
+        IUnitOfWork unitOfWork)
     {
         _db = db;
+
+        _unitOfWork = unitOfWork;
     }
 
     public async Task<DoctorDashboardDto> GetForCurrentDoctorAsync(
@@ -24,7 +30,7 @@ public sealed class DoctorDashboardService : IDoctorDashboardService
         if (IsAdmin(actorRoles))
             return await GetForAdminAsync(cancellationToken);
 
-        var doctor = await _db.DoctorProfiles
+        var doctor = await _db.Query<DoctorProfile>()
             .AsNoTracking()
             .Where(d => d.IsActive && d.StaffProfile.Person.UserId == currentUserId)
             .Select(d => new
@@ -41,27 +47,27 @@ public sealed class DoctorDashboardService : IDoctorDashboardService
         var today = now.Date;
         var tomorrow = today.AddDays(1);
 
-        var interactedPatientIds = _db.Appointments
+        var interactedPatientIds = _db.Query<Appointment>()
             .Where(a => a.DoctorProfileId == doctor.Id)
             .Select(a => a.PatientProfileId)
             .Concat(
-                _db.Encounters
+                _db.Query<Encounter>()
                     .Where(e => e.DoctorProfileId == doctor.Id)
                     .Select(e => e.PatientProfileId)
             )
             .Distinct();
 
-        var primaryPatientsCount = await _db.PatientProfiles
+        var primaryPatientsCount = await _db.Query<PatientProfile>()
             .AsNoTracking()
             .CountAsync(p => p.PrimaryDoctorId == doctor.Id, cancellationToken);
 
-        var interactedPatientsCount = await _db.PatientProfiles
+        var interactedPatientsCount = await _db.Query<PatientProfile>()
             .AsNoTracking()
             .CountAsync(
                 p => interactedPatientIds.Contains(p.Id) && p.PrimaryDoctorId != doctor.Id,
                 cancellationToken);
 
-        var todayAppointmentsCount = await _db.Appointments
+        var todayAppointmentsCount = await _db.Query<Appointment>()
             .AsNoTracking()
             .CountAsync(
                 a => a.DoctorProfileId == doctor.Id
@@ -69,7 +75,7 @@ public sealed class DoctorDashboardService : IDoctorDashboardService
                     && a.ScheduledStart < tomorrow,
                 cancellationToken);
 
-        var upcomingAppointmentsCount = await _db.Appointments
+        var upcomingAppointmentsCount = await _db.Query<Appointment>()
             .AsNoTracking()
             .CountAsync(
                 a => a.DoctorProfileId == doctor.Id
@@ -79,21 +85,21 @@ public sealed class DoctorDashboardService : IDoctorDashboardService
                     && a.Status != AppointmentStatus.NoShow,
                 cancellationToken);
 
-        var openEncountersCount = await _db.Encounters
+        var openEncountersCount = await _db.Query<Encounter>()
             .AsNoTracking()
             .CountAsync(
                 e => e.DoctorProfileId == doctor.Id
                     && e.Status == EncounterStatus.Open,
                 cancellationToken);
 
-        var completedEncountersCount = await _db.Encounters
+        var completedEncountersCount = await _db.Query<Encounter>()
             .AsNoTracking()
             .CountAsync(
                 e => e.DoctorProfileId == doctor.Id
                     && e.Status == EncounterStatus.Completed,
                 cancellationToken);
 
-        var todaySchedule = await _db.Appointments
+        var todaySchedule = await _db.Query<Appointment>()
             .AsNoTracking()
             .Where(a =>
                 a.DoctorProfileId == doctor.Id
@@ -112,13 +118,13 @@ public sealed class DoctorDashboardService : IDoctorDashboardService
             })
             .ToListAsync(cancellationToken);
 
-        var recentPatientIds = await _db.PatientProfiles
+        var recentPatientIds = await _db.Query<PatientProfile>()
             .Where(p => p.PrimaryDoctorId == doctor.Id)
             .Select(p => new { PatientProfileId = p.Id, ActivityAt = p.CreatedAt })
-            .Concat(_db.Appointments
+            .Concat(_db.Query<Appointment>()
                 .Where(a => a.DoctorProfileId == doctor.Id)
                 .Select(a => new { a.PatientProfileId, ActivityAt = a.ScheduledStart }))
-            .Concat(_db.Encounters
+            .Concat(_db.Query<Encounter>()
                 .Where(e => e.DoctorProfileId == doctor.Id)
                 .Select(e => new { e.PatientProfileId, ActivityAt = e.StartedAt }))
             .GroupBy(x => x.PatientProfileId)
@@ -132,7 +138,7 @@ public sealed class DoctorDashboardService : IDoctorDashboardService
             .Select(x => x.PatientProfileId)
             .ToListAsync(cancellationToken);
 
-        var recentPatientBase = await _db.PatientProfiles
+        var recentPatientBase = await _db.Query<PatientProfile>()
             .AsNoTracking()
             .Where(p => recentPatientIds.Contains(p.Id))
             .Select(p => new
@@ -147,7 +153,7 @@ public sealed class DoctorDashboardService : IDoctorDashboardService
             })
             .ToListAsync(cancellationToken);
 
-        var latestAppointments = await _db.Appointments
+        var latestAppointments = await _db.Query<Appointment>()
             .AsNoTracking()
             .Where(a => a.DoctorProfileId == doctor.Id && recentPatientIds.Contains(a.PatientProfileId))
             .GroupBy(a => a.PatientProfileId)
@@ -163,7 +169,7 @@ public sealed class DoctorDashboardService : IDoctorDashboardService
                 .FirstOrDefault())
             .ToListAsync(cancellationToken);
 
-        var latestEncounters = await _db.Encounters
+        var latestEncounters = await _db.Query<Encounter>()
             .AsNoTracking()
             .Where(e => e.DoctorProfileId == doctor.Id && recentPatientIds.Contains(e.PatientProfileId))
             .GroupBy(e => e.PatientProfileId)
@@ -234,27 +240,27 @@ public sealed class DoctorDashboardService : IDoctorDashboardService
         var today = now.Date;
         var tomorrow = today.AddDays(1);
 
-        var interactedPatientIds = _db.Appointments
+        var interactedPatientIds = _db.Query<Appointment>()
             .Select(a => a.PatientProfileId)
-            .Concat(_db.Encounters.Select(e => e.PatientProfileId))
+            .Concat(_db.Query<Encounter>().Select(e => e.PatientProfileId))
             .Distinct();
 
-        var primaryPatientsCount = await _db.PatientProfiles
+        var primaryPatientsCount = await _db.Query<PatientProfile>()
             .AsNoTracking()
             .CountAsync(p => p.PrimaryDoctorId != null, cancellationToken);
 
-        var interactedPatientsCount = await _db.PatientProfiles
+        var interactedPatientsCount = await _db.Query<PatientProfile>()
             .AsNoTracking()
             .CountAsync(p => interactedPatientIds.Contains(p.Id), cancellationToken);
 
-        var todayAppointmentsCount = await _db.Appointments
+        var todayAppointmentsCount = await _db.Query<Appointment>()
             .AsNoTracking()
             .CountAsync(
                 a => a.ScheduledStart >= today
                     && a.ScheduledStart < tomorrow,
                 cancellationToken);
 
-        var upcomingAppointmentsCount = await _db.Appointments
+        var upcomingAppointmentsCount = await _db.Query<Appointment>()
             .AsNoTracking()
             .CountAsync(
                 a => a.ScheduledStart >= now
@@ -263,15 +269,15 @@ public sealed class DoctorDashboardService : IDoctorDashboardService
                     && a.Status != AppointmentStatus.NoShow,
                 cancellationToken);
 
-        var openEncountersCount = await _db.Encounters
+        var openEncountersCount = await _db.Query<Encounter>()
             .AsNoTracking()
             .CountAsync(e => e.Status == EncounterStatus.Open, cancellationToken);
 
-        var completedEncountersCount = await _db.Encounters
+        var completedEncountersCount = await _db.Query<Encounter>()
             .AsNoTracking()
             .CountAsync(e => e.Status == EncounterStatus.Completed, cancellationToken);
 
-        var todaySchedule = await _db.Appointments
+        var todaySchedule = await _db.Query<Appointment>()
             .AsNoTracking()
             .Where(a => a.ScheduledStart >= today && a.ScheduledStart < tomorrow)
             .OrderBy(a => a.ScheduledStart)
@@ -287,11 +293,11 @@ public sealed class DoctorDashboardService : IDoctorDashboardService
             })
             .ToListAsync(cancellationToken);
 
-        var recentPatientIds = await _db.PatientProfiles
+        var recentPatientIds = await _db.Query<PatientProfile>()
             .Select(p => new { PatientProfileId = p.Id, ActivityAt = p.CreatedAt })
-            .Concat(_db.Appointments
+            .Concat(_db.Query<Appointment>()
                 .Select(a => new { a.PatientProfileId, ActivityAt = a.ScheduledStart }))
-            .Concat(_db.Encounters
+            .Concat(_db.Query<Encounter>()
                 .Select(e => new { e.PatientProfileId, ActivityAt = e.StartedAt }))
             .GroupBy(x => x.PatientProfileId)
             .Select(group => new
@@ -304,7 +310,7 @@ public sealed class DoctorDashboardService : IDoctorDashboardService
             .Select(x => x.PatientProfileId)
             .ToListAsync(cancellationToken);
 
-        var recentPatientBase = await _db.PatientProfiles
+        var recentPatientBase = await _db.Query<PatientProfile>()
             .AsNoTracking()
             .Where(p => recentPatientIds.Contains(p.Id))
             .Select(p => new
@@ -319,7 +325,7 @@ public sealed class DoctorDashboardService : IDoctorDashboardService
             })
             .ToListAsync(cancellationToken);
 
-        var latestAppointments = await _db.Appointments
+        var latestAppointments = await _db.Query<Appointment>()
             .AsNoTracking()
             .Where(a => recentPatientIds.Contains(a.PatientProfileId))
             .GroupBy(a => a.PatientProfileId)
@@ -335,7 +341,7 @@ public sealed class DoctorDashboardService : IDoctorDashboardService
                 .FirstOrDefault())
             .ToListAsync(cancellationToken);
 
-        var latestEncounters = await _db.Encounters
+        var latestEncounters = await _db.Query<Encounter>()
             .AsNoTracking()
             .Where(e => recentPatientIds.Contains(e.PatientProfileId))
             .GroupBy(e => e.PatientProfileId)

@@ -59,9 +59,10 @@ public sealed class EncountersControllerTests
                 It.IsAny<CancellationToken>()))
             .ReturnsAsync(encounters);
 
-        var result = await _controller.GetAll(5, 6, "fever", CancellationToken.None);
+        var result = await _controller.GetAll(5, 6, "fever", new PaginationQuery(), CancellationToken.None);
 
-        Assert.Same(encounters, ControllerTestHelper.AssertOkValue(result));
+        var ok = Assert.IsType<OkObjectResult>(result);
+        Assert.Same(encounters, Assert.IsAssignableFrom<List<EncounterDto>>(ok.Value));
     }
 
     [Fact]
@@ -77,9 +78,9 @@ public sealed class EncountersControllerTests
                 It.IsAny<CancellationToken>()))
             .ThrowsAsync(new UnauthorizedAccessException());
 
-        var result = await _controller.GetAll(null, null, null, CancellationToken.None);
+        var result = await _controller.GetAll(null, null, null, new PaginationQuery(), CancellationToken.None);
 
-        Assert.IsType<ForbidResult>(result.Result);
+        Assert.IsType<ForbidResult>(result);
     }
 
     [Fact]
@@ -119,8 +120,9 @@ public sealed class EncountersControllerTests
             .Setup(service => service.GetPatientEncountersAsync(28, It.IsAny<CancellationToken>()))
             .ReturnsAsync(encounters);
 
-        var result = await _controller.GetPatientEncounters(CancellationToken.None);
+        var result = await _controller.GetPatientEncounters(new PaginationQuery(), CancellationToken.None);
 
-        Assert.Same(encounters, ControllerTestHelper.AssertOkValue(result));
+        var ok = Assert.IsType<OkObjectResult>(result);
+        Assert.Same(encounters, Assert.IsAssignableFrom<List<EncounterDto>>(ok.Value));
     }
 }

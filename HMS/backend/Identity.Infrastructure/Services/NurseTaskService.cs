@@ -2,7 +2,8 @@ using HMS.Application.Abstractions.Identity;
 using HMS.Application.Exceptions;
 using HMS.Contracts.Identity;
 using HMS.Domain.Entities;
-using HMS.Persistence;
+using Identity.Domain.Entities;
+using HMS.Application.Abstractions.Persistence;
 using Identity.Infrastructure.Common;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
@@ -11,16 +12,21 @@ namespace Identity.Infrastructure.Services;
 
 public sealed class NurseTaskService : INurseTaskService
 {
-    private readonly HmsDbContext _db;
+    private readonly IHmsRepository _db;
+
+    private readonly IUnitOfWork _unitOfWork;
     private readonly INotificationService _notificationService;
     private readonly ILogger<NurseTaskService> _logger;
 
     public NurseTaskService(
-        HmsDbContext db,
+        IHmsRepository db,
+        IUnitOfWork unitOfWork,
         INotificationService notificationService,
         ILogger<NurseTaskService> logger)
     {
         _db = db;
+
+        _unitOfWork = unitOfWork;
         _notificationService = notificationService;
         _logger = logger;
     }
@@ -31,7 +37,7 @@ public sealed class NurseTaskService : INurseTaskService
         IEnumerable<string> actorRoles,
         CancellationToken cancellationToken)
     {
-        var encounterDoctorId = await _db.Encounters
+        var encounterDoctorId = await _db.Query<Encounter>()
             .AsNoTracking()
             .Where(x => x.Id == request.EncounterId)
             .Select(x => (int?)x.DoctorProfileId)
@@ -65,8 +71,8 @@ public sealed class NurseTaskService : INurseTaskService
             UpdatedAt = now
         };
 
-        _db.NurseTasks.Add(task);
-        await _db.SaveChangesAsync(cancellationToken);
+        _db.Add<NurseTask>(task);
+        await _unitOfWork.SaveChangesAsync(cancellationToken);
 
         await NotifyAssignedNurseAsync(task.Id, cancellationToken);
 
@@ -77,7 +83,7 @@ public sealed class NurseTaskService : INurseTaskService
         int encounterId,
         CancellationToken cancellationToken)
     {
-        return await ProjectToDto(_db.NurseTasks
+        return await ProjectToDto(_db.Query<NurseTask>()
                 .AsNoTracking()
                 .Where(x => x.EncounterId == encounterId)
                 .OrderByDescending(x => x.CreatedAt))
@@ -96,11 +102,11 @@ public sealed class NurseTaskService : INurseTaskService
 
         if (IsAdmin(actorRoles))
         {
-            query = _db.NurseTasks.AsNoTracking();
+            query = _db.Query<NurseTask>().AsNoTracking();
         }
         else if (HasRole(actorRoles, "Doctor"))
         {
-            var doctorId = await _db.DoctorProfiles
+            var doctorId = await _db.Query<DoctorProfile>()
                 .AsNoTracking()
                 .Where(x => x.IsActive && x.StaffProfile.Person.UserId == actorUserId)
                 .Select(x => (int?)x.Id)
@@ -109,13 +115,13 @@ public sealed class NurseTaskService : INurseTaskService
             if (!doctorId.HasValue)
                 throw new ForbiddenException("Current user is not linked to an active doctor profile.");
 
-            query = _db.NurseTasks
+            query = _db.Query<NurseTask>()
                     .AsNoTracking()
                     .Where(x => x.AssignedByDoctorId == doctorId.Value);
         }
         else
         {
-            var nurseId = await _db.NurseProfiles
+            var nurseId = await _db.Query<NurseProfile>()
                 .AsNoTracking()
                 .Where(x => x.StaffProfile.Person.UserId == actorUserId)
                 .Select(x => (int?)x.Id)
@@ -124,7 +130,7 @@ public sealed class NurseTaskService : INurseTaskService
             if (!nurseId.HasValue)
                 throw new ForbiddenException("Current user is not linked to a nurse profile.");
 
-            query = _db.NurseTasks
+            query = _db.Query<NurseTask>()
                 .AsNoTracking()
                 .Where(x => x.AssignedToNurseId == nurseId.Value);
         }
@@ -169,7 +175,7 @@ public sealed class NurseTaskService : INurseTaskService
         int actorUserId,
         CancellationToken cancellationToken)
     {
-        var task = await _db.NurseTasks
+        var task = await _db.Query<NurseTask>()
             .FirstOrDefaultAsync(x => x.Id == id, cancellationToken);
 
         if (task is null)
@@ -188,7 +194,7 @@ public sealed class NurseTaskService : INurseTaskService
         task.DueAt = request.DueAt;
         task.UpdatedAt = DateTime.UtcNow;
 
-        await _db.SaveChangesAsync(cancellationToken);
+        await _unitOfWork.SaveChangesAsync(cancellationToken);
 
         return ToDto(task);
     }
@@ -198,7 +204,7 @@ public sealed class NurseTaskService : INurseTaskService
         int actorUserId,
         CancellationToken cancellationToken)
     {
-        var task = await _db.NurseTasks
+        var task = await _db.Query<NurseTask>()
             .FirstOrDefaultAsync(x => x.Id == id, cancellationToken);
 
         if (task is null)
@@ -214,14 +220,14 @@ public sealed class NurseTaskService : INurseTaskService
         task.CompletedByUserId = actorUserId;
         task.UpdatedAt = now;
 
-        await _db.SaveChangesAsync(cancellationToken);
+        await _unitOfWork.SaveChangesAsync(cancellationToken);
 
         return ToDto(task);
     }
 
     private async Task EnsureActiveNurseAsync(int nurseProfileId, CancellationToken cancellationToken)
     {
-        var nurseExists = await _db.NurseProfiles
+        var nurseExists = await _db.Query<NurseProfile>()
             .AsNoTracking()
             .AnyAsync(x => x.Id == nurseProfileId && x.IsActive, cancellationToken);
 
@@ -243,7 +249,7 @@ public sealed class NurseTaskService : INurseTaskService
         if (!HasRole(roleList, "Doctor"))
             throw new ForbiddenException("Only doctors or admins can assign nurse tasks.");
 
-        var doctorId = await _db.DoctorProfiles
+        var doctorId = await _db.Query<DoctorProfile>()
             .AsNoTracking()
             .Where(x => x.IsActive && x.StaffProfile.Person.UserId == actorUserId)
             .Select(x => (int?)x.Id)
@@ -329,7 +335,7 @@ public sealed class NurseTaskService : INurseTaskService
 
     private async Task NotifyAssignedNurseAsync(int nurseTaskId, CancellationToken cancellationToken)
     {
-        var notificationData = await _db.NurseTasks
+        var notificationData = await _db.Query<NurseTask>()
             .AsNoTracking()
             .Where(task => task.Id == nurseTaskId && task.AssignedToNurseId.HasValue)
             .Select(task => new

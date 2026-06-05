@@ -1,7 +1,7 @@
 using HMS.Application.Abstractions.Identity;
 using HMS.Contracts.Identity;
 using HMS.Domain.Entities;
-using HMS.Persistence;
+using HMS.Application.Abstractions.Persistence;
 using Identity.Domain.Entities;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
@@ -10,12 +10,17 @@ namespace Identity.Infrastructure.Services;
 
 public sealed class StaffProfileService : IStaffProfileService
 {
-    private readonly HmsDbContext _db;
+    private readonly IHmsRepository _db;
+
+    private readonly IUnitOfWork _unitOfWork;
     private readonly IPasswordHasher<User> _passwordHasher;
 
-    public StaffProfileService(HmsDbContext db, IPasswordHasher<User> passwordHasher)
+    public StaffProfileService(IHmsRepository db,
+        IUnitOfWork unitOfWork, IPasswordHasher<User> passwordHasher)
     {
         _db = db;
+
+        _unitOfWork = unitOfWork;
         _passwordHasher = passwordHasher;
     }
 
@@ -40,22 +45,18 @@ public sealed class StaffProfileService : IStaffProfileService
             return (null, validationError);
 
         if (request.SpecializationId.HasValue &&
-            !await _db.Set<Specialization>().AnyAsync(s => s.Id == request.SpecializationId.Value, cancellationToken))
+            !await _db.Query<Specialization>().AnyAsync(s => s.Id == request.SpecializationId.Value, cancellationToken))
         {
             return (null, "Specialization not found.");
         }
 
-        if (await _db.DoctorProfiles.AnyAsync(d => d.LicenseNumber == request.LicenseNumber.Trim(), cancellationToken))
+        if (await _db.Query<DoctorProfile>().AnyAsync(d => d.LicenseNumber == request.LicenseNumber.Trim(), cancellationToken))
             return (null, "Doctor license number is already registered.");
 
         try
         {
-            var strategy = _db.Database.CreateExecutionStrategy();
-            return await strategy.ExecuteAsync<(DoctorProfileDto? doctor, string? error)>(async () =>
+            return await _unitOfWork.ExecuteInTransactionAsync<(DoctorProfileDto? doctor, string? error)>(async ct =>
             {
-                await using var transaction = await _db.Database.BeginTransactionAsync(cancellationToken);
-                try
-                {
                     var user = await CreateUserAsync(
                         request.UserName,
                         request.Email,
@@ -96,18 +97,11 @@ public sealed class StaffProfileService : IStaffProfileService
                         UpdatedById = createdByUserId
                     };
 
-                    _db.DoctorProfiles.Add(doctor);
-                    await _db.SaveChangesAsync(cancellationToken);
-                    await transaction.CommitAsync(cancellationToken);
+                    _db.Add<DoctorProfile>(doctor);
+                    await _unitOfWork.SaveChangesAsync(cancellationToken);
 
                     return (await MapDoctorAsync(doctor.Id, cancellationToken), null);
-                }
-                catch
-                {
-                    await transaction.RollbackAsync(cancellationToken);
-                    throw;
-                }
-            });
+            }, cancellationToken);
         }
         catch (Exception ex)
         {
@@ -135,17 +129,13 @@ public sealed class StaffProfileService : IStaffProfileService
         if (validationError is not null)
             return (null, validationError);
 
-        if (await _db.NurseProfiles.AnyAsync(n => n.LicenseNumber == request.LicenseNumber.Trim(), cancellationToken))
+        if (await _db.Query<NurseProfile>().AnyAsync(n => n.LicenseNumber == request.LicenseNumber.Trim(), cancellationToken))
             return (null, "Nurse license number is already registered.");
 
         try
         {
-            var strategy = _db.Database.CreateExecutionStrategy();
-            return await strategy.ExecuteAsync<(NurseProfileDto? nurse, string? error)>(async () =>
+            return await _unitOfWork.ExecuteInTransactionAsync<(NurseProfileDto? nurse, string? error)>(async ct =>
             {
-                await using var transaction = await _db.Database.BeginTransactionAsync(cancellationToken);
-                try
-                {
                     var user = await CreateUserAsync(
                         request.UserName,
                         request.Email,
@@ -185,18 +175,11 @@ public sealed class StaffProfileService : IStaffProfileService
                         UpdatedById = createdByUserId
                     };
 
-                    _db.NurseProfiles.Add(nurse);
-                    await _db.SaveChangesAsync(cancellationToken);
-                    await transaction.CommitAsync(cancellationToken);
+                    _db.Add<NurseProfile>(nurse);
+                    await _unitOfWork.SaveChangesAsync(cancellationToken);
 
                     return (await MapNurseAsync(nurse.Id, cancellationToken), null);
-                }
-                catch
-                {
-                    await transaction.RollbackAsync(cancellationToken);
-                    throw;
-                }
-            });
+            }, cancellationToken);
         }
         catch (Exception ex)
         {
@@ -229,12 +212,8 @@ public sealed class StaffProfileService : IStaffProfileService
 
         try
         {
-            var strategy = _db.Database.CreateExecutionStrategy();
-            return await strategy.ExecuteAsync<(StaffProfileDto? staff, string? error)>(async () =>
+            return await _unitOfWork.ExecuteInTransactionAsync<(StaffProfileDto? staff, string? error)>(async ct =>
             {
-                await using var transaction = await _db.Database.BeginTransactionAsync(cancellationToken);
-                try
-                {
                     var user = await CreateUserAsync(
                         request.UserName,
                         request.Email,
@@ -262,16 +241,8 @@ public sealed class StaffProfileService : IStaffProfileService
                         createdByUserId,
                         cancellationToken);
 
-                    await transaction.CommitAsync(cancellationToken);
-
                     return (await MapStaffAsync(staffProfile.Id, roleName, request.IsActive, cancellationToken), null);
-                }
-                catch
-                {
-                    await transaction.RollbackAsync(cancellationToken);
-                    throw;
-                }
-            });
+            }, cancellationToken);
         }
         catch (Exception ex)
         {
@@ -339,19 +310,19 @@ public sealed class StaffProfileService : IStaffProfileService
         var normalizedEmail = email.Trim().ToLowerInvariant();
         var trimmedStaffNumber = staffNumber.Trim();
 
-        if (await _db.Users.AnyAsync(u => u.UserName == trimmedUserName, cancellationToken))
+        if (await _db.Query<User>().AnyAsync(u => u.UserName == trimmedUserName, cancellationToken))
             return "UserName is already taken.";
-        if (await _db.Users.AnyAsync(u => u.Email == normalizedEmail, cancellationToken))
+        if (await _db.Query<User>().AnyAsync(u => u.Email == normalizedEmail, cancellationToken))
             return "Email is already registered.";
         if (!string.IsNullOrWhiteSpace(personalNumber) &&
-            await _db.People.AnyAsync(p => p.PersonalNumber == personalNumber.Trim(), cancellationToken))
+            await _db.Query<Person>().AnyAsync(p => p.PersonalNumber == personalNumber.Trim(), cancellationToken))
         {
             return "A person with this personal number already exists.";
         }
-        if (await _db.Set<StaffProfile>().AnyAsync(s => s.StaffNumber == trimmedStaffNumber, cancellationToken))
+        if (await _db.Query<StaffProfile>().AnyAsync(s => s.StaffNumber == trimmedStaffNumber, cancellationToken))
             return "Staff number is already registered.";
         if (departmentId.HasValue &&
-            !await _db.Set<Department>().AnyAsync(d => d.Id == departmentId.Value, cancellationToken))
+            !await _db.Query<Department>().AnyAsync(d => d.Id == departmentId.Value, cancellationToken))
         {
             return "Department not found.";
         }
@@ -368,7 +339,7 @@ public sealed class StaffProfileService : IStaffProfileService
         int? createdByUserId,
         CancellationToken cancellationToken)
     {
-        var role = await _db.Roles.FirstOrDefaultAsync(r => r.Name == roleName, cancellationToken)
+        var role = await _db.Query<Role>().FirstOrDefaultAsync(r => r.Name == roleName, cancellationToken)
             ?? throw new InvalidOperationException($"{roleName} role not found in database.");
 
         var now = DateTime.UtcNow;
@@ -385,10 +356,10 @@ public sealed class StaffProfileService : IStaffProfileService
 
         user.PasswordHash = _passwordHasher.HashPassword(user, password);
 
-        _db.Users.Add(user);
-        await _db.SaveChangesAsync(cancellationToken);
+        _db.Add<User>(user);
+        await _unitOfWork.SaveChangesAsync(cancellationToken);
 
-        _db.UserRoles.Add(new UserRole
+        _db.Add<UserRole>(new UserRole
         {
             UserId = user.Id,
             RoleId = role.Id,
@@ -399,7 +370,7 @@ public sealed class StaffProfileService : IStaffProfileService
             UpdatedById = createdByUserId
         });
 
-        await _db.SaveChangesAsync(cancellationToken);
+        await _unitOfWork.SaveChangesAsync(cancellationToken);
         return user;
     }
 
@@ -440,8 +411,8 @@ public sealed class StaffProfileService : IStaffProfileService
             UpdatedById = createdByUserId
         };
 
-        _db.People.Add(person);
-        await _db.SaveChangesAsync(cancellationToken);
+        _db.Add<Person>(person);
+        await _unitOfWork.SaveChangesAsync(cancellationToken);
 
         var staffProfile = new StaffProfile
         {
@@ -456,14 +427,14 @@ public sealed class StaffProfileService : IStaffProfileService
             UpdatedById = createdByUserId
         };
 
-        _db.Set<StaffProfile>().Add(staffProfile);
-        await _db.SaveChangesAsync(cancellationToken);
+        _db.Add<StaffProfile>(staffProfile);
+        await _unitOfWork.SaveChangesAsync(cancellationToken);
         return staffProfile;
     }
 
     private async Task<DoctorProfileDto> MapDoctorAsync(int id, CancellationToken cancellationToken)
     {
-        return await _db.DoctorProfiles
+        return await _db.Query<DoctorProfile>()
             .AsNoTracking()
             .Where(d => d.Id == id)
             .Select(d => new DoctorProfileDto
@@ -488,7 +459,7 @@ public sealed class StaffProfileService : IStaffProfileService
 
     private async Task<NurseProfileDto> MapNurseAsync(int id, CancellationToken cancellationToken)
     {
-        return await _db.NurseProfiles
+        return await _db.Query<NurseProfile>()
             .AsNoTracking()
             .Where(n => n.Id == id)
             .Select(n => new NurseProfileDto
@@ -515,7 +486,7 @@ public sealed class StaffProfileService : IStaffProfileService
         bool isActive,
         CancellationToken cancellationToken)
     {
-        return await _db.Set<StaffProfile>()
+        return await _db.Query<StaffProfile>()
             .AsNoTracking()
             .Where(s => s.Id == id)
             .Select(s => new StaffProfileDto

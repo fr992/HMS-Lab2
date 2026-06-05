@@ -15,7 +15,7 @@ public sealed class AdminPermissionsControllerTests
             new Permission { Name = "Zeta.Permission", Description = "Last" },
             new Permission { Name = "Alpha.Permission", Description = "First" });
         await db.SaveChangesAsync();
-        var controller = new AdminPermissionsController(db);
+        var controller = new AdminPermissionsController(ServiceTestFactory.RoleAdministrationService(db));
 
         var result = await controller.ListPermissions(CancellationToken.None);
 
@@ -26,3 +26,4 @@ public sealed class AdminPermissionsControllerTests
         Assert.Equal(["Alpha.Permission", "Zeta.Permission"], names);
     }
 }
+

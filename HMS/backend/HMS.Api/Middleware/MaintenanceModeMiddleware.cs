@@ -1,6 +1,5 @@
 using System.Security.Claims;
-using HMS.Persistence;
-using Microsoft.EntityFrameworkCore;
+using HMS.Application.Abstractions.Identity;
 
 namespace HMS.Api.Middleware;
 
@@ -13,9 +12,9 @@ public sealed class MaintenanceModeMiddleware
         _next = next;
     }
 
-    public async Task InvokeAsync(HttpContext context, HmsDbContext db)
+    public async Task InvokeAsync(HttpContext context, ISettingsService settings)
     {
-        if (IsBypassedPath(context.Request.Path) || await IsMaintenanceDisabledAsync(db, context.RequestAborted))
+        if (IsBypassedPath(context.Request.Path) || await IsMaintenanceDisabledAsync(settings, context.RequestAborted))
         {
             await _next(context);
             return;
@@ -41,13 +40,9 @@ public sealed class MaintenanceModeMiddleware
             || path.StartsWithSegments("/hubs/notifications");
     }
 
-    private static async Task<bool> IsMaintenanceDisabledAsync(HmsDbContext db, CancellationToken cancellationToken)
+    private static async Task<bool> IsMaintenanceDisabledAsync(ISettingsService settings, CancellationToken cancellationToken)
     {
-        var value = await db.Settings
-            .AsNoTracking()
-            .Where(setting => setting.Key == "system.maintenanceMode")
-            .Select(setting => setting.Value)
-            .FirstOrDefaultAsync(cancellationToken);
+        var value = await settings.GetValueAsync("system.maintenanceMode", cancellationToken);
 
         return !string.Equals(value, "true", StringComparison.OrdinalIgnoreCase);
     }

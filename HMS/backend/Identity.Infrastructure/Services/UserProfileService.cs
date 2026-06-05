@@ -2,7 +2,7 @@ using HMS.Application.Abstractions.Identity;
 using HMS.Application.Exceptions;
 using HMS.Contracts.Identity;
 using HMS.Domain.Entities;
-using HMS.Persistence;
+using HMS.Application.Abstractions.Persistence;
 using Identity.Domain.Entities;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
@@ -11,12 +11,17 @@ namespace Identity.Infrastructure.Services;
 
 public sealed class UserProfileService : IUserProfileService
 {
-    private readonly HmsDbContext _db;
+    private readonly IHmsRepository _db;
+
+    private readonly IUnitOfWork _unitOfWork;
     private readonly IPasswordHasher<User> _passwordHasher;
 
-    public UserProfileService(HmsDbContext db, IPasswordHasher<User> passwordHasher)
+    public UserProfileService(IHmsRepository db,
+        IUnitOfWork unitOfWork, IPasswordHasher<User> passwordHasher)
     {
         _db = db;
+
+        _unitOfWork = unitOfWork;
         _passwordHasher = passwordHasher;
     }
 
@@ -38,7 +43,7 @@ public sealed class UserProfileService : IUserProfileService
         UserProfileUpdateDto request,
         CancellationToken cancellationToken)
     {
-        var user = await _db.Users
+        var user = await _db.Query<User>()
             .Include(entity => entity.Person)
             .FirstOrDefaultAsync(entity => entity.Id == actorUserId, cancellationToken);
 
@@ -80,7 +85,7 @@ public sealed class UserProfileService : IUserProfileService
         {
             user.UpdatedAt = DateTime.UtcNow;
             user.UpdatedById = actorUserId;
-            await _db.SaveChangesAsync(cancellationToken);
+            await _unitOfWork.SaveChangesAsync(cancellationToken);
         }
 
         return await GetProfileInfoAsync(actorUserId, cancellationToken);
@@ -88,7 +93,7 @@ public sealed class UserProfileService : IUserProfileService
 
     private IQueryable<User> ProfileQuery()
     {
-        return _db.Users
+        return _db.Query<User>()
             .AsSplitQuery()
             .Include(user => user.UserRoles)
                 .ThenInclude(userRole => userRole.Role)

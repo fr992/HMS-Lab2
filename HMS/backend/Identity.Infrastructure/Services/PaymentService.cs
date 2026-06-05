@@ -2,7 +2,8 @@ using HMS.Application.Abstractions.Identity;
 using HMS.Application.Exceptions;
 using HMS.Contracts.Identity;
 using HMS.Domain.Entities;
-using HMS.Persistence;
+using Identity.Domain.Entities;
+using HMS.Application.Abstractions.Persistence;
 using Identity.Infrastructure.Common;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
@@ -13,16 +14,22 @@ public sealed class PaymentService : IPaymentService
 {
     private const string CashPaymentMethod = "cash";
 
-    private readonly HmsDbContext _db;
+    private readonly IHmsRepository _db;
+
+
+    private readonly IUnitOfWork _unitOfWork;
     private readonly INotificationService _notificationService;
     private readonly ILogger<PaymentService> _logger;
 
     public PaymentService(
-        HmsDbContext db,
+        IHmsRepository db,
+        IUnitOfWork unitOfWork,
         INotificationService notificationService,
         ILogger<PaymentService> logger)
     {
         _db = db;
+
+        _unitOfWork = unitOfWork;
         _notificationService = notificationService;
         _logger = logger;
     }
@@ -38,7 +45,7 @@ public sealed class PaymentService : IPaymentService
         if (request.Amount <= 0)
             throw new BadRequestException("Payment amount must be greater than zero.");
 
-        var invoiceExists = await _db.Invoices
+        var invoiceExists = await _db.Query<Invoice>()
             .AsNoTracking()
             .AnyAsync(x => x.Id == request.InvoiceId, cancellationToken);
 
@@ -61,16 +68,16 @@ public sealed class PaymentService : IPaymentService
             UpdatedById = actorUserId
         };
 
-        _db.Payments.Add(payment);
+        _db.Add<Payment>(payment);
         await SyncInvoiceStatusAsync(payment.InvoiceId, actorUserId, payment.UpdatedAt, cancellationToken);
-        await _db.SaveChangesAsync(cancellationToken);
+        await _unitOfWork.SaveChangesAsync(cancellationToken);
 
         return await GetByIdAsync(payment.Id, cancellationToken);
     }
 
     public async Task<PaymentDto> GetByIdAsync(int id, CancellationToken cancellationToken)
     {
-        var payment = await ProjectToDto(_db.Payments.AsNoTracking().Where(x => x.Id == id))
+        var payment = await ProjectToDto(_db.Query<Payment>().AsNoTracking().Where(x => x.Id == id))
             .FirstOrDefaultAsync(cancellationToken);
 
         if (payment is null)
@@ -97,7 +104,7 @@ public sealed class PaymentService : IPaymentService
         if (status is not null)
             status = NormalizeStatus(status);
 
-        var payments = _db.Payments
+        var payments = _db.Query<Payment>()
             .AsNoTracking()
             .Where(x => !query.InvoiceId.HasValue || x.InvoiceId == query.InvoiceId.Value)
             .Where(x => status == null || x.Status == status)
@@ -120,7 +127,7 @@ public sealed class PaymentService : IPaymentService
         int actorUserId,
         CancellationToken cancellationToken)
     {
-        var payment = await _db.Payments
+        var payment = await _db.Query<Payment>()
             .FirstOrDefaultAsync(x => x.Id == id, cancellationToken);
 
         if (payment is null)
@@ -137,10 +144,10 @@ public sealed class PaymentService : IPaymentService
         if (status == PaymentStatus.Paid && !payment.PaidAt.HasValue)
             payment.PaidAt = payment.UpdatedAt;
 
-        await _db.SaveChangesAsync(cancellationToken);
+        await _unitOfWork.SaveChangesAsync(cancellationToken);
 
         await SyncInvoiceStatusAsync(payment.InvoiceId, actorUserId, payment.UpdatedAt, cancellationToken);
-        await _db.SaveChangesAsync(cancellationToken);
+        await _unitOfWork.SaveChangesAsync(cancellationToken);
 
         await NotifyPatientPaymentConfirmedAsync(payment.Id, previousStatus, payment.Status, cancellationToken);
 
@@ -152,7 +159,7 @@ public sealed class PaymentService : IPaymentService
         int actorUserId,
         CancellationToken cancellationToken)
     {
-        var payment = await _db.Payments
+        var payment = await _db.Query<Payment>()
             .FirstOrDefaultAsync(x => x.Id == id, cancellationToken);
 
         if (payment is null)
@@ -172,10 +179,10 @@ public sealed class PaymentService : IPaymentService
         payment.UpdatedAt = now;
         payment.UpdatedById = actorUserId;
 
-        await _db.SaveChangesAsync(cancellationToken);
+        await _unitOfWork.SaveChangesAsync(cancellationToken);
 
         await SyncInvoiceStatusAsync(payment.InvoiceId, actorUserId, payment.UpdatedAt, cancellationToken);
-        await _db.SaveChangesAsync(cancellationToken);
+        await _unitOfWork.SaveChangesAsync(cancellationToken);
 
         await NotifyPatientPaymentConfirmedAsync(payment.Id, previousStatus, payment.Status, cancellationToken);
 
@@ -209,13 +216,13 @@ public sealed class PaymentService : IPaymentService
         DateTime updatedAt,
         CancellationToken cancellationToken)
     {
-        var invoice = await _db.Invoices
+        var invoice = await _db.Query<Invoice>()
             .FirstOrDefaultAsync(x => x.Id == invoiceId, cancellationToken);
 
         if (invoice is null || invoice.Status == InvoiceStatus.Cancelled)
             return;
 
-        var payments = await _db.Payments
+        var payments = await _db.Query<Payment>()
             .Where(x => x.InvoiceId == invoiceId)
             .ToListAsync(cancellationToken);
 
@@ -291,7 +298,7 @@ public sealed class PaymentService : IPaymentService
         if (previousStatus == PaymentStatus.Paid || currentStatus != PaymentStatus.Paid)
             return;
 
-        var notificationData = await _db.Payments
+        var notificationData = await _db.Query<Payment>()
             .AsNoTracking()
             .Where(payment => payment.Id == paymentId)
             .Select(payment => new

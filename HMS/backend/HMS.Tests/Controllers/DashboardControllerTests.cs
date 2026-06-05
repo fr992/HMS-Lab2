@@ -17,7 +17,7 @@ public sealed class DashboardControllerTests
             CreatePatient("Pat", "Two"),
             CreatePatient("Pat", "Three"));
         await db.SaveChangesAsync();
-        var controller = new DashboardController(db);
+        var controller = new DashboardController(ServiceTestFactory.DashboardQueryService(db));
         ControllerTestHelper.SetUser(controller, permissions: ["Patients.Read"]);
 
         var result = await controller.PatientStats(CancellationToken.None);
@@ -34,7 +34,7 @@ public sealed class DashboardControllerTests
             CreateDoctor("Active", "One", isActive: true),
             CreateDoctor("Inactive", "Two", isActive: false));
         await db.SaveChangesAsync();
-        var controller = new DashboardController(db);
+        var controller = new DashboardController(ServiceTestFactory.DashboardQueryService(db));
         ControllerTestHelper.SetUser(controller, permissions: ["Users.Read"]);
 
         var result = await controller.ActiveDoctorStats(CancellationToken.None);
@@ -67,7 +67,7 @@ public sealed class DashboardControllerTests
             UpdatedAt = DateTime.UtcNow
         });
         await db.SaveChangesAsync();
-        var controller = new DashboardController(db);
+        var controller = new DashboardController(ServiceTestFactory.DashboardQueryService(db));
         ControllerTestHelper.SetUser(controller, permissions: ["Beds.Read"]);
 
         var result = await controller.BedOccupancy(CancellationToken.None);
@@ -95,7 +95,7 @@ public sealed class DashboardControllerTests
             UpdatedAt = DateTime.UtcNow
         });
         await db.SaveChangesAsync();
-        var controller = new DashboardController(db);
+        var controller = new DashboardController(ServiceTestFactory.DashboardQueryService(db));
 
         var result = await controller.Alerts(limit: 10, CancellationToken.None);
 
@@ -119,7 +119,7 @@ public sealed class DashboardControllerTests
         newer.UpdatedAt = newer.CreatedAt;
         db.PatientProfiles.AddRange(older, newer);
         await db.SaveChangesAsync();
-        var controller = new DashboardController(db);
+        var controller = new DashboardController(ServiceTestFactory.DashboardQueryService(db));
         ControllerTestHelper.SetUser(controller, permissions: ["Patients.Read"]);
 
         var result = await controller.RecentPatients(limit: 1, CancellationToken.None);
@@ -162,3 +162,4 @@ public sealed class DashboardControllerTests
     }
 
 }
+

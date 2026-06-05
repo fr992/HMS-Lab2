@@ -1,6 +1,7 @@
 using HMS.Application.Abstractions.Identity;
 using HMS.Contracts.Identity;
-using HMS.Persistence;
+using HMS.Domain.Entities;
+using HMS.Application.Abstractions.Persistence;
 using Identity.Domain.Entities;
 using Identity.Infrastructure.Jwt;
 using Microsoft.AspNetCore.Identity;
@@ -13,7 +14,9 @@ namespace Identity.Infrastructure.Services;
 
 public sealed class AuthService : IAuthService
 {
-    private readonly HmsDbContext _db;
+    private readonly IHmsRepository _db;
+
+    private readonly IUnitOfWork _unitOfWork;
     private readonly IPasswordHasher<User> _passwordHasher;
     private readonly IJwtTokenGenerator _jwt;
 
@@ -25,9 +28,12 @@ public sealed class AuthService : IAuthService
         return Convert.ToBase64String(bytes);
     }
 
-    public AuthService(HmsDbContext db, IPasswordHasher<User> passwordHasher, IJwtTokenGenerator jwt)
+    public AuthService(IHmsRepository db,
+        IUnitOfWork unitOfWork, IPasswordHasher<User> passwordHasher, IJwtTokenGenerator jwt)
     {
         _db = db;
+
+        _unitOfWork = unitOfWork;
         _passwordHasher = passwordHasher;
         _jwt = jwt;
     }
@@ -40,7 +46,7 @@ public sealed class AuthService : IAuthService
 
         var loginLower = login.ToLowerInvariant();
 
-        var user = await _db.Users
+        var user = await _db.Query<User>()
             .Include(u => u.UserRoles)
             .ThenInclude(ur => ur.Role)
             .FirstOrDefaultAsync(
@@ -78,8 +84,8 @@ public sealed class AuthService : IAuthService
             ExpiresAt = DateTime.UtcNow.AddDays(7)
         };
 
-        _db.RefreshTokens.Add(refreshTokenEntity);
-        await _db.SaveChangesAsync(cancellationToken);
+        _db.Add<RefreshToken>(refreshTokenEntity);
+        await _unitOfWork.SaveChangesAsync(cancellationToken);
 
         return new AuthResponseDto
         {
@@ -96,7 +102,7 @@ public sealed class AuthService : IAuthService
     {
         var tokenHash = ComputeHash(refreshToken);
 
-        var tokenEntity = await _db.RefreshTokens
+        var tokenEntity = await _db.Query<RefreshToken>()
             .Include(r => r.User)
             .ThenInclude(u => u.UserRoles)
             .ThenInclude(ur => ur.Role)
@@ -129,9 +135,9 @@ public sealed class AuthService : IAuthService
             ExpiresAt = DateTime.UtcNow.AddDays(7)
         };
 
-        _db.RefreshTokens.Add(newToken);
+        _db.Add<RefreshToken>(newToken);
 
-        await _db.SaveChangesAsync(cancellationToken);
+        await _unitOfWork.SaveChangesAsync(cancellationToken);
 
         return new AuthResponseDto
         {
@@ -151,7 +157,7 @@ public sealed class AuthService : IAuthService
     if (roleIds.Count == 0)
         return [];
 
-    return await _db.RolePermissions.AsNoTracking()
+    return await _db.Query<RolePermission>().AsNoTracking()
         .Where(rp => roleIds.Contains(rp.RoleId))
         .Select(rp => rp.Permission.Name)
         .Distinct()

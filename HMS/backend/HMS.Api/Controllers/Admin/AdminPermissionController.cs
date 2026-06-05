@@ -1,8 +1,7 @@
 using HMS.Api.Authorization;
-using HMS.Persistence;
+using HMS.Application.Abstractions.Identity;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.EntityFrameworkCore;
 
 namespace HMS.Api.Controllers.Admin;
 
@@ -11,19 +10,14 @@ namespace HMS.Api.Controllers.Admin;
 [Authorize(Roles = "SuperAdmin")]
 public sealed class AdminPermissionsController : ControllerBase
 {
-    private readonly HmsDbContext _db;
+    private readonly IRoleAdministrationService _roles;
 
-    public AdminPermissionsController(HmsDbContext db) => _db = db;
+    public AdminPermissionsController(IRoleAdministrationService roles) => _roles = roles;
 
     [HttpGet]
     [RequirePermission("Permissions.Read")]
     public async Task<IActionResult> ListPermissions(CancellationToken cancellationToken)
     {
-        var items = await _db.Permissions.AsNoTracking()
-            .OrderBy(p => p.Name)
-            .Select(p => new { p.Id, p.Name, p.Description })
-            .ToListAsync(cancellationToken);
-
-        return Ok(items);
+        return Ok(await _roles.ListPermissionsAsync(cancellationToken));
     }
 }

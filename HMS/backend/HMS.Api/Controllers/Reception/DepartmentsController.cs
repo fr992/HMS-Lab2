@@ -1,10 +1,8 @@
 using HMS.Api.Authorization;
+using HMS.Application.Abstractions.Identity;
 using HMS.Contracts.Identity;
-using HMS.Persistence;
-using Identity.Infrastructure.Common;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.EntityFrameworkCore;
 
 namespace HMS.Api.Controllers.Reception;
 
@@ -13,11 +11,11 @@ namespace HMS.Api.Controllers.Reception;
 [Authorize]
 public sealed class DepartmentsController : ControllerBase
 {
-    private readonly HmsDbContext _db;
+    private readonly IDepartmentService _departments;
 
-    public DepartmentsController(HmsDbContext db)
+    public DepartmentsController(IDepartmentService departments)
     {
-        _db = db;
+        _departments = departments;
     }
 
     [HttpGet]
@@ -27,26 +25,6 @@ public sealed class DepartmentsController : ControllerBase
         [FromQuery] bool all,
         CancellationToken cancellationToken)
     {
-        var query = _db.Set<HMS.Domain.Entities.Department>()
-            .AsNoTracking()
-            .Where(d =>
-                string.IsNullOrWhiteSpace(pagination.Search) ||
-                d.Name.Contains(pagination.Search) ||
-                (d.Description != null && d.Description.Contains(pagination.Search)))
-            .OrderBy(d => d.Name)
-            .Select(d => new DepartmentDto
-            {
-                Id = d.Id,
-                Name = d.Name,
-                Description = d.Description,
-            });
-
-        if (all)
-        {
-            var items = await query.ToListAsync(cancellationToken);
-            return Ok(PaginatedResponse<DepartmentDto>.Create(items, 1, Math.Max(items.Count, 1), items.Count));
-        }
-
-        return Ok(await query.ToPaginatedResponseAsync(pagination, cancellationToken));
+        return Ok(await _departments.GetDepartmentsAsync(pagination, all, cancellationToken));
     }
 }

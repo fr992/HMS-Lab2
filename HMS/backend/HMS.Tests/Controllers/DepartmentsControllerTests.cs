@@ -16,7 +16,7 @@ public sealed class DepartmentsControllerTests
             new Department { Name = "Neurology" },
             new Department { Name = "Oncology" });
         await db.SaveChangesAsync();
-        var controller = new DepartmentsController(db);
+        var controller = new DepartmentsController(ServiceTestFactory.DepartmentService(db));
         ControllerTestHelper.SetUser(controller, permissions: ["Patients.Read"]);
 
         var result = await controller.GetDepartments(
@@ -39,7 +39,7 @@ public sealed class DepartmentsControllerTests
             new Department { Name = "Neurology" },
             new Department { Name = "Oncology" });
         await db.SaveChangesAsync();
-        var controller = new DepartmentsController(db);
+        var controller = new DepartmentsController(ServiceTestFactory.DepartmentService(db));
         ControllerTestHelper.SetUser(controller, permissions: ["Patients.Read"]);
 
         var result = await controller.GetDepartments(
@@ -60,7 +60,7 @@ public sealed class DepartmentsControllerTests
             new Department { Name = "Cardiology" },
             new Department { Name = "Neurology" });
         await db.SaveChangesAsync();
-        var controller = new DepartmentsController(db);
+        var controller = new DepartmentsController(ServiceTestFactory.DepartmentService(db));
         ControllerTestHelper.SetUser(controller, permissions: ["Patients.Read"]);
 
         var result = await controller.GetDepartments(new PaginationQuery { PageSize = 1 }, all: true, CancellationToken.None);
@@ -71,3 +71,4 @@ public sealed class DepartmentsControllerTests
         Assert.False(page.HasNextPage);
     }
 }
+

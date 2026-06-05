@@ -2,7 +2,7 @@ using HMS.Application.Abstractions.Identity;
 using HMS.Contracts.Identity;
 using Identity.Infrastructure.Common;
 using HMS.Domain.Entities;
-using HMS.Persistence;
+using HMS.Application.Abstractions.Persistence;
 using Identity.Domain.Entities;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
@@ -11,12 +11,17 @@ namespace Identity.Infrastructure.Services;
 
 public sealed class UserManagementService : IUserManagementService
 {
-    private readonly HmsDbContext _db;
+    private readonly IHmsRepository _db;
+
+    private readonly IUnitOfWork _unitOfWork;
     private readonly IPasswordHasher<User> _passwordHasher;
 
-    public UserManagementService(HmsDbContext db, IPasswordHasher<User> passwordHasher)
+    public UserManagementService(IHmsRepository db,
+        IUnitOfWork unitOfWork, IPasswordHasher<User> passwordHasher)
     {
         _db = db;
+
+        _unitOfWork = unitOfWork;
         _passwordHasher = passwordHasher;
     }
 
@@ -32,10 +37,10 @@ public sealed class UserManagementService : IUserManagementService
         var userName = request.UserName.Trim();
         var email = request.Email.Trim().ToLowerInvariant();
 
-        if (await _db.Users.AnyAsync(u => u.UserName == userName, cancellationToken))
+        if (await _db.Query<User>().AnyAsync(u => u.UserName == userName, cancellationToken))
             return (null, "UserName is already taken.");
 
-        if (await _db.Users.AnyAsync(u => u.Email == email, cancellationToken))
+        if (await _db.Query<User>().AnyAsync(u => u.Email == email, cancellationToken))
             return (null, "Email is already registered.");
 
         var roleNames = request.RoleNames
@@ -47,7 +52,7 @@ public sealed class UserManagementService : IUserManagementService
         if (roleNames.Any(name => name.Equals("SuperAdmin", StringComparison.OrdinalIgnoreCase)))
             return (null, "SuperAdmin cannot be assigned from user management.");
 
-        var dbRoles = await _db.Roles.ToListAsync(cancellationToken);
+        var dbRoles = await _db.Query<Role>().ToListAsync(cancellationToken);
         var roles = new List<Role>();
         foreach (var name in roleNames)
         {
@@ -71,12 +76,12 @@ public sealed class UserManagementService : IUserManagementService
 
         user.PasswordHash = _passwordHasher.HashPassword(user, request.Password);
 
-        _db.Users.Add(user);
-        await _db.SaveChangesAsync(cancellationToken);
+        _db.Add<User>(user);
+        await _unitOfWork.SaveChangesAsync(cancellationToken);
 
         foreach (var role in roles)
         {
-            _db.UserRoles.Add(new UserRole
+            _db.Add<UserRole>(new UserRole
             {
                 UserId = user.Id,
                 RoleId = role.Id,
@@ -88,7 +93,7 @@ public sealed class UserManagementService : IUserManagementService
             });
         }
 
-        await _db.SaveChangesAsync(cancellationToken);
+        await _unitOfWork.SaveChangesAsync(cancellationToken);
 
         var assignedNames = roles.Select(r => r.Name).ToList();
         return (new CreatedUserResponseDto
@@ -108,7 +113,7 @@ public sealed class UserManagementService : IUserManagementService
         PaginationQuery pagination,
         CancellationToken cancellationToken = default)
     {
-        var query = _db.Users
+        var query = _db.Query<User>()
             .AsNoTracking()
             .AsQueryable();
 
@@ -199,7 +204,7 @@ public sealed class UserManagementService : IUserManagementService
         int id,
         CancellationToken cancellationToken = default)
     {
-        var entity = await _db.Users.AsNoTracking()
+        var entity = await _db.Query<User>().AsNoTracking()
             .Include(u => u.Person)
             .Include(u => u.UserRoles)
             .ThenInclude(ur => ur.Role)
@@ -228,7 +233,7 @@ public sealed class UserManagementService : IUserManagementService
         UpdateUserRequestDto request,
         CancellationToken cancellationToken = default)
     {
-        var entity = await _db.Users
+        var entity = await _db.Query<User>()
             .Include(u => u.Person)
             .Include(u => u.UserRoles)
             .ThenInclude(ur => ur.Role)
@@ -240,7 +245,7 @@ public sealed class UserManagementService : IUserManagementService
         if (!string.IsNullOrWhiteSpace(request.Email))
         {
             var email = request.Email.Trim().ToLowerInvariant();
-            if (await _db.Users.AnyAsync(u => u.Email == email && u.Id != id, cancellationToken))
+            if (await _db.Query<User>().AnyAsync(u => u.Email == email && u.Id != id, cancellationToken))
                 return (null, "Email is already registered.");
             entity.Email = email;
         }
@@ -293,7 +298,7 @@ public sealed class UserManagementService : IUserManagementService
             if (roleNames.Any(name => name.Equals("SuperAdmin", StringComparison.OrdinalIgnoreCase)))
                 return (null, "SuperAdmin cannot be assigned from user management.");
 
-            var dbRoles = await _db.Roles.ToListAsync(cancellationToken);
+            var dbRoles = await _db.Query<Role>().ToListAsync(cancellationToken);
             var roles = new List<Role>();
             foreach (var name in roleNames)
             {
@@ -304,12 +309,12 @@ public sealed class UserManagementService : IUserManagementService
                     roles.Add(match);
             }
 
-            var existingLinks = await _db.UserRoles.Where(ur => ur.UserId == id).ToListAsync(cancellationToken);
-            _db.UserRoles.RemoveRange(existingLinks);
+            var existingLinks = await _db.Query<UserRole>().Where(ur => ur.UserId == id).ToListAsync(cancellationToken);
+            _db.RemoveRange<UserRole>(existingLinks);
 
             foreach (var role in roles)
             {
-                _db.UserRoles.Add(new UserRole
+                _db.Add<UserRole>(new UserRole
                 {
                     UserId = entity.Id,
                     RoleId = role.Id,
@@ -320,7 +325,7 @@ public sealed class UserManagementService : IUserManagementService
             }
         }
 
-        await _db.SaveChangesAsync(cancellationToken);
+        await _unitOfWork.SaveChangesAsync(cancellationToken);
 
         return await GetUserByIdAsync(id, cancellationToken);
     }
@@ -330,14 +335,14 @@ public sealed class UserManagementService : IUserManagementService
         bool isActive,
         CancellationToken cancellationToken = default)
     {
-        var entity = await _db.Users.FirstOrDefaultAsync(u => u.Id == id, cancellationToken);
+        var entity = await _db.Query<User>().FirstOrDefaultAsync(u => u.Id == id, cancellationToken);
         if (entity is null)
             return (false, "User not found.");
 
         entity.IsActive = isActive;
         entity.UpdatedAt = DateTime.UtcNow;
 
-        await _db.SaveChangesAsync(cancellationToken);
+        await _unitOfWork.SaveChangesAsync(cancellationToken);
         return (true, null);
     }
 

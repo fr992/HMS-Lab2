@@ -6,7 +6,7 @@ using HMS.Application.Abstractions.Identity;
 using HMS.Application.Exceptions;
 using HMS.Contracts.Identity;
 using HMS.Domain.Entities;
-using HMS.Persistence;
+using HMS.Application.Abstractions.Persistence;
 using Identity.Domain.Entities;
 using Microsoft.EntityFrameworkCore;
 
@@ -20,11 +20,17 @@ public sealed class DataTransferService : IDataTransferService
         WriteIndented = true
     };
 
-    private readonly HmsDbContext _db;
+    private readonly IHmsRepository _db;
 
-    public DataTransferService(HmsDbContext db)
+
+    private readonly IUnitOfWork _unitOfWork;
+
+    public DataTransferService(IHmsRepository db,
+        IUnitOfWork unitOfWork)
     {
         _db = db;
+
+        _unitOfWork = unitOfWork;
     }
 
     public async Task<DataExportFileDto> ExportAsync(
@@ -90,15 +96,15 @@ public sealed class DataTransferService : IDataTransferService
 
         ValidateHeaders(definition, rows);
 
-        var result = new DataImportResultDto { TotalRows = rows.Count };
-        await using var transaction = await _db.Database.BeginTransactionAsync(cancellationToken);
-        try
+        return await _unitOfWork.ExecuteInTransactionAsync(async ct =>
         {
+            var result = new DataImportResultDto { TotalRows = rows.Count };
+
             foreach (var row in rows.Select((value, index) => new { Row = value, RowNumber = index + 2 }))
             {
                 try
                 {
-                    var imported = await definition.ImportAsync(_db, row.Row, actorUserId, cancellationToken);
+                    var imported = await definition.ImportAsync(_db, row.Row, actorUserId, ct);
                     if (imported) result.Imported++;
                     else result.Skipped++;
                 }
@@ -114,19 +120,11 @@ public sealed class DataTransferService : IDataTransferService
             }
 
             if (result.Failed > 0)
-                throw new BadRequestException("Import failed validation. No rows were imported.");
-
-            await _db.SaveChangesAsync(cancellationToken);
-            await transaction.CommitAsync(cancellationToken);
-            return result;
-        }
-        catch
-        {
-            await transaction.RollbackAsync(cancellationToken);
-            if (result.Failed > 0)
                 return result;
-            throw;
-        }
+
+            await _unitOfWork.SaveChangesAsync(ct);
+            return result;
+        }, cancellationToken);
     }
 
     private static ModuleDefinition GetDefinition(string module)
@@ -374,10 +372,10 @@ public sealed class DataTransferService : IDataTransferService
         string FilePrefix,
         IReadOnlyList<string> Headers,
         IReadOnlyList<string> RequiredHeaders,
-        Func<HmsDbContext, IReadOnlyDictionary<string, string?>, int, IReadOnlyCollection<string>, CancellationToken, Task<List<Dictionary<string, string?>>>> ExportAsync,
-        Func<HmsDbContext, Dictionary<string, string?>, int, CancellationToken, Task<bool>> ImportAsync);
+        Func<IHmsRepository, IReadOnlyDictionary<string, string?>, int, IReadOnlyCollection<string>, CancellationToken, Task<List<Dictionary<string, string?>>>> ExportAsync,
+        Func<IHmsRepository, Dictionary<string, string?>, int, CancellationToken, Task<bool>> ImportAsync);
 
-    private static Task<bool> ExportOnlyImport(HmsDbContext _, Dictionary<string, string?> __, int ___, CancellationToken ____)
+    private static Task<bool> ExportOnlyImport(IHmsRepository _, Dictionary<string, string?> __, int ___, CancellationToken ____)
     {
         throw new BadRequestException("This data module is export-only.");
     }
@@ -391,7 +389,7 @@ public sealed class DataTransferService : IDataTransferService
         {
             var isActive = ParseNullableBoolFilter(filters.GetValueOrDefault("isActive"));
             var search = filters.GetValueOrDefault("search");
-            var query = db.Medications.AsNoTracking().AsQueryable();
+            var query = db.Query<Medication>().AsNoTracking().AsQueryable();
             if (isActive.HasValue) query = query.Where(x => x.IsActive == isActive.Value);
             if (!string.IsNullOrWhiteSpace(search)) query = query.Where(x => x.Name.Contains(search) || (x.Description != null && x.Description.Contains(search)));
             var items = await query.OrderBy(x => x.Name).ToListAsync(ct);
@@ -406,9 +404,9 @@ public sealed class DataTransferService : IDataTransferService
         async (db, row, actor, ct) =>
         {
             var name = Required(row, "Name");
-            if (await db.Medications.AnyAsync(x => x.Name == name, ct)) return false;
+            if (await db.Query<Medication>().AnyAsync(x => x.Name == name, ct)) return false;
             var now = DateTime.UtcNow;
-            db.Medications.Add(new Medication { Name = name, Description = Value(row, "Description"), IsActive = BoolValue(row, "IsActive", true), CreatedAt = now, UpdatedAt = now, CreatedById = actor, UpdatedById = actor });
+            db.Add<Medication>(new Medication { Name = name, Description = Value(row, "Description"), IsActive = BoolValue(row, "IsActive", true), CreatedAt = now, UpdatedAt = now, CreatedById = actor, UpdatedById = actor });
             return true;
         });
 
@@ -421,7 +419,7 @@ public sealed class DataTransferService : IDataTransferService
         {
             var isActive = ParseNullableBoolFilter(filters.GetValueOrDefault("isActive"));
             var search = filters.GetValueOrDefault("search");
-            var query = db.LabTests.AsNoTracking().AsQueryable();
+            var query = db.Query<LabTest>().AsNoTracking().AsQueryable();
             if (isActive.HasValue) query = query.Where(x => x.IsActive == isActive.Value);
             if (!string.IsNullOrWhiteSpace(search)) query = query.Where(x => x.Name.Contains(search) || (x.TestCode != null && x.TestCode.Contains(search)) || (x.SpecimenType != null && x.SpecimenType.Contains(search)) || (x.Description != null && x.Description.Contains(search)));
             var items = await query.OrderBy(x => x.Name).ToListAsync(ct);
@@ -442,9 +440,9 @@ public sealed class DataTransferService : IDataTransferService
             var code = Value(row, "TestCode");
             var price = DecimalValue(row, "Price");
             if (price is < 0) throw new BadRequestException("Price cannot be negative.");
-            if (await db.LabTests.AnyAsync(x => x.Name == name || (code != null && x.TestCode == code), ct)) return false;
+            if (await db.Query<LabTest>().AnyAsync(x => x.Name == name || (code != null && x.TestCode == code), ct)) return false;
             var now = DateTime.UtcNow;
-            db.LabTests.Add(new LabTest { TestCode = code, Name = name, SpecimenType = Value(row, "SpecimenType"), Description = Value(row, "Description"), Price = price, IsActive = BoolValue(row, "IsActive", true), CreatedAt = now, UpdatedAt = now, CreatedById = actor, UpdatedById = actor });
+            db.Add<LabTest>(new LabTest { TestCode = code, Name = name, SpecimenType = Value(row, "SpecimenType"), Description = Value(row, "Description"), Price = price, IsActive = BoolValue(row, "IsActive", true), CreatedAt = now, UpdatedAt = now, CreatedById = actor, UpdatedById = actor });
             return true;
         });
 
@@ -457,7 +455,7 @@ public sealed class DataTransferService : IDataTransferService
         {
             var status = filters.GetValueOrDefault("status");
             var departmentId = ParseNullableIntFilter(filters.GetValueOrDefault("departmentId"));
-            var query = db.Beds.AsNoTracking().Where(x => !departmentId.HasValue || x.DepartmentId == departmentId.Value);
+            var query = db.Query<Bed>().AsNoTracking().Where(x => !departmentId.HasValue || x.DepartmentId == departmentId.Value);
             if (status == "Available") query = query.Where(x => x.IsActive && !x.Assignments.Any(a => a.ReleasedAt == null));
             else if (status == "Occupied") query = query.Where(x => x.IsActive && x.Assignments.Any(a => a.ReleasedAt == null));
             else if (status == "Inactive") query = query.Where(x => !x.IsActive);
@@ -488,10 +486,10 @@ public sealed class DataTransferService : IDataTransferService
             var room = Required(row, "RoomNumber");
             var bedNo = Required(row, "BedNumber");
             var departmentId = IntValue(row, "DepartmentId");
-            if (departmentId.HasValue && !await db.Set<Department>().AnyAsync(x => x.Id == departmentId.Value, ct)) throw new BadRequestException("DepartmentId does not exist.");
-            if (await db.Beds.AnyAsync(x => x.Ward == ward && x.RoomNumber == room && x.BedNumber == bedNo, ct)) return false;
+            if (departmentId.HasValue && !await db.Query<Department>().AnyAsync(x => x.Id == departmentId.Value, ct)) throw new BadRequestException("DepartmentId does not exist.");
+            if (await db.Query<Bed>().AnyAsync(x => x.Ward == ward && x.RoomNumber == room && x.BedNumber == bedNo, ct)) return false;
             var now = DateTime.UtcNow;
-            db.Beds.Add(new Bed { Ward = ward, RoomNumber = room, BedNumber = bedNo, Floor = Value(row, "Floor"), DepartmentId = departmentId, IsActive = BoolValue(row, "IsActive", true), Notes = Value(row, "Notes"), CreatedAt = now, UpdatedAt = now, CreatedById = actor, UpdatedById = actor });
+            db.Add<Bed>(new Bed { Ward = ward, RoomNumber = room, BedNumber = bedNo, Floor = Value(row, "Floor"), DepartmentId = departmentId, IsActive = BoolValue(row, "IsActive", true), Notes = Value(row, "Notes"), CreatedAt = now, UpdatedAt = now, CreatedById = actor, UpdatedById = actor });
             return true;
         });
 
@@ -505,7 +503,7 @@ public sealed class DataTransferService : IDataTransferService
             var gender = filters.GetValueOrDefault("gender");
             var hasPortal = ParseNullableBoolFilter(filters.GetValueOrDefault("hasPortal"));
             var search = filters.GetValueOrDefault("search");
-            var query = db.PatientProfiles.AsNoTracking().AsQueryable();
+            var query = db.Query<PatientProfile>().AsNoTracking().AsQueryable();
             if (!string.IsNullOrWhiteSpace(gender) && !gender.Equals("all", StringComparison.OrdinalIgnoreCase)) query = query.Where(x => x.Person.Gender == gender);
             if (hasPortal.HasValue) query = query.Where(x => hasPortal.Value ? x.Person.UserId != null : x.Person.UserId == null);
             if (!string.IsNullOrWhiteSpace(search)) query = query.Where(x => x.PatientNumber.Contains(search) || x.Person.FirstName.Contains(search) || x.Person.LastName.Contains(search) || (x.Person.PersonalNumber != null && x.Person.PersonalNumber.Contains(search)));
@@ -539,15 +537,15 @@ public sealed class DataTransferService : IDataTransferService
         async (db, row, actor, ct) =>
         {
             var personalNumber = Value(row, "PersonalNumber");
-            if (personalNumber != null && await db.People.AnyAsync(x => x.PersonalNumber == personalNumber, ct)) return false;
+            if (personalNumber != null && await db.Query<Person>().AnyAsync(x => x.PersonalNumber == personalNumber, ct)) return false;
             var doctorId = IntValue(row, "PrimaryDoctorId");
-            if (doctorId.HasValue && !await db.DoctorProfiles.AnyAsync(x => x.Id == doctorId.Value, ct)) throw new BadRequestException("PrimaryDoctorId does not exist.");
+            if (doctorId.HasValue && !await db.Query<DoctorProfile>().AnyAsync(x => x.Id == doctorId.Value, ct)) throw new BadRequestException("PrimaryDoctorId does not exist.");
             var now = DateTime.UtcNow;
             var person = new Person { FirstName = Required(row, "FirstName"), LastName = Required(row, "LastName"), PersonalNumber = personalNumber, DateOfBirth = DateValue(row, "DateOfBirth"), Gender = Value(row, "Gender"), Phone = Value(row, "Phone"), Address = Value(row, "Address"), City = Value(row, "City"), Country = Value(row, "Country"), CreatedAt = now, UpdatedAt = now, CreatedById = actor, UpdatedById = actor };
-            db.People.Add(person);
+            db.Add<Person>(person);
             await db.SaveChangesAsync(ct);
             var profile = new PatientProfile { PersonId = person.Id, PatientNumber = string.Empty, InsuranceNumber = Value(row, "InsuranceNumber"), BloodType = Value(row, "BloodType"), PrimaryDoctorId = doctorId, CreatedAt = now, UpdatedAt = now, CreatedById = actor, UpdatedById = actor };
-            db.PatientProfiles.Add(profile);
+            db.Add<PatientProfile>(profile);
             await db.SaveChangesAsync(ct);
             profile.PatientNumber = $"PAT-{profile.Id:D5}";
             return true;
@@ -560,7 +558,7 @@ public sealed class DataTransferService : IDataTransferService
         ["PatientProfileId", "DoctorProfileId", "ScheduledStart", "ScheduledEnd"],
         async (db, filters, actor, permissions, ct) =>
         {
-            var query = db.Appointments.AsNoTracking().AsQueryable();
+            var query = db.Query<Appointment>().AsNoTracking().AsQueryable();
             if (!permissions.Contains("Appointments.Read"))
                 query = query.Where(x => x.PatientProfile.Person.UserId == actor);
             var status = filters.GetValueOrDefault("status");
@@ -596,13 +594,13 @@ public sealed class DataTransferService : IDataTransferService
             var end = DateValue(row, "ScheduledEnd") ?? throw new BadRequestException("ScheduledEnd is required.");
             var departmentId = IntValue(row, "DepartmentId");
             if (end <= start) throw new BadRequestException("ScheduledEnd must be after ScheduledStart.");
-            if (!await db.PatientProfiles.AnyAsync(x => x.Id == patientId, ct)) throw new BadRequestException("PatientProfileId does not exist.");
-            if (!await db.DoctorProfiles.AnyAsync(x => x.Id == doctorId, ct)) throw new BadRequestException("DoctorProfileId does not exist.");
-            if (departmentId.HasValue && !await db.Set<Department>().AnyAsync(x => x.Id == departmentId.Value, ct)) throw new BadRequestException("DepartmentId does not exist.");
-            if (await db.Appointments.AnyAsync(x => x.PatientProfileId == patientId && x.DoctorProfileId == doctorId && x.ScheduledStart == start, ct)) return false;
-            if (await db.Appointments.AnyAsync(x => x.DoctorProfileId == doctorId && x.Status != AppointmentStatus.Cancelled && start < x.ScheduledEnd && end > x.ScheduledStart, ct)) throw new BadRequestException("Doctor has a conflicting appointment.");
+            if (!await db.Query<PatientProfile>().AnyAsync(x => x.Id == patientId, ct)) throw new BadRequestException("PatientProfileId does not exist.");
+            if (!await db.Query<DoctorProfile>().AnyAsync(x => x.Id == doctorId, ct)) throw new BadRequestException("DoctorProfileId does not exist.");
+            if (departmentId.HasValue && !await db.Query<Department>().AnyAsync(x => x.Id == departmentId.Value, ct)) throw new BadRequestException("DepartmentId does not exist.");
+            if (await db.Query<Appointment>().AnyAsync(x => x.PatientProfileId == patientId && x.DoctorProfileId == doctorId && x.ScheduledStart == start, ct)) return false;
+            if (await db.Query<Appointment>().AnyAsync(x => x.DoctorProfileId == doctorId && x.Status != AppointmentStatus.Cancelled && start < x.ScheduledEnd && end > x.ScheduledStart, ct)) throw new BadRequestException("Doctor has a conflicting appointment.");
             var now = DateTime.UtcNow;
-            db.Appointments.Add(new Appointment { PatientProfileId = patientId, DoctorProfileId = doctorId, DepartmentId = departmentId, ScheduledStart = start, ScheduledEnd = end, Status = AppointmentStatus.Scheduled, AppointmentType = Value(row, "AppointmentType"), Reason = Value(row, "Reason"), CreatedAt = now, UpdatedAt = now, CreatedById = actor, UpdatedById = actor });
+            db.Add<Appointment>(new Appointment { PatientProfileId = patientId, DoctorProfileId = doctorId, DepartmentId = departmentId, ScheduledStart = start, ScheduledEnd = end, Status = AppointmentStatus.Scheduled, AppointmentType = Value(row, "AppointmentType"), Reason = Value(row, "Reason"), CreatedAt = now, UpdatedAt = now, CreatedById = actor, UpdatedById = actor });
             return true;
         });
 
@@ -614,7 +612,7 @@ public sealed class DataTransferService : IDataTransferService
         async (db, filters, _, _, ct) =>
         {
             var patientId = ParseNullableIntFilter(filters.GetValueOrDefault("patientProfileId"));
-            var query = db.PatientContacts.AsNoTracking().AsQueryable();
+            var query = db.Query<PatientContact>().AsNoTracking().AsQueryable();
             if (patientId.HasValue) query = query.Where(x => x.PatientProfileId == patientId.Value);
             var items = await query
                 .Include(x => x.PatientProfile)
@@ -638,12 +636,12 @@ public sealed class DataTransferService : IDataTransferService
         async (db, row, actor, ct) =>
         {
             var patientId = IntValue(row, "PatientProfileId") ?? throw new BadRequestException("PatientProfileId is required.");
-            if (!await db.PatientProfiles.AnyAsync(x => x.Id == patientId, ct)) throw new BadRequestException("PatientProfileId does not exist.");
+            if (!await db.Query<PatientProfile>().AnyAsync(x => x.Id == patientId, ct)) throw new BadRequestException("PatientProfileId does not exist.");
             var name = Required(row, "Name");
             var phone = Required(row, "Phone");
-            if (await db.PatientContacts.AnyAsync(x => x.PatientProfileId == patientId && x.Name == name && x.Phone == phone, ct)) return false;
+            if (await db.Query<PatientContact>().AnyAsync(x => x.PatientProfileId == patientId && x.Name == name && x.Phone == phone, ct)) return false;
             var now = DateTime.UtcNow;
-            db.PatientContacts.Add(new PatientContact { PatientProfileId = patientId, Name = name, Relationship = Required(row, "Relationship"), Phone = phone, Email = Value(row, "Email"), IsPrimary = BoolValue(row, "IsPrimary", false), CreatedAt = now, UpdatedAt = now, CreatedById = actor, UpdatedById = actor });
+            db.Add<PatientContact>(new PatientContact { PatientProfileId = patientId, Name = name, Relationship = Required(row, "Relationship"), Phone = phone, Email = Value(row, "Email"), IsPrimary = BoolValue(row, "IsPrimary", false), CreatedAt = now, UpdatedAt = now, CreatedById = actor, UpdatedById = actor });
             return true;
         });
 
@@ -655,7 +653,7 @@ public sealed class DataTransferService : IDataTransferService
         async (db, filters, _, _, ct) =>
         {
             var status = filters.GetValueOrDefault("status");
-            var query = db.AppointmentRequests.AsNoTracking().AsQueryable();
+            var query = db.Query<AppointmentRequest>().AsNoTracking().AsQueryable();
             if (!string.IsNullOrWhiteSpace(status) && !status.Equals("all", StringComparison.OrdinalIgnoreCase))
                 query = query.Where(x => x.Status.ToString() == status);
             var items = await query.OrderByDescending(x => x.CreatedAt).ToListAsync(ct);
@@ -682,7 +680,7 @@ public sealed class DataTransferService : IDataTransferService
         async (db, filters, _, _, ct) =>
         {
             var status = filters.GetValueOrDefault("status");
-            var query = db.LabRequests.AsNoTracking().AsQueryable();
+            var query = db.Query<LabRequest>().AsNoTracking().AsQueryable();
             if (!string.IsNullOrWhiteSpace(status) && !status.Equals("all", StringComparison.OrdinalIgnoreCase)) query = query.Where(x => x.Status == status);
             var items = await query
                 .Include(x => x.Encounter).ThenInclude(x => x.PatientProfile).ThenInclude(x => x.Person)
@@ -716,7 +714,7 @@ public sealed class DataTransferService : IDataTransferService
         [],
         async (db, _, __, ___, ct) =>
         {
-            var items = await db.LabResults.AsNoTracking()
+            var items = await db.Query<LabResult>().AsNoTracking()
                 .Include(x => x.LabRequestItem).ThenInclude(x => x.LabRequest)
                 .Include(x => x.LabRequestItem).ThenInclude(x => x.LabTest)
                 .OrderByDescending(x => x.CreatedAt)
@@ -747,7 +745,7 @@ public sealed class DataTransferService : IDataTransferService
         {
             var status = filters.GetValueOrDefault("status");
             var type = filters.GetValueOrDefault("type");
-            var query = db.Encounters.AsNoTracking().AsQueryable();
+            var query = db.Query<Encounter>().AsNoTracking().AsQueryable();
             if (!string.IsNullOrWhiteSpace(status) && !status.Equals("all", StringComparison.OrdinalIgnoreCase)) query = query.Where(x => x.Status == status);
             if (!string.IsNullOrWhiteSpace(type) && !type.Equals("all", StringComparison.OrdinalIgnoreCase)) query = query.Where(x => x.EncounterType == type);
             var items = await query
@@ -781,7 +779,7 @@ public sealed class DataTransferService : IDataTransferService
         [],
         async (db, _, __, ___, ct) =>
         {
-            var items = await db.Diagnoses.AsNoTracking()
+            var items = await db.Query<Diagnosis>().AsNoTracking()
                 .Include(x => x.Encounter)
                 .Include(x => x.CreatedByDoctor).ThenInclude(x => x.StaffProfile).ThenInclude(x => x.Person)
                 .OrderByDescending(x => x.DiagnosedAt)
@@ -809,7 +807,7 @@ public sealed class DataTransferService : IDataTransferService
         [],
         async (db, _, __, ___, ct) =>
         {
-            var items = await db.Prescriptions.AsNoTracking()
+            var items = await db.Query<Prescription>().AsNoTracking()
                 .Include(x => x.Encounter)
                 .Include(x => x.PrescribedByDoctor).ThenInclude(x => x.StaffProfile).ThenInclude(x => x.Person)
                 .Include(x => x.Items)
@@ -837,7 +835,7 @@ public sealed class DataTransferService : IDataTransferService
         async (db, filters, _, _, ct) =>
         {
             var status = filters.GetValueOrDefault("status");
-            var query = db.NurseTasks.AsNoTracking().AsQueryable();
+            var query = db.Query<NurseTask>().AsNoTracking().AsQueryable();
             if (!string.IsNullOrWhiteSpace(status) && !status.Equals("all", StringComparison.OrdinalIgnoreCase)) query = query.Where(x => x.Status == status);
             var items = await query
                 .Include(x => x.Encounter)
@@ -871,7 +869,7 @@ public sealed class DataTransferService : IDataTransferService
         [],
         async (db, _, __, ___, ct) =>
         {
-            var items = await db.BedAssignments.AsNoTracking()
+            var items = await db.Query<BedAssignment>().AsNoTracking()
                 .Include(x => x.Bed)
                 .Include(x => x.PatientProfile).ThenInclude(x => x.Person)
                 .OrderByDescending(x => x.AssignedAt)
@@ -902,7 +900,7 @@ public sealed class DataTransferService : IDataTransferService
         async (db, filters, _, _, ct) =>
         {
             var status = filters.GetValueOrDefault("status");
-            var query = db.BedAssignmentRequests.AsNoTracking().AsQueryable();
+            var query = db.Query<BedAssignmentRequest>().AsNoTracking().AsQueryable();
             if (!string.IsNullOrWhiteSpace(status) && !status.Equals("all", StringComparison.OrdinalIgnoreCase)) query = query.Where(x => x.Status == status);
             var items = await query
                 .Include(x => x.PatientProfile).ThenInclude(x => x.Person)
@@ -937,7 +935,7 @@ public sealed class DataTransferService : IDataTransferService
         async (db, filters, _, _, ct) =>
         {
             var status = filters.GetValueOrDefault("status");
-            var query = db.Invoices.AsNoTracking().AsQueryable();
+            var query = db.Query<Invoice>().AsNoTracking().AsQueryable();
             if (!string.IsNullOrWhiteSpace(status) && !status.Equals("all", StringComparison.OrdinalIgnoreCase)) query = query.Where(x => x.Status == status);
             var items = await query
                 .Include(x => x.PatientProfile).ThenInclude(x => x.Person)
@@ -969,7 +967,7 @@ public sealed class DataTransferService : IDataTransferService
         [],
         async (db, _, __, ___, ct) =>
         {
-            var items = await db.InvoiceItems.AsNoTracking()
+            var items = await db.Query<InvoiceItem>().AsNoTracking()
                 .Include(x => x.Invoice)
                 .OrderByDescending(x => x.Invoice.IssuedAt)
                 .ToListAsync(ct);
@@ -996,7 +994,7 @@ public sealed class DataTransferService : IDataTransferService
         async (db, filters, _, _, ct) =>
         {
             var status = filters.GetValueOrDefault("status");
-            var query = db.Payments.AsNoTracking().AsQueryable();
+            var query = db.Query<Payment>().AsNoTracking().AsQueryable();
             if (!string.IsNullOrWhiteSpace(status) && !status.Equals("all", StringComparison.OrdinalIgnoreCase)) query = query.Where(x => x.Status == status);
             var items = await query
                 .Include(x => x.Invoice)
@@ -1024,7 +1022,7 @@ public sealed class DataTransferService : IDataTransferService
         [],
         async (db, _, __, ___, ct) =>
         {
-            var items = await db.Users.AsNoTracking()
+            var items = await db.Query<User>().AsNoTracking()
                 .Include(x => x.UserRoles).ThenInclude(x => x.Role)
                 .Include(x => x.Person)
                 .OrderBy(x => x.UserName)
@@ -1051,7 +1049,7 @@ public sealed class DataTransferService : IDataTransferService
         [],
         async (db, _, __, ___, ct) =>
         {
-            var items = await db.StaffProfiles.AsNoTracking()
+            var items = await db.Query<StaffProfile>().AsNoTracking()
                 .Include(x => x.Person)
                 .Include(x => x.Department)
                 .Include(x => x.DoctorProfile)
@@ -1090,7 +1088,7 @@ public sealed class DataTransferService : IDataTransferService
         ["Name"],
         async (db, _, __, ___, ct) =>
         {
-            var items = await db.Roles.AsNoTracking()
+            var items = await db.Query<Role>().AsNoTracking()
                 .Include(x => x.RolePermissions).ThenInclude(x => x.Permission)
                 .OrderBy(x => x.Name)
                 .ToListAsync(ct);
@@ -1105,9 +1103,9 @@ public sealed class DataTransferService : IDataTransferService
         async (db, row, actor, ct) =>
         {
             var name = Required(row, "Name");
-            if (await db.Roles.AnyAsync(x => x.Name == name, ct)) return false;
+            if (await db.Query<Role>().AnyAsync(x => x.Name == name, ct)) return false;
             var now = DateTime.UtcNow;
-            db.Roles.Add(new Role { Name = name, Description = Value(row, "Description") ?? string.Empty, CreatedAt = now, UpdatedAt = now, CreatedById = actor, UpdatedById = actor });
+            db.Add<Role>(new Role { Name = name, Description = Value(row, "Description") ?? string.Empty, CreatedAt = now, UpdatedAt = now, CreatedById = actor, UpdatedById = actor });
             return true;
         });
 
@@ -1118,7 +1116,7 @@ public sealed class DataTransferService : IDataTransferService
         [],
         async (db, _, __, ___, ct) =>
         {
-            var items = await db.Permissions.AsNoTracking().OrderBy(x => x.Name).ToListAsync(ct);
+            var items = await db.Query<Permission>().AsNoTracking().OrderBy(x => x.Name).ToListAsync(ct);
             return items.Select(x => Row(
                 ("Id", x.Id.ToString()),
                 ("Name", x.Name),
@@ -1135,7 +1133,7 @@ public sealed class DataTransferService : IDataTransferService
         ["Key", "Value"],
         async (db, _, __, ___, ct) =>
         {
-            var items = await db.Settings.AsNoTracking().OrderBy(x => x.Key).ToListAsync(ct);
+            var items = await db.Query<Setting>().AsNoTracking().OrderBy(x => x.Key).ToListAsync(ct);
             return items.Select(x => Row(
                 ("Id", x.Id.ToString()),
                 ("Key", x.Key),
@@ -1146,8 +1144,8 @@ public sealed class DataTransferService : IDataTransferService
         async (db, row, _, ct) =>
         {
             var key = Required(row, "Key");
-            if (await db.Settings.AnyAsync(x => x.Key == key, ct)) return false;
-            db.Settings.Add(new Setting { Key = key, Value = Required(row, "Value"), Description = Value(row, "Description"), UpdatedAt = DateTime.UtcNow });
+            if (await db.Query<Setting>().AnyAsync(x => x.Key == key, ct)) return false;
+            db.Add<Setting>(new Setting { Key = key, Value = Required(row, "Value"), Description = Value(row, "Description"), UpdatedAt = DateTime.UtcNow });
             return true;
         });
 
@@ -1158,7 +1156,7 @@ public sealed class DataTransferService : IDataTransferService
         [],
         async (db, _, __, ___, ct) =>
         {
-            var items = await db.AuditLogs.AsNoTracking().OrderByDescending(x => x.CreatedAt).ToListAsync(ct);
+            var items = await db.Query<AuditLog>().AsNoTracking().OrderByDescending(x => x.CreatedAt).ToListAsync(ct);
             return items.Select(x => Row(
                 ("Id", x.Id.ToString()),
                 ("UserId", x.UserId.HasValue ? x.UserId.Value.ToString() : null),
@@ -1180,7 +1178,7 @@ public sealed class DataTransferService : IDataTransferService
         ["Name"],
         async (db, _, __, ___, ct) =>
         {
-            var items = await db.Set<Department>().AsNoTracking().OrderBy(x => x.Name).ToListAsync(ct);
+            var items = await db.Query<Department>().AsNoTracking().OrderBy(x => x.Name).ToListAsync(ct);
             return items.Select(x => Row(
                 ("Id", x.Id.ToString()),
                 ("Name", x.Name),
@@ -1191,9 +1189,9 @@ public sealed class DataTransferService : IDataTransferService
         async (db, row, actor, ct) =>
         {
             var name = Required(row, "Name");
-            if (await db.Set<Department>().AnyAsync(x => x.Name == name, ct)) return false;
+            if (await db.Query<Department>().AnyAsync(x => x.Name == name, ct)) return false;
             var now = DateTime.UtcNow;
-            db.Set<Department>().Add(new Department { Name = name, Description = Value(row, "Description"), CreatedAt = now, UpdatedAt = now, CreatedById = actor, UpdatedById = actor });
+            db.Add<Department>(new Department { Name = name, Description = Value(row, "Description"), CreatedAt = now, UpdatedAt = now, CreatedById = actor, UpdatedById = actor });
             return true;
         });
 

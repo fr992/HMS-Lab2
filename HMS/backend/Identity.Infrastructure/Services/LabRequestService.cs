@@ -1,8 +1,9 @@
 using HMS.Application.Abstractions.Identity;
 using HMS.Application.Exceptions;
 using HMS.Contracts.Identity;
+using HMS.Domain.Entities;
 using Identity.Infrastructure.Common;
-using HMS.Persistence;
+using HMS.Application.Abstractions.Persistence;
 using Identity.Domain.Entities;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
@@ -12,16 +13,21 @@ namespace Identity.Infrastructure.Services;
 
 public sealed class LabRequestService : ILabRequestService
 {
-    private readonly HmsDbContext _db;
+    private readonly IHmsRepository _db;
+
+    private readonly IUnitOfWork _unitOfWork;
     private readonly INotificationService _notificationService;
     private readonly ILogger<LabRequestService> _logger;
 
     public LabRequestService(
-        HmsDbContext db,
+        IHmsRepository db,
+        IUnitOfWork unitOfWork,
         INotificationService notificationService,
         ILogger<LabRequestService> logger)
     {
         _db = db;
+
+        _unitOfWork = unitOfWork;
         _notificationService = notificationService;
         _logger = logger;
     }
@@ -42,7 +48,7 @@ public sealed class LabRequestService : ILabRequestService
         if (request.Items == null || request.Items.Count == 0)
             throw new BadRequestException("Lab request must contain at least one analysis.");
 
-        var encounter = await _db.Encounters
+        var encounter = await _db.Query<Encounter>()
             .AsNoTracking()
             .FirstOrDefaultAsync(e => e.Id == encounterId, cancellationToken);
 
@@ -84,7 +90,7 @@ public sealed class LabRequestService : ILabRequestService
         if (duplicateCatalogKeys.Count > 0)
             throw new ConflictException("Lab request contains duplicate tests.");
 
-        var catalogTests = await _db.LabTests
+        var catalogTests = await _db.Query<LabTest>()
             .AsNoTracking()
             .Where(test => requestedLabTestIds.Contains(test.Id))
             .ToListAsync(cancellationToken);
@@ -129,8 +135,8 @@ public sealed class LabRequestService : ILabRequestService
             }).ToList()
         };
 
-        _db.LabRequests.Add(labRequest);
-        await _db.SaveChangesAsync(cancellationToken);
+        _db.Add<LabRequest>(labRequest);
+        await _unitOfWork.SaveChangesAsync(cancellationToken);
 
         var created = await GetByIdAsync(labRequest.Id, cancellationToken)
             ?? throw new Exception("Lab request was created but could not be loaded.");
@@ -154,7 +160,7 @@ public sealed class LabRequestService : ILabRequestService
         int encounterId,
         CancellationToken cancellationToken)
     {
-        var encounterExists = await _db.Encounters
+        var encounterExists = await _db.Query<Encounter>()
             .AnyAsync(e => e.Id == encounterId, cancellationToken);
 
         if (!encounterExists)
@@ -211,7 +217,7 @@ public sealed class LabRequestService : ILabRequestService
         int? actorUserId,
         CancellationToken cancellationToken)
     {
-        var labRequest = await _db.LabRequests
+        var labRequest = await _db.Query<LabRequest>()
             .FirstOrDefaultAsync(lr => lr.Id == id, cancellationToken);
 
         if (labRequest == null)
@@ -248,7 +254,7 @@ public sealed class LabRequestService : ILabRequestService
             labRequest.CompletedAt = now;
         }
 
-        await _db.SaveChangesAsync(cancellationToken);
+        await _unitOfWork.SaveChangesAsync(cancellationToken);
 
         return await GetByIdAsync(labRequest.Id, cancellationToken)
             ?? throw new Exception("Lab request was updated but could not be loaded.");
@@ -256,7 +262,7 @@ public sealed class LabRequestService : ILabRequestService
 
     private IQueryable<LabRequest> BaseQuery()
     {
-        return _db.LabRequests
+        return _db.Query<LabRequest>()
             .AsNoTracking();
     }
 
@@ -348,7 +354,7 @@ public sealed class LabRequestService : ILabRequestService
         if (!HasRole(roleList, "Doctor"))
             throw new ForbiddenException("Only admins and doctors can create lab requests.");
 
-        var doctorProfileId = await _db.DoctorProfiles
+        var doctorProfileId = await _db.Query<DoctorProfile>()
             .AsNoTracking()
             .Where(d =>
                 d.IsActive &&
@@ -374,7 +380,7 @@ public sealed class LabRequestService : ILabRequestService
         LabRequestDto labRequest,
         CancellationToken cancellationToken)
     {
-        var recipientUserIds = await _db.Users
+        var recipientUserIds = await _db.Query<User>()
             .AsNoTracking()
             .Where(user => user.IsActive &&
                 user.UserRoles.Any(userRole => userRole.Role.Name == "Laboratorant"))

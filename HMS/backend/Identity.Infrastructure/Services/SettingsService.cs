@@ -1,7 +1,7 @@
 using HMS.Application.Abstractions.Identity;
+using HMS.Application.Abstractions.Persistence;
 using HMS.Application.Exceptions;
 using HMS.Contracts.Identity;
-using HMS.Persistence;
 using Identity.Domain.Entities;
 using Identity.Infrastructure.Common;
 using Microsoft.EntityFrameworkCore;
@@ -10,11 +10,15 @@ namespace Identity.Infrastructure.Services;
 
 public sealed class SettingsService : ISettingsService
 {
-    private readonly HmsDbContext _db;
+    private readonly IRepository<Setting> _settings;
+    private readonly IUnitOfWork _unitOfWork;
 
-    public SettingsService(HmsDbContext db)
+    public SettingsService(
+        IRepository<Setting> settings,
+        IUnitOfWork unitOfWork)
     {
-        _db = db;
+        _settings = settings;
+        _unitOfWork = unitOfWork;
     }
 
     public async Task<SettingDto> CreateAsync(
@@ -24,8 +28,9 @@ public sealed class SettingsService : ISettingsService
         var key = NormalizeRequired(request.Key, "Key is required.");
         var value = NormalizeRequired(request.Value, "Value is required.");
 
-        var exists = await _db.Settings
-            .AnyAsync(setting => setting.Key == key, cancellationToken);
+        var exists = await _settings.AnyAsync(
+            setting => setting.Key == key,
+            cancellationToken);
 
         if (exists)
             throw new ConflictException("Setting key already exists.");
@@ -38,8 +43,8 @@ public sealed class SettingsService : ISettingsService
             UpdatedAt = DateTime.UtcNow
         };
 
-        _db.Settings.Add(setting);
-        await _db.SaveChangesAsync(cancellationToken);
+        await _settings.AddAsync(setting, cancellationToken);
+        await _unitOfWork.SaveChangesAsync(cancellationToken);
 
         return Map(setting);
     }
@@ -48,8 +53,7 @@ public sealed class SettingsService : ISettingsService
         int id,
         CancellationToken cancellationToken)
     {
-        return await _db.Settings
-            .AsNoTracking()
+        return await _settings.Query()
             .Where(setting => setting.Id == id)
             .Select(setting => new SettingDto
             {
@@ -62,13 +66,26 @@ public sealed class SettingsService : ISettingsService
             .FirstOrDefaultAsync(cancellationToken);
     }
 
+    public async Task<string?> GetValueAsync(
+        string key,
+        CancellationToken cancellationToken)
+    {
+        if (string.IsNullOrWhiteSpace(key))
+            return null;
+
+        var normalizedKey = key.Trim();
+
+        return await _settings.Query()
+            .Where(setting => setting.Key == normalizedKey)
+            .Select(setting => setting.Value)
+            .FirstOrDefaultAsync(cancellationToken);
+    }
+
     public async Task<PaginatedResponse<SettingDto>> GetAllAsync(
         PaginationQuery pagination,
         CancellationToken cancellationToken)
     {
-        var query = _db.Settings
-            .AsNoTracking()
-            .AsQueryable();
+        var query = _settings.Query();
 
         if (!string.IsNullOrWhiteSpace(pagination.Search))
         {
@@ -96,8 +113,10 @@ public sealed class SettingsService : ISettingsService
         UpdateSettingDto request,
         CancellationToken cancellationToken)
     {
-        var setting = await _db.Settings
-            .FirstOrDefaultAsync(item => item.Id == id, cancellationToken);
+        var setting = await _settings.GetByIdAsync(
+            id,
+            asNoTracking: false,
+            cancellationToken);
 
         if (setting == null)
             throw new NotFoundException("Setting not found.");
@@ -105,8 +124,9 @@ public sealed class SettingsService : ISettingsService
         var key = NormalizeRequired(request.Key, "Key is required.");
         var value = NormalizeRequired(request.Value, "Value is required.");
 
-        var exists = await _db.Settings
-            .AnyAsync(item => item.Id != id && item.Key == key, cancellationToken);
+        var exists = await _settings.AnyAsync(
+            item => item.Id != id && item.Key == key,
+            cancellationToken);
 
         if (exists)
             throw new ConflictException("Setting key already exists.");
@@ -116,7 +136,7 @@ public sealed class SettingsService : ISettingsService
         setting.Description = NormalizeOptional(request.Description);
         setting.UpdatedAt = DateTime.UtcNow;
 
-        await _db.SaveChangesAsync(cancellationToken);
+        await _unitOfWork.SaveChangesAsync(cancellationToken);
 
         return Map(setting);
     }
@@ -125,14 +145,16 @@ public sealed class SettingsService : ISettingsService
         int id,
         CancellationToken cancellationToken)
     {
-        var setting = await _db.Settings
-            .FirstOrDefaultAsync(item => item.Id == id, cancellationToken);
+        var setting = await _settings.GetByIdAsync(
+            id,
+            asNoTracking: false,
+            cancellationToken);
 
         if (setting == null)
             throw new NotFoundException("Setting not found.");
 
-        _db.Settings.Remove(setting);
-        await _db.SaveChangesAsync(cancellationToken);
+        _settings.Remove(setting);
+        await _unitOfWork.SaveChangesAsync(cancellationToken);
     }
 
     private static string NormalizeRequired(string value, string message)

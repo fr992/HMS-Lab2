@@ -2,7 +2,6 @@ using HMS.Api.Authorization;
 using HMS.Application.Abstractions.Identity;
 using HMS.Contracts.Identity;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.EntityFrameworkCore;
 using System.Security.Claims;
 
 namespace HMS.Api.Controllers.Admin;
@@ -95,23 +94,12 @@ public sealed class LabTestsController : ControllerBase
         [FromBody] CreateLabTestDto request,
         CancellationToken cancellationToken)
     {
-        try
-        {
-            var result = await _labTestService.CreateAsync(
-                request,
-                CurrentUserId(),
-                cancellationToken);
+        var result = await _labTestService.CreateAsync(
+            request,
+            CurrentUserId(),
+            cancellationToken);
 
-            return CreatedAtAction(nameof(GetById), new { id = result.Id }, result);
-        }
-        catch (InvalidOperationException ex)
-        {
-            return BadRequest(new { error = ex.Message });
-        }
-        catch (DbUpdateException)
-        {
-            return Conflict(new { error = "A lab test with this name or code already exists." });
-        }
+        return CreatedAtAction(nameof(GetById), new { id = result.Id }, result);
     }
 
     [HttpPut("{id:int}")]
@@ -121,24 +109,13 @@ public sealed class LabTestsController : ControllerBase
         [FromBody] UpdateLabTestDto request,
         CancellationToken cancellationToken)
     {
-        try
-        {
-            var result = await _labTestService.UpdateAsync(
-                id,
-                request,
-                CurrentUserId(),
-                cancellationToken);
+        var result = await _labTestService.UpdateAsync(
+            id,
+            request,
+            CurrentUserId(),
+            cancellationToken);
 
-            return Ok(result);
-        }
-        catch (InvalidOperationException ex)
-        {
-            return BadRequest(new { error = ex.Message });
-        }
-        catch (DbUpdateException)
-        {
-            return Conflict(new { error = "A lab test with this name or code already exists." });
-        }
+        return Ok(result);
     }
 
     [HttpDelete("{id:int}")]
@@ -147,19 +124,12 @@ public sealed class LabTestsController : ControllerBase
         int id,
         CancellationToken cancellationToken)
     {
-        try
-        {
-            await _labTestService.DeleteAsync(
-                id,
-                CurrentUserId(),
-                cancellationToken);
+        await _labTestService.DeleteAsync(
+            id,
+            CurrentUserId(),
+            cancellationToken);
 
-            return NoContent();
-        }
-        catch (InvalidOperationException ex)
-        {
-            return BadRequest(new { error = ex.Message });
-        }
+        return NoContent();
     }
 
     private int? CurrentUserId()

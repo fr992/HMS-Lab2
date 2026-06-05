@@ -35,7 +35,7 @@ public sealed class AdminAuditLogsControllerTests
             });
         await db.SaveChangesAsync();
         var configuration = new ConfigurationBuilder().Build();
-        var controller = new AdminAuditLogsController(db, configuration);
+        var controller = new AdminAuditLogsController(ServiceTestFactory.AuditLogQueryService(db, configuration));
 
         var result = await controller.Query(
             from: DateTimeOffset.UtcNow.AddDays(-5),

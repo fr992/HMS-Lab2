@@ -1,10 +1,7 @@
+using HMS.Application.Abstractions.Identity;
 using HMS.Contracts.Identity;
-using HMS.Domain.Entities;
-using HMS.Persistence;
-using Identity.Infrastructure.Common;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.EntityFrameworkCore;
 
 namespace HMS.Api.Controllers.Public;
 
@@ -13,11 +10,11 @@ namespace HMS.Api.Controllers.Public;
 [Route("api/public/departments")]
 public sealed class PublicDepartmentsController : ControllerBase
 {
-    private readonly HmsDbContext _db;
+    private readonly IDepartmentService _departments;
 
-    public PublicDepartmentsController(HmsDbContext db)
+    public PublicDepartmentsController(IDepartmentService departments)
     {
-        _db = db;
+        _departments = departments;
     }
 
     [HttpGet]
@@ -26,22 +23,6 @@ public sealed class PublicDepartmentsController : ControllerBase
         [FromQuery] bool all,
         CancellationToken cancellationToken)
     {
-        var query = _db.Set<Department>()
-            .AsNoTracking()
-            .OrderBy(d => d.Name)
-            .Select(d => new DepartmentDto
-            {
-                Id = d.Id,
-                Name = d.Name,
-                Description = d.Description,
-            });
-
-        if (all)
-        {
-            var items = await query.ToListAsync(cancellationToken);
-            return Ok(PaginatedResponse<DepartmentDto>.Create(items, 1, items.Count, items.Count));
-        }
-
-        return Ok(await query.ToPaginatedResponseAsync(pagination, cancellationToken));
+        return Ok(await _departments.GetDepartmentsAsync(pagination, all, cancellationToken));
     }
 }

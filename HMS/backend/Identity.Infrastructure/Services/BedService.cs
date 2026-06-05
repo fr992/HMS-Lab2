@@ -2,18 +2,23 @@ using HMS.Application.Abstractions.Identity;
 using HMS.Application.Exceptions;
 using HMS.Contracts.Identity;
 using HMS.Domain.Entities;
-using HMS.Persistence;
+using Identity.Domain.Entities;
+using HMS.Application.Abstractions.Persistence;
 using Microsoft.EntityFrameworkCore;
 
 namespace Identity.Infrastructure.Services;
 
 public sealed class BedService : IBedService
 {
-    private readonly HmsDbContext _db;
+    private readonly IHmsRepository _db;
+    private readonly IUnitOfWork _unitOfWork;
 
-    public BedService(HmsDbContext db)
+    public BedService(
+        IHmsRepository db,
+        IUnitOfWork unitOfWork)
     {
         _db = db;
+        _unitOfWork = unitOfWork;
     }
 
     public async Task<PaginatedResponse<BedDto>> GetBedsAsync(
@@ -25,11 +30,11 @@ public sealed class BedService : IBedService
         var search = NormalizeOptional(query.Search);
         var roomNumber = NormalizeOptional(query.RoomNumber);
 
-        var beds = _db.Beds
+        var beds = _db.Query<Bed>()
             .AsNoTracking()
             .Where(x => !query.DepartmentId.HasValue || x.DepartmentId == query.DepartmentId.Value);
 
-        var activeAssignments = _db.BedAssignments
+        var activeAssignments = _db.Query<BedAssignment>()
             .AsNoTracking()
             .Where(x => x.ReleasedAt == null);
 
@@ -121,7 +126,7 @@ public sealed class BedService : IBedService
         PaginationQuery pagination,
         CancellationToken cancellationToken)
     {
-        var loggedInDepartmentId = await _db.StaffProfiles
+        var loggedInDepartmentId = await _db.Query<StaffProfile>()
             .AsNoTracking()
             .Where(sp => sp.Person.UserId == actorUserId)
             .Select(sp => sp.DepartmentId)
@@ -130,11 +135,11 @@ public sealed class BedService : IBedService
         if (!loggedInDepartmentId.HasValue)
             return PaginatedResponse<BedPatientDetailsDto>.Create([], pagination.Page, pagination.PageSize, 0);
 
-        var beds = _db.Beds
+        var beds = _db.Query<Bed>()
             .AsNoTracking()
             .Where(b => b.DepartmentId == loggedInDepartmentId);
 
-        var activeAssignments = _db.BedAssignments
+        var activeAssignments = _db.Query<BedAssignment>()
             .AsNoTracking()
             .Where(a => a.ReleasedAt == null);
 
@@ -174,7 +179,7 @@ public sealed class BedService : IBedService
 
     public async Task<BedDto> GetBedAsync(int id, CancellationToken cancellationToken)
     {
-        var bed = await ProjectBedsToDto(_db.Beds.AsNoTracking().Where(x => x.Id == id))
+        var bed = await ProjectBedsToDto(_db.Query<Bed>().AsNoTracking().Where(x => x.Id == id))
             .FirstOrDefaultAsync(cancellationToken);
 
         if (bed is null)
@@ -207,8 +212,8 @@ public sealed class BedService : IBedService
             UpdatedById = actorUserId
         };
 
-        _db.Beds.Add(bed);
-        await _db.SaveChangesAsync(cancellationToken);
+        _db.Add<Bed>(bed);
+        await _unitOfWork.SaveChangesAsync(cancellationToken);
 
         return await GetBedAsync(bed.Id, cancellationToken);
     }
@@ -219,7 +224,7 @@ public sealed class BedService : IBedService
         int actorUserId,
         CancellationToken cancellationToken)
     {
-        var bed = await _db.Beds.FirstOrDefaultAsync(x => x.Id == id, cancellationToken);
+        var bed = await _db.Query<Bed>().FirstOrDefaultAsync(x => x.Id == id, cancellationToken);
 
         if (bed is null)
             throw new NotFoundException("Bed not found.");
@@ -244,7 +249,7 @@ public sealed class BedService : IBedService
         bed.UpdatedAt = DateTime.UtcNow;
         bed.UpdatedById = actorUserId;
 
-        await _db.SaveChangesAsync(cancellationToken);
+        await _unitOfWork.SaveChangesAsync(cancellationToken);
 
         return await GetBedAsync(bed.Id, cancellationToken);
     }
@@ -258,7 +263,7 @@ public sealed class BedService : IBedService
         if (request.PatientProfileId <= 0)
             throw new BadRequestException("Patient profile is required.");
 
-        var bed = await _db.Beds.AsNoTracking()
+        var bed = await _db.Query<Bed>().AsNoTracking()
             .FirstOrDefaultAsync(x => x.Id == bedId, cancellationToken);
 
         if (bed is null)
@@ -267,7 +272,7 @@ public sealed class BedService : IBedService
         if (!bed.IsActive)
             throw new ConflictException("Inactive beds cannot be assigned.");
 
-        var patientExists = await _db.PatientProfiles
+        var patientExists = await _db.Query<PatientProfile>()
             .AsNoTracking()
             .AnyAsync(x => x.Id == request.PatientProfileId, cancellationToken);
 
@@ -280,7 +285,7 @@ public sealed class BedService : IBedService
         if (await HasActiveAssignmentAsync(bedId, cancellationToken))
             throw new ConflictException("Bed is already assigned to another patient.");
 
-        var patientAlreadyAssigned = await _db.BedAssignments
+        var patientAlreadyAssigned = await _db.Query<BedAssignment>()
             .AsNoTracking()
             .AnyAsync(x => x.PatientProfileId == request.PatientProfileId && x.ReleasedAt == null, cancellationToken);
 
@@ -300,11 +305,11 @@ public sealed class BedService : IBedService
             UpdatedAt = now
         };
 
-        _db.BedAssignments.Add(assignment);
+        _db.Add<BedAssignment>(assignment);
 
         try
         {
-            await _db.SaveChangesAsync(cancellationToken);
+            await _unitOfWork.SaveChangesAsync(cancellationToken);
         }
         catch (DbUpdateException ex) when (IsUniqueConstraintViolation(ex))
         {
@@ -320,7 +325,7 @@ public sealed class BedService : IBedService
         int actorUserId,
         CancellationToken cancellationToken)
     {
-        var assignment = await _db.BedAssignments
+        var assignment = await _db.Query<BedAssignment>()
             .Where(x => x.BedId == bedId && x.ReleasedAt == null)
             .FirstOrDefaultAsync(cancellationToken);
 
@@ -336,7 +341,7 @@ public sealed class BedService : IBedService
         int actorUserId,
         CancellationToken cancellationToken)
     {
-        var assignment = await _db.BedAssignments
+        var assignment = await _db.Query<BedAssignment>()
             .FirstOrDefaultAsync(x => x.Id == assignmentId, cancellationToken);
 
         if (assignment is null)
@@ -350,7 +355,7 @@ public sealed class BedService : IBedService
 
     public async Task<IReadOnlyList<BedAssignmentDto>> GetActiveAssignmentsAsync(CancellationToken cancellationToken)
     {
-        return await ProjectAssignmentsToDto(_db.BedAssignments
+        return await ProjectAssignmentsToDto(_db.Query<BedAssignment>()
                 .AsNoTracking()
                 .Where(x => x.ReleasedAt == null)
                 .OrderBy(x => x.Bed.Ward)
@@ -371,7 +376,7 @@ public sealed class BedService : IBedService
         assignment.ReleaseNotes = NormalizeOptional(request.ReleaseNotes);
         assignment.UpdatedAt = now;
 
-        await _db.SaveChangesAsync(cancellationToken);
+        await _unitOfWork.SaveChangesAsync(cancellationToken);
 
         return await GetAssignmentDtoAsync(assignment.Id, cancellationToken);
     }
@@ -381,7 +386,7 @@ public sealed class BedService : IBedService
         if (!departmentId.HasValue)
             return;
 
-        var exists = await _db.Set<Department>()
+        var exists = await _db.Query<Department>()
             .AsNoTracking()
             .AnyAsync(x => x.Id == departmentId.Value, cancellationToken);
 
@@ -394,7 +399,7 @@ public sealed class BedService : IBedService
         int patientProfileId,
         CancellationToken cancellationToken)
     {
-        var encounterPatientId = await _db.Encounters
+        var encounterPatientId = await _db.Query<Encounter>()
             .AsNoTracking()
             .Where(x => x.Id == encounterId)
             .Select(x => (int?)x.PatientProfileId)
@@ -418,7 +423,7 @@ public sealed class BedService : IBedService
         var normalizedRoom = NormalizeRequired(roomNumber, "Room number is required.");
         var normalizedBed = NormalizeRequired(bedNumber, "Bed number is required.");
 
-        var exists = await _db.Beds
+        var exists = await _db.Query<Bed>()
             .AsNoTracking()
             .AnyAsync(x =>
                 (!currentBedId.HasValue || x.Id != currentBedId.Value) &&
@@ -433,14 +438,14 @@ public sealed class BedService : IBedService
 
     private async Task<bool> HasActiveAssignmentAsync(int bedId, CancellationToken cancellationToken)
     {
-        return await _db.BedAssignments
+        return await _db.Query<BedAssignment>()
             .AsNoTracking()
             .AnyAsync(x => x.BedId == bedId && x.ReleasedAt == null, cancellationToken);
     }
 
     private async Task<BedAssignmentDto> GetAssignmentDtoAsync(int id, CancellationToken cancellationToken)
     {
-        var assignment = await ProjectAssignmentsToDto(_db.BedAssignments
+        var assignment = await ProjectAssignmentsToDto(_db.Query<BedAssignment>()
                 .AsNoTracking()
                 .Where(x => x.Id == id))
             .FirstOrDefaultAsync(cancellationToken);

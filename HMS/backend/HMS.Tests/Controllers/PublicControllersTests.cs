@@ -16,7 +16,7 @@ public sealed class PublicControllersTests
             new Department { Name = "Neurology", Description = "Nerves" },
             new Department { Name = "Cardiology", Description = "Heart" });
         await db.SaveChangesAsync();
-        var controller = new PublicDepartmentsController(db);
+        var controller = new PublicDepartmentsController(ServiceTestFactory.DepartmentService(db));
 
         var result = await controller.GetDepartments(new PaginationQuery { PageSize = 1 }, all: true, CancellationToken.None);
 
@@ -38,7 +38,7 @@ public sealed class PublicControllersTests
             CreateDoctor("Wrong", "Role", isDoctorRole: false, isUserActive: true, isDoctorActive: true),
             CreateDoctor("Inactive", "Doctor", isDoctorRole: true, isUserActive: true, isDoctorActive: false));
         await db.SaveChangesAsync();
-        var controller = new PublicDoctorsController(db);
+        var controller = new PublicDoctorsController(ServiceTestFactory.StaffDirectoryService(db));
 
         var result = await controller.GetDoctors(CancellationToken.None, limit: 1);
 
@@ -67,7 +67,7 @@ public sealed class PublicControllersTests
             ScheduledEnd = DateTime.UtcNow.AddMinutes(30)
         });
         await db.SaveChangesAsync();
-        var controller = new LandingStatsController(db);
+        var controller = new LandingStatsController(ServiceTestFactory.LandingStatsService(db));
 
         var result = await controller.Get(CancellationToken.None);
 
@@ -122,3 +122,4 @@ public sealed class PublicControllersTests
         };
     }
 }
+

@@ -1,4 +1,6 @@
 using HMS.Persistence.Mongo;
+using HMS.Application.Abstractions.Persistence;
+using HMS.Persistence.Repositories;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -20,6 +22,12 @@ public static class DependencyInjection
             options.UseSqlServer(
                 sqlConnectionString,
                 sqlOptions => sqlOptions.EnableRetryOnFailure()));
+
+        services.AddScoped(typeof(IRepository<>), typeof(EfRepository<>));
+        services.AddScoped<IHmsRepository, EfHmsRepository>();
+        services.AddScoped<IUnitOfWork, EfUnitOfWork>();
+        services.AddScoped<IAppointmentRepository, AppointmentRepository>();
+        services.AddScoped<IAuditLogRepository, AuditLogRepository>();
 
         var mongoDbSettings = GetRequiredMongoSettings(configuration);
 

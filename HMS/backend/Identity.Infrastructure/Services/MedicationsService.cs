@@ -1,20 +1,24 @@
-﻿using HMS.Application.Abstractions.Identity;
-using HMS.Contracts.Identity;
-using Identity.Infrastructure.Common;
+using HMS.Application.Abstractions.Identity;
+using HMS.Application.Abstractions.Persistence;
 using HMS.Application.Exceptions;
-using HMS.Persistence;
+using HMS.Contracts.Identity;
 using Identity.Domain.Entities;
+using Identity.Infrastructure.Common;
 using Microsoft.EntityFrameworkCore;
 
 namespace Identity.Infrastructure.Services;
 
 public sealed class MedicationsService : IMedicationsService
 {
-    private readonly HmsDbContext _db;
+    private readonly IRepository<Medication> _medications;
+    private readonly IUnitOfWork _unitOfWork;
 
-    public MedicationsService(HmsDbContext db)
+    public MedicationsService(
+        IRepository<Medication> medications,
+        IUnitOfWork unitOfWork)
     {
-        _db = db;
+        _medications = medications;
+        _unitOfWork = unitOfWork;
     }
 
     public async Task<MedicationDto> CreateAsync(
@@ -27,8 +31,9 @@ public sealed class MedicationsService : IMedicationsService
         if (string.IsNullOrWhiteSpace(name))
             throw new BadRequestException("Medication name is required.");
 
-        var exists = await _db.Medications
-            .AnyAsync(m => m.Name == name, cancellationToken);
+        var exists = await _medications.AnyAsync(
+            medication => medication.Name == name,
+            cancellationToken);
 
         if (exists)
             throw new ConflictException("Medication already exists.");
@@ -48,8 +53,8 @@ public sealed class MedicationsService : IMedicationsService
             UpdatedById = actorUserId
         };
 
-        _db.Medications.Add(medication);
-        await _db.SaveChangesAsync(cancellationToken);
+        await _medications.AddAsync(medication, cancellationToken);
+        await _unitOfWork.SaveChangesAsync(cancellationToken);
 
         return Map(medication);
     }
@@ -58,8 +63,7 @@ public sealed class MedicationsService : IMedicationsService
         int id,
         CancellationToken cancellationToken)
     {
-        return await _db.Medications
-            .AsNoTracking()
+        return await _medications.Query()
             .Where(m => m.Id == id)
             .Select(m => new MedicationDto
             {
@@ -78,9 +82,7 @@ public sealed class MedicationsService : IMedicationsService
         PaginationQuery pagination,
         CancellationToken cancellationToken)
     {
-        var query = _db.Medications
-            .AsNoTracking()
-            .AsQueryable();
+        var query = _medications.Query();
 
         if (isActive.HasValue)
         {
@@ -115,8 +117,10 @@ public sealed class MedicationsService : IMedicationsService
         int? actorUserId,
         CancellationToken cancellationToken)
     {
-        var medication = await _db.Medications
-            .FirstOrDefaultAsync(m => m.Id == id, cancellationToken);
+        var medication = await _medications.GetByIdAsync(
+            id,
+            asNoTracking: false,
+            cancellationToken);
 
         if (medication == null)
             throw new NotFoundException("Medication not found.");
@@ -126,8 +130,9 @@ public sealed class MedicationsService : IMedicationsService
         if (string.IsNullOrWhiteSpace(name))
             throw new BadRequestException("Medication name is required.");
 
-        var exists = await _db.Medications
-            .AnyAsync(m => m.Id != id && m.Name == name, cancellationToken);
+        var exists = await _medications.AnyAsync(
+            medication => medication.Id != id && medication.Name == name,
+            cancellationToken);
 
         if (exists)
             throw new ConflictException("Medication already exists.");
@@ -140,7 +145,7 @@ public sealed class MedicationsService : IMedicationsService
         medication.UpdatedAt = DateTime.UtcNow;
         medication.UpdatedById = actorUserId;
 
-        await _db.SaveChangesAsync(cancellationToken);
+        await _unitOfWork.SaveChangesAsync(cancellationToken);
 
         return Map(medication);
     }
@@ -150,8 +155,10 @@ public sealed class MedicationsService : IMedicationsService
         int? actorUserId,
         CancellationToken cancellationToken)
     {
-        var medication = await _db.Medications
-            .FirstOrDefaultAsync(m => m.Id == id, cancellationToken);
+        var medication = await _medications.GetByIdAsync(
+            id,
+            asNoTracking: false,
+            cancellationToken);
 
         if (medication == null)
             throw new NotFoundException("Medication not found.");
@@ -160,7 +167,7 @@ public sealed class MedicationsService : IMedicationsService
         medication.UpdatedAt = DateTime.UtcNow;
         medication.UpdatedById = actorUserId;
 
-        await _db.SaveChangesAsync(cancellationToken);
+        await _unitOfWork.SaveChangesAsync(cancellationToken);
     }
 
     private static MedicationDto Map(Medication medication)

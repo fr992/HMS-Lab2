@@ -137,6 +137,12 @@ public static class DependencyInjection
         services.AddScoped<IMedicationsService, MedicationsService>();
         services.AddScoped<IDataTransferService, DataTransferService>();
         services.AddScoped<ISettingsService, SettingsService>();
+        services.AddScoped<IDepartmentService, DepartmentService>();
+        services.AddScoped<IStaffDirectoryService, StaffDirectoryService>();
+        services.AddScoped<ILandingStatsService, LandingStatsService>();
+        services.AddScoped<IDashboardQueryService, DashboardQueryService>();
+        services.AddScoped<IRoleAdministrationService, RoleAdministrationService>();
+        services.AddScoped<IAuditLogQueryService, AuditLogQueryService>();
         services.AddScoped<INotificationService, MongoNotificationService>();
         return services;
     }

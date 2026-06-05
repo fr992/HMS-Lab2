@@ -1,7 +1,8 @@
 using HMS.Application.Abstractions.Identity;
 using HMS.Application.Exceptions;
 using HMS.Contracts.Identity;
-using HMS.Persistence;
+using HMS.Domain.Entities;
+using HMS.Application.Abstractions.Persistence;
 using Identity.Domain.Entities;
 using Microsoft.EntityFrameworkCore;
 using System.Linq.Expressions;
@@ -10,11 +11,16 @@ namespace Identity.Infrastructure.Services;
 
 public sealed class LabResultService : ILabResultService
 {
-    private readonly HmsDbContext _db;
+    private readonly IHmsRepository _db;
 
-    public LabResultService(HmsDbContext db)
+    private readonly IUnitOfWork _unitOfWork;
+
+    public LabResultService(IHmsRepository db,
+        IUnitOfWork unitOfWork)
     {
         _db = db;
+
+        _unitOfWork = unitOfWork;
     }
 
     public async Task<LabResultDto> CreateAsync(
@@ -34,7 +40,7 @@ public sealed class LabResultService : ILabResultService
         if (string.IsNullOrWhiteSpace(request.ResultData))
             throw new BadRequestException("Result data is required.");
 
-        var item = await _db.LabRequestItems
+        var item = await _db.Query<LabRequestItem>()
             .Include(i => i.LabRequest)
             .FirstOrDefaultAsync(i => i.Id == request.LabRequestItemId, cancellationToken);
 
@@ -84,7 +90,7 @@ public sealed class LabResultService : ILabResultService
             UpdatedById = actorUserId
         };
 
-        _db.LabResults.Add(labResult);
+        _db.Add<LabResult>(labResult);
 
         if (item.LabRequest.Status == LabRequestStatus.Requested)
         {
@@ -97,7 +103,7 @@ public sealed class LabResultService : ILabResultService
         item.UpdatedAt = now;
         item.UpdatedById = actorUserId;
 
-        await _db.SaveChangesAsync(cancellationToken);
+        await _unitOfWork.SaveChangesAsync(cancellationToken);
 
         return await GetByIdAsync(labResult.Id, cancellationToken)
             ?? throw new Exception("Lab result was created but could not be loaded.");
@@ -141,7 +147,7 @@ public sealed class LabResultService : ILabResultService
         if (interpretation?.Length > 200)
             throw new BadRequestException("Interpretation cannot exceed 200 characters.");
 
-        var labResult = await _db.LabResults
+        var labResult = await _db.Query<LabResult>()
             .Include(r => r.File)
             .FirstOrDefaultAsync(r => r.Id == id, cancellationToken);
 
@@ -194,7 +200,7 @@ public sealed class LabResultService : ILabResultService
             AddAttachmentAudit(labResult.Id, actorUserId, "LabResult.AttachmentDeleted", previousFile, null);
         }
 
-        await _db.SaveChangesAsync(cancellationToken);
+        await _unitOfWork.SaveChangesAsync(cancellationToken);
 
         return await GetByIdAsync(labResult.Id, cancellationToken)
             ?? throw new Exception("Lab result was updated but could not be loaded.");
@@ -256,7 +262,7 @@ public sealed class LabResultService : ILabResultService
         if (actorUserId == null)
             throw new UnauthorizedException("Authenticated user is required.");
 
-        var labResult = await _db.LabResults
+        var labResult = await _db.Query<LabResult>()
             .Include(r => r.LabRequestItem)
                 .ThenInclude(i => i.LabRequest)
             .FirstOrDefaultAsync(r => r.Id == id, cancellationToken);
@@ -277,7 +283,7 @@ public sealed class LabResultService : ILabResultService
         labResult.LabRequestItem.UpdatedById = actorUserId;
 
         var labRequest = labResult.LabRequestItem.LabRequest;
-        var allItemsHavePublishedResults = await _db.LabRequestItems
+        var allItemsHavePublishedResults = await _db.Query<LabRequestItem>()
             .Where(i => i.LabRequestId == labRequest.Id)
             .AllAsync(
                 i => i.Results.Any(r => r.VerifiedAt != null || r.Id == labResult.Id),
@@ -296,7 +302,7 @@ public sealed class LabResultService : ILabResultService
         labRequest.UpdatedAt = now;
         labRequest.UpdatedById = actorUserId;
 
-        await _db.SaveChangesAsync(cancellationToken);
+        await _unitOfWork.SaveChangesAsync(cancellationToken);
 
         return await GetByIdAsync(labResult.Id, cancellationToken)
             ?? throw new Exception("Lab result was published but could not be loaded.");
@@ -329,7 +335,7 @@ public sealed class LabResultService : ILabResultService
 
     private IQueryable<LabResult> BaseQuery()
     {
-        return _db.LabResults.AsNoTracking();
+        return _db.Query<LabResult>().AsNoTracking();
     }
 
     private IQueryable<LabResult> BuildLabResultsQuery(int? patientProfileId)
@@ -396,7 +402,7 @@ public sealed class LabResultService : ILabResultService
         HmsFile? replacementFile)
     {
         var now = DateTime.UtcNow;
-        _db.AuditLogs.Add(new AuditLog
+        _db.Add<AuditLog>(new AuditLog
         {
             UserId = actorUserId,
             Action = action,

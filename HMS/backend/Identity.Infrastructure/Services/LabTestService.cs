@@ -1,8 +1,8 @@
 using HMS.Application.Abstractions.Identity;
+using HMS.Application.Abstractions.Persistence;
 using HMS.Application.Exceptions;
 using HMS.Contracts.Identity;
 using Identity.Infrastructure.Common;
-using HMS.Persistence;
 using Identity.Domain.Entities;
 using Microsoft.EntityFrameworkCore;
 using System.Linq.Expressions;
@@ -11,11 +11,15 @@ namespace Identity.Infrastructure.Services;
 
 public sealed class LabTestService : ILabTestService
 {
-    private readonly HmsDbContext _db;
+    private readonly IRepository<LabTest> _labTests;
+    private readonly IUnitOfWork _unitOfWork;
 
-    public LabTestService(HmsDbContext db)
+    public LabTestService(
+        IRepository<LabTest> labTests,
+        IUnitOfWork unitOfWork)
     {
-        _db = db;
+        _labTests = labTests;
+        _unitOfWork = unitOfWork;
     }
 
     public async Task<PaginatedResponse<LabTestDto>> GetLabTestsAsync(
@@ -23,9 +27,7 @@ public sealed class LabTestService : ILabTestService
         PaginationQuery pagination,
         CancellationToken cancellationToken)
     {
-        var query = _db.LabTests
-                   .AsNoTracking()
-                   .AsQueryable();
+        var query = _labTests.Query();
 
         if (isActive.HasValue)
         {
@@ -52,8 +54,7 @@ public sealed class LabTestService : ILabTestService
         int id,
         CancellationToken cancellationToken)
     {
-        return await _db.LabTests
-            .AsNoTracking()
+        return await _labTests.Query()
             .Where(test => test.Id == id)
             .Select(MapToDto)
             .FirstOrDefaultAsync(cancellationToken);
@@ -76,11 +77,11 @@ public sealed class LabTestService : ILabTestService
         var name = request.Name.Trim();
         var testCode = NormalizeOptional(request.TestCode);
         ValidatePrice(request.Price);
-        var exists = await _db.LabTests
-            .AnyAsync(test =>
+        var exists = await _labTests.AnyAsync(
+            test =>
                 test.Name == name ||
                 (testCode != null && test.TestCode == testCode),
-                cancellationToken);
+            cancellationToken);
 
         if (exists)
             throw new ConflictException("A lab test with this name or code already exists.");
@@ -100,8 +101,8 @@ public sealed class LabTestService : ILabTestService
             UpdatedById = actorUserId
         };
 
-        _db.LabTests.Add(labTest);
-        await _db.SaveChangesAsync(cancellationToken);
+        await _labTests.AddAsync(labTest, cancellationToken);
+        await SaveOrThrowConflictAsync(cancellationToken);
 
         return await GetByIdAsync(labTest.Id, cancellationToken)
             ?? throw new Exception("Lab test was created but could not be loaded.");
@@ -122,8 +123,10 @@ public sealed class LabTestService : ILabTestService
         if (string.IsNullOrWhiteSpace(request.Name))
             throw new BadRequestException("Lab test name is required.");
 
-        var labTest = await _db.LabTests
-            .FirstOrDefaultAsync(test => test.Id == id, cancellationToken);
+        var labTest = await _labTests.GetByIdAsync(
+            id,
+            asNoTracking: false,
+            cancellationToken);
 
         if (labTest == null)
             throw new NotFoundException("Lab test not found.");
@@ -131,11 +134,11 @@ public sealed class LabTestService : ILabTestService
         var name = request.Name.Trim();
         var testCode = NormalizeOptional(request.TestCode);
         ValidatePrice(request.Price);
-        var exists = await _db.LabTests
-            .AnyAsync(test =>
+        var exists = await _labTests.AnyAsync(
+            test =>
                 test.Id != id &&
                 (test.Name == name || (testCode != null && test.TestCode == testCode)),
-                cancellationToken);
+            cancellationToken);
 
         if (exists)
             throw new ConflictException("A lab test with this name or code already exists.");
@@ -149,7 +152,7 @@ public sealed class LabTestService : ILabTestService
         labTest.UpdatedAt = DateTime.UtcNow;
         labTest.UpdatedById = actorUserId;
 
-        await _db.SaveChangesAsync(cancellationToken);
+        await SaveOrThrowConflictAsync(cancellationToken);
 
         return await GetByIdAsync(labTest.Id, cancellationToken)
             ?? throw new Exception("Lab test was updated but could not be loaded.");
@@ -161,8 +164,10 @@ public sealed class LabTestService : ILabTestService
         int? actorUserId,
         CancellationToken cancellationToken)
     {
-        var labTest = await _db.LabTests
-            .FirstOrDefaultAsync(lt => lt.Id == id, cancellationToken);
+        var labTest = await _labTests.GetByIdAsync(
+            id,
+            asNoTracking: false,
+            cancellationToken);
 
         if (labTest == null)
             throw new NotFoundException("Lab test not found.");
@@ -171,7 +176,7 @@ public sealed class LabTestService : ILabTestService
         labTest.UpdatedAt = DateTime.UtcNow;
         labTest.UpdatedById = actorUserId;
 
-        await _db.SaveChangesAsync(cancellationToken);
+        await _unitOfWork.SaveChangesAsync(cancellationToken);
     }
 
     private static readonly Expression<Func<LabTest, LabTestDto>> MapToDto =
@@ -200,5 +205,17 @@ public sealed class LabTestService : ILabTestService
     {
         if (price is < 0)
             throw new BadRequestException("Lab test price cannot be negative.");
+    }
+
+    private async Task SaveOrThrowConflictAsync(CancellationToken cancellationToken)
+    {
+        try
+        {
+            await _unitOfWork.SaveChangesAsync(cancellationToken);
+        }
+        catch (DbUpdateException ex)
+        {
+            throw new ConflictException("A lab test with this name or code already exists.", ex);
+        }
     }
 }

@@ -2,8 +2,9 @@ using HMS.Application.Abstractions.Identity;
 using HMS.Application.Exceptions;
 using HMS.Contracts.Identity;
 using HMS.Domain.Entities;
+using Identity.Domain.Entities;
 using Identity.Infrastructure.Common;
-using HMS.Persistence;
+using HMS.Application.Abstractions.Persistence;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 
@@ -13,18 +14,24 @@ public sealed class BedAssignmentRequestService : IBedAssignmentRequestService
 {
     private static readonly string[] AllowedPriorities = ["routine", "urgent", "stat"];
 
-    private readonly HmsDbContext _db;
+    private readonly IHmsRepository _db;
+
+
+    private readonly IUnitOfWork _unitOfWork;
     private readonly IBedService _bedService;
     private readonly INotificationService _notificationService;
     private readonly ILogger<BedAssignmentRequestService> _logger;
 
     public BedAssignmentRequestService(
-        HmsDbContext db,
+        IHmsRepository db,
+        IUnitOfWork unitOfWork,
         IBedService bedService,
         INotificationService notificationService,
         ILogger<BedAssignmentRequestService> logger)
     {
         _db = db;
+
+        _unitOfWork = unitOfWork;
         _bedService = bedService;
         _notificationService = notificationService;
         _logger = logger;
@@ -39,7 +46,7 @@ public sealed class BedAssignmentRequestService : IBedAssignmentRequestService
     {
         var roleList = actorRoles as IList<string> ?? actorRoles.ToList();
 
-        var encounter = await _db.Encounters
+        var encounter = await _db.Query<Encounter>()
             .AsNoTracking()
             .Where(e => e.Id == encounterId)
             .Select(e => new
@@ -69,7 +76,7 @@ public sealed class BedAssignmentRequestService : IBedAssignmentRequestService
             throw new ForbiddenException("Only doctors, nurses, and admins can request beds from encounters.");
         }
 
-        var hasPendingRequest = await _db.BedAssignmentRequests
+        var hasPendingRequest = await _db.Query<BedAssignmentRequest>()
             .AsNoTracking()
             .AnyAsync(
                 x => x.EncounterId == encounter.Id
@@ -80,7 +87,7 @@ public sealed class BedAssignmentRequestService : IBedAssignmentRequestService
         if (hasPendingRequest)
             throw new ConflictException("This encounter already has a pending bed request.");
 
-        var hasActiveBed = await _db.BedAssignments
+        var hasActiveBed = await _db.Query<BedAssignment>()
             .AsNoTracking()
             .AnyAsync(
                 x => x.PatientProfileId == encounter.PatientProfileId && x.ReleasedAt == null,
@@ -106,11 +113,11 @@ public sealed class BedAssignmentRequestService : IBedAssignmentRequestService
             UpdatedById = actorUserId
         };
 
-        _db.BedAssignmentRequests.Add(entity);
+        _db.Add<BedAssignmentRequest>(entity);
 
         try
         {
-            await _db.SaveChangesAsync(cancellationToken);
+            await _unitOfWork.SaveChangesAsync(cancellationToken);
         }
         catch (DbUpdateException ex) when (IsUniqueConstraintViolation(ex))
         {
@@ -131,7 +138,7 @@ public sealed class BedAssignmentRequestService : IBedAssignmentRequestService
     {
         await EnsureCanReadEncounterAsync(encounterId, actorUserId, actorRoles, cancellationToken);
 
-        return await ProjectToDto(_db.BedAssignmentRequests
+        return await ProjectToDto(_db.Query<BedAssignmentRequest>()
                 .AsNoTracking()
                 .Where(x => x.EncounterId == encounterId)
                 .OrderByDescending(x => x.RequestedAt))
@@ -144,7 +151,7 @@ public sealed class BedAssignmentRequestService : IBedAssignmentRequestService
         CancellationToken cancellationToken)
     {
         var normalizedStatus = NormalizeOptional(status);
-        var query = _db.BedAssignmentRequests.AsNoTracking();
+        var query = _db.Query<BedAssignmentRequest>().AsNoTracking();
 
         if (!string.IsNullOrWhiteSpace(normalizedStatus))
         {
@@ -180,16 +187,11 @@ public sealed class BedAssignmentRequestService : IBedAssignmentRequestService
         int actorUserId,
         CancellationToken cancellationToken)
     {
-        var strategy = _db.Database.CreateExecutionStrategy();
-
-        var assignedRequestId = await strategy.ExecuteAsync(async () =>
+        var assignedRequestId = await _unitOfWork.ExecuteInTransactionAsync(async ct =>
         {
-            await using var transaction = await _db.Database.BeginTransactionAsync(cancellationToken);
             int resolvedRequestId;
 
-            try
-            {
-                var entity = await _db.BedAssignmentRequests
+                var entity = await _db.Query<BedAssignmentRequest>()
                     .FirstOrDefaultAsync(x => x.Id == requestId, cancellationToken);
 
                 if (entity is null)
@@ -203,7 +205,7 @@ public sealed class BedAssignmentRequestService : IBedAssignmentRequestService
 
                 if (isReleaseRequest)
                 {
-                    var activeAssignment = await _db.BedAssignments
+                    var activeAssignment = await _db.Query<BedAssignment>()
                         .FirstOrDefaultAsync(
                             x => x.PatientProfileId == entity.PatientProfileId && x.ReleasedAt == null,
                             cancellationToken);
@@ -224,8 +226,7 @@ public sealed class BedAssignmentRequestService : IBedAssignmentRequestService
                     entity.UpdatedAt = releasedAt;
                     entity.UpdatedById = actorUserId;
 
-                    await _db.SaveChangesAsync(cancellationToken);
-                    await transaction.CommitAsync(cancellationToken);
+                    await _unitOfWork.SaveChangesAsync(cancellationToken);
 
                     resolvedRequestId = entity.Id;
                 }
@@ -233,7 +234,7 @@ public sealed class BedAssignmentRequestService : IBedAssignmentRequestService
                 {
                     if (IsBedChangeRequest(entity.Notes))
                     {
-                        var activeAssignment = await _db.BedAssignments
+                        var activeAssignment = await _db.Query<BedAssignment>()
                             .FirstOrDefaultAsync(
                                 x => x.PatientProfileId == entity.PatientProfileId && x.ReleasedAt == null,
                                 cancellationToken);
@@ -248,7 +249,7 @@ public sealed class BedAssignmentRequestService : IBedAssignmentRequestService
                             activeAssignment.ReleasedByUserId = actorUserId;
                             activeAssignment.ReleaseNotes = "Released for approved bed change request.";
                             activeAssignment.UpdatedAt = releasedAt;
-                            await _db.SaveChangesAsync(cancellationToken);
+                            await _unitOfWork.SaveChangesAsync(cancellationToken);
                         }
                     }
 
@@ -271,20 +272,13 @@ public sealed class BedAssignmentRequestService : IBedAssignmentRequestService
                     entity.UpdatedAt = now;
                     entity.UpdatedById = actorUserId;
 
-                    await _db.SaveChangesAsync(cancellationToken);
-                    await transaction.CommitAsync(cancellationToken);
+                    await _unitOfWork.SaveChangesAsync(cancellationToken);
 
                     resolvedRequestId = entity.Id;
                 }
-            }
-            catch
-            {
-                await transaction.RollbackAsync(cancellationToken);
-                throw;
-            }
 
             return resolvedRequestId;
-        });
+        }, cancellationToken);
 
         var dto = await GetByIdAsync(assignedRequestId, cancellationToken);
         await NotifyRequesterRequestResolvedAsync(dto, "completed", cancellationToken);
@@ -298,7 +292,7 @@ public sealed class BedAssignmentRequestService : IBedAssignmentRequestService
         int actorUserId,
         CancellationToken cancellationToken)
     {
-        var entity = await _db.BedAssignmentRequests
+        var entity = await _db.Query<BedAssignmentRequest>()
             .FirstOrDefaultAsync(x => x.Id == requestId, cancellationToken);
 
         if (entity is null)
@@ -314,7 +308,7 @@ public sealed class BedAssignmentRequestService : IBedAssignmentRequestService
         entity.UpdatedAt = now;
         entity.UpdatedById = actorUserId;
 
-        await _db.SaveChangesAsync(cancellationToken);
+        await _unitOfWork.SaveChangesAsync(cancellationToken);
 
         var dto = await GetByIdAsync(entity.Id, cancellationToken);
         await NotifyRequesterRequestResolvedAsync(dto, "rejected", cancellationToken);
@@ -324,7 +318,7 @@ public sealed class BedAssignmentRequestService : IBedAssignmentRequestService
 
     private async Task<BedAssignmentRequestDto> GetByIdAsync(int id, CancellationToken cancellationToken)
     {
-        var dto = await ProjectToDto(_db.BedAssignmentRequests
+        var dto = await ProjectToDto(_db.Query<BedAssignmentRequest>()
                 .AsNoTracking()
                 .Where(x => x.Id == id))
             .FirstOrDefaultAsync(cancellationToken);
@@ -346,7 +340,7 @@ public sealed class BedAssignmentRequestService : IBedAssignmentRequestService
             throw new ForbiddenException("Only admins, reception, and doctors can read bed requests.");
 
         var doctorProfileId = await ResolveDoctorProfileIdAsync(actorUserId, cancellationToken);
-        var allowed = await _db.Encounters
+        var allowed = await _db.Query<Encounter>()
             .AsNoTracking()
             .AnyAsync(e => e.Id == encounterId && e.DoctorProfileId == doctorProfileId, cancellationToken);
 
@@ -356,7 +350,7 @@ public sealed class BedAssignmentRequestService : IBedAssignmentRequestService
 
     private async Task<int> ResolveDoctorProfileIdAsync(int userId, CancellationToken cancellationToken)
     {
-        var doctorProfileId = await _db.DoctorProfiles
+        var doctorProfileId = await _db.Query<DoctorProfile>()
             .AsNoTracking()
             .Where(d => d.IsActive && d.StaffProfile.Person.UserId == userId)
             .Select(d => (int?)d.Id)
@@ -393,7 +387,7 @@ public sealed class BedAssignmentRequestService : IBedAssignmentRequestService
             CreatedByUserId = x.CreatedById,
             CreatedByUserName = x.CreatedById == null
                 ? null
-                : _db.Users
+                : _db.Query<User>()
                     .Where(u => u.Id == x.CreatedById.Value)
                     .Select(u => u.Person == null
                         ? u.UserName
@@ -473,7 +467,7 @@ public sealed class BedAssignmentRequestService : IBedAssignmentRequestService
         int actorUserId,
         CancellationToken cancellationToken)
     {
-        var recipientUserIds = await _db.Users
+        var recipientUserIds = await _db.Query<User>()
             .AsNoTracking()
             .Where(user =>
                 user.IsActive &&

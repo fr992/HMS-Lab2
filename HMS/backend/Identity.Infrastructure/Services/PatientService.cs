@@ -2,7 +2,7 @@ using HMS.Application.Abstractions.Identity;
 using HMS.Application.Exceptions;
 using HMS.Contracts.Identity;
 using HMS.Domain.Entities;
-using HMS.Persistence;
+using HMS.Application.Abstractions.Persistence;
 using Identity.Infrastructure.Common;
 using Identity.Domain.Entities;
 using Microsoft.AspNetCore.Identity;
@@ -14,14 +14,19 @@ namespace Identity.Infrastructure.Services.Patients;
 
     public sealed class PatientService : IPatientService
     {
-        private readonly HmsDbContext _db;
+        private readonly IHmsRepository _db;
+
+        private readonly IUnitOfWork _unitOfWork;
         private readonly IPasswordHasher<User> _passwordHasher;
 
         public PatientService(
-            HmsDbContext db,
+            IHmsRepository db,
+        IUnitOfWork unitOfWork,
             IPasswordHasher<User> passwordHasher)
         {
             _db = db;
+
+            _unitOfWork = unitOfWork;
             _passwordHasher = passwordHasher;
         }
 
@@ -30,19 +35,14 @@ namespace Identity.Infrastructure.Services.Patients;
      int? actorUserId,
      CancellationToken cancellationToken)
     {
-        var strategy = _db.Database.CreateExecutionStrategy();
-
-        return await strategy.ExecuteAsync(async () =>
+        return await _unitOfWork.ExecuteInTransactionAsync(async ct =>
         {
-            await using var transaction = await _db.Database.BeginTransactionAsync(cancellationToken);
-            try
-            {
                 // ALL validations inside transaction
                 await ValidatePrimaryDoctorAsync(request.PrimaryDoctorId, cancellationToken);
 
                 if (!string.IsNullOrWhiteSpace(request.PersonalNumber))
                 {
-                    if (await _db.People.AnyAsync(p => p.PersonalNumber == request.PersonalNumber, cancellationToken))
+                    if (await _db.Query<Person>().AnyAsync(p => p.PersonalNumber == request.PersonalNumber, cancellationToken))
                         throw new ConflictException("A person with this personal number already exists.");
                 }
 
@@ -59,10 +59,10 @@ namespace Identity.Infrastructure.Services.Patients;
                     if (string.IsNullOrWhiteSpace(request.Password))
                         throw new BadRequestException("Password is required when creating a portal account.");
 
-                    if (await _db.Users.AnyAsync(u => u.Email == request.Email, cancellationToken))
+                    if (await _db.Query<User>().AnyAsync(u => u.Email == request.Email, cancellationToken))
                         throw new ConflictException("A user with this email already exists.");
 
-                    if (await _db.Users.AnyAsync(u => u.UserName == request.UserName, cancellationToken))
+                    if (await _db.Query<User>().AnyAsync(u => u.UserName == request.UserName, cancellationToken))
                         throw new ConflictException("A patient with this username already exists.");
 
                     user = new User
@@ -76,22 +76,22 @@ namespace Identity.Infrastructure.Services.Patients;
                         UpdatedById = actorUserId
                     };
                     user.PasswordHash = _passwordHasher.HashPassword(user, request.Password);
-                    _db.Users.Add(user);
-                    await _db.SaveChangesAsync(cancellationToken);
+                    _db.Add<User>(user);
+                    await _unitOfWork.SaveChangesAsync(cancellationToken);
 
                     // Assign Patient role
-                    var patientRole = await _db.Roles
+                    var patientRole = await _db.Query<Role>()
                         .FirstOrDefaultAsync(r => r.Name == "Patient", cancellationToken)
                         ?? throw new InvalidOperationException("The Patient role is not configured in the system.");
 
-                    _db.UserRoles.Add(new UserRole
+                    _db.Add<UserRole>(new UserRole
                     {
                         UserId = user.Id,
                         RoleId = patientRole.Id,
                         CreatedAt = DateTime.UtcNow,
                         CreatedById = actorUserId
                     });
-                    await _db.SaveChangesAsync(cancellationToken);
+                    await _unitOfWork.SaveChangesAsync(cancellationToken);
                 }
 
                 var person = new Person
@@ -111,8 +111,8 @@ namespace Identity.Infrastructure.Services.Patients;
                     CreatedById = actorUserId,
                     UpdatedById = actorUserId
                 };
-                _db.People.Add(person);
-                await _db.SaveChangesAsync(cancellationToken);
+                _db.Add<Person>(person);
+                await _unitOfWork.SaveChangesAsync(cancellationToken);
 
                 var profile = new PatientProfile
                 {
@@ -126,23 +126,16 @@ namespace Identity.Infrastructure.Services.Patients;
                     CreatedById = actorUserId,
                     UpdatedById = actorUserId
                 };
-                _db.PatientProfiles.Add(profile);
-                await _db.SaveChangesAsync(cancellationToken);
+                _db.Add<PatientProfile>(profile);
+                await _unitOfWork.SaveChangesAsync(cancellationToken);
 
                 profile.PatientNumber = GeneratePatientNumber(profile.Id);
                 profile.UpdatedAt = DateTime.UtcNow;
                 profile.UpdatedById = actorUserId;
-                await _db.SaveChangesAsync(cancellationToken);
+                await _unitOfWork.SaveChangesAsync(cancellationToken);
 
-                await transaction.CommitAsync(cancellationToken);
                 return await MapToDtoAsync(profile.Id, cancellationToken);
-            }
-            catch
-            {
-                await transaction.RollbackAsync(cancellationToken);
-                throw;
-            }
-        });
+        }, cancellationToken);
     }
 
     public async Task<PatientProfileDto> LinkPortalAccountAsync(
@@ -151,14 +144,9 @@ namespace Identity.Infrastructure.Services.Patients;
         int? actorUserId,
         CancellationToken cancellationToken)
     {
-        var strategy = _db.Database.CreateExecutionStrategy();
-
-        return await strategy.ExecuteAsync(async () =>
+        return await _unitOfWork.ExecuteInTransactionAsync(async ct =>
         {
-            await using var transaction = await _db.Database.BeginTransactionAsync(cancellationToken);
-            try
-            {
-                var profile = await _db.PatientProfiles
+                var profile = await _db.Query<PatientProfile>()
                     .Include(p => p.Person)
                     .FirstOrDefaultAsync(p => p.Id == patientProfileId, cancellationToken);
 
@@ -178,13 +166,13 @@ namespace Identity.Infrastructure.Services.Patients;
                 var userName = request.UserName.Trim();
                 var email = request.Email.Trim();
 
-                if (await _db.Users.AnyAsync(u => u.Email == email, cancellationToken))
+                if (await _db.Query<User>().AnyAsync(u => u.Email == email, cancellationToken))
                     throw new ConflictException("A user with this email already exists.");
 
-                if (await _db.Users.AnyAsync(u => u.UserName == userName, cancellationToken))
+                if (await _db.Query<User>().AnyAsync(u => u.UserName == userName, cancellationToken))
                     throw new ConflictException("A patient with this username already exists.");
 
-                var patientRole = await _db.Roles
+                var patientRole = await _db.Query<Role>()
                     .AsNoTracking()
                     .FirstOrDefaultAsync(r => r.Name == "Patient", cancellationToken);
                 if (patientRole is null)
@@ -201,10 +189,10 @@ namespace Identity.Infrastructure.Services.Patients;
                     UpdatedById = actorUserId
                 };
                 user.PasswordHash = _passwordHasher.HashPassword(user, request.Password);
-                _db.Users.Add(user);
-                await _db.SaveChangesAsync(cancellationToken);
+                _db.Add<User>(user);
+                await _unitOfWork.SaveChangesAsync(cancellationToken);
 
-                _db.UserRoles.Add(new UserRole
+                _db.Add<UserRole>(new UserRole
                 {
                     UserId = user.Id,
                     RoleId = patientRole.Id,
@@ -219,22 +207,14 @@ namespace Identity.Infrastructure.Services.Patients;
                 profile.Person.UpdatedAt = DateTime.UtcNow;
                 profile.Person.UpdatedById = actorUserId;
 
-                await _db.SaveChangesAsync(cancellationToken);
-                await transaction.CommitAsync(cancellationToken);
-
+                await _unitOfWork.SaveChangesAsync(cancellationToken);
                 return await MapToDtoAsync(patientProfileId, cancellationToken);
-            }
-            catch
-            {
-                await transaction.RollbackAsync(cancellationToken);
-                throw;
-            }
-        });
+        }, cancellationToken);
     }
 
     public async Task<PatientProfileDto?> GetByIdAsync(int id, CancellationToken cancellationToken)
     {
-        var exists = await _db.PatientProfiles.AnyAsync(p => p.Id == id, cancellationToken);
+        var exists = await _db.Query<PatientProfile>().AnyAsync(p => p.Id == id, cancellationToken);
         if (!exists) return null;
         return await MapToDtoAsync(id, cancellationToken);
     }
@@ -264,7 +244,7 @@ namespace Identity.Infrastructure.Services.Patients;
         bool? hasPortal,
         CancellationToken cancellationToken)
     {
-        var query = _db.PatientProfiles
+        var query = _db.Query<PatientProfile>()
             .AsNoTracking()
             .AsQueryable();
 
@@ -311,7 +291,7 @@ namespace Identity.Infrastructure.Services.Patients;
         var doctorProfileId = await GetActiveDoctorProfileIdAsync(currentUserId, cancellationToken);
         var patientIds = PatientIdsForDoctor(doctorProfileId);
 
-        return await _db.PatientProfiles
+        return await _db.Query<PatientProfile>()
             .AsNoTracking()
             .Where(p => patientIds.Contains(p.Id))
             .OrderBy(p => p.Person.LastName)
@@ -336,7 +316,7 @@ namespace Identity.Infrastructure.Services.Patients;
 
         var doctorProfileId = await GetActiveDoctorProfileIdAsync(currentUserId, cancellationToken);
 
-        var primaryPatients = await _db.PatientProfiles
+        var primaryPatients = await _db.Query<PatientProfile>()
             .AsNoTracking()
             .Where(p => p.PrimaryDoctorId == doctorProfileId)
             .OrderBy(p => p.Person.LastName)
@@ -344,17 +324,17 @@ namespace Identity.Infrastructure.Services.Patients;
             .Select(ProjectToDto())
             .ToListAsync(cancellationToken);
 
-        var interactedPatientIds = _db.Appointments
+        var interactedPatientIds = _db.Query<Appointment>()
             .Where(a => a.DoctorProfileId == doctorProfileId)
             .Select(a => a.PatientProfileId)
             .Concat(
-                _db.Encounters
+                _db.Query<Encounter>()
                     .Where(e => e.DoctorProfileId == doctorProfileId)
                     .Select(e => e.PatientProfileId)
             )
             .Distinct();
 
-        var interactedPatients = await _db.PatientProfiles
+        var interactedPatients = await _db.Query<PatientProfile>()
             .AsNoTracking()
             .Where(p =>
                 interactedPatientIds.Contains(p.Id)
@@ -373,7 +353,7 @@ namespace Identity.Infrastructure.Services.Patients;
 
     public async Task<PatientProfileDto> UpdateAsync(int id, UpdatePatientRequestDto request, int? actorUserId, CancellationToken cancellationToken)
     {
-        var profile = await _db.PatientProfiles
+        var profile = await _db.Query<PatientProfile>()
             .Include(p => p.Person)
             .FirstOrDefaultAsync(p => p.Id == id, cancellationToken);
 
@@ -387,7 +367,7 @@ namespace Identity.Infrastructure.Services.Patients;
         if(!string.IsNullOrWhiteSpace(request.PersonalNumber) && 
             request.PersonalNumber != profile.Person.PersonalNumber)
         {
-            var duplicate = await _db.People
+            var duplicate = await _db.Query<Person>()
                 .AnyAsync(p => p.PersonalNumber == request.PersonalNumber && p.Id != profile.PersonId, cancellationToken);
 
             if (duplicate)
@@ -414,20 +394,20 @@ namespace Identity.Infrastructure.Services.Patients;
         profile.UpdatedAt = DateTime.UtcNow;
         profile.UpdatedById = actorUserId;
 
-        await _db.SaveChangesAsync(cancellationToken);
+        await _unitOfWork.SaveChangesAsync(cancellationToken);
 
         return await MapToDtoAsync(profile.Id, cancellationToken);
     }
 
     public async Task<bool> DeleteAsync(int id, CancellationToken cancellationToken)
     {
-        var profile = await _db.PatientProfiles
+        var profile = await _db.Query<PatientProfile>()
             .FirstOrDefaultAsync(p => p.Id == id, cancellationToken);
 
         if (profile is null) return false; 
 
-        _db.PatientProfiles.Remove(profile);
-        await _db.SaveChangesAsync(cancellationToken);
+        _db.Remove<PatientProfile>(profile);
+        await _unitOfWork.SaveChangesAsync(cancellationToken);
 
         return true;
     }
@@ -441,7 +421,7 @@ namespace Identity.Infrastructure.Services.Patients;
         int currentUserId,
         CancellationToken cancellationToken)
     {
-        var doctorProfileId = await _db.DoctorProfiles
+        var doctorProfileId = await _db.Query<DoctorProfile>()
             .AsNoTracking()
             .Where(d => d.IsActive && d.StaffProfile.Person.UserId == currentUserId)
             .Select(d => (int?)d.Id)
@@ -455,7 +435,7 @@ namespace Identity.Infrastructure.Services.Patients;
 
     private async Task<List<PatientProfileDto>> GetAllPatientsOrderedAsync(CancellationToken cancellationToken)
     {
-        return await _db.PatientProfiles
+        return await _db.Query<PatientProfile>()
             .AsNoTracking()
             .OrderBy(p => p.Person.LastName)
             .ThenBy(p => p.Person.FirstName)
@@ -472,15 +452,15 @@ namespace Identity.Infrastructure.Services.Patients;
 
     private IQueryable<int> PatientIdsForDoctor(int doctorProfileId)
     {
-        var primaryPatientIds = _db.PatientProfiles
+        var primaryPatientIds = _db.Query<PatientProfile>()
             .Where(p => p.PrimaryDoctorId == doctorProfileId)
             .Select(p => p.Id);
 
-        var appointmentPatientIds = _db.Appointments
+        var appointmentPatientIds = _db.Query<Appointment>()
             .Where(a => a.DoctorProfileId == doctorProfileId)
             .Select(a => a.PatientProfileId);
 
-        var encounterPatientIds = _db.Encounters
+        var encounterPatientIds = _db.Query<Encounter>()
             .Where(e => e.DoctorProfileId == doctorProfileId)
             .Select(e => e.PatientProfileId);
 
@@ -495,7 +475,7 @@ namespace Identity.Infrastructure.Services.Patients;
         if (!primaryDoctorId.HasValue)
             return;
 
-        var doctorExists = await _db.Set<DoctorProfile>()
+        var doctorExists = await _db.Query<DoctorProfile>()
             .AnyAsync(d => d.Id == primaryDoctorId.Value, cancellationToken);
         if (!doctorExists)
             throw new NotFoundException("Primary doctor does not exist.");
@@ -503,7 +483,7 @@ namespace Identity.Infrastructure.Services.Patients;
 
     private async Task<PatientProfileDto> MapToDtoAsync(int profileId, CancellationToken cancellationToken)
     {
-        return await _db.PatientProfiles
+        return await _db.Query<PatientProfile>()
             .AsNoTracking()
             .Where(p => p.Id == profileId)
             .Select(ProjectToDto())

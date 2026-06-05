@@ -1,9 +1,9 @@
 using HMS.Api.Controllers.Admin;
 using HMS.Application.Abstractions.Identity;
+using HMS.Application.Exceptions;
 using HMS.Contracts.Identity;
 using HMS.Tests.TestSupport;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.EntityFrameworkCore;
 using Moq;
 
 namespace HMS.Tests.Controllers;
@@ -35,27 +35,25 @@ public sealed class LabTestsControllerTests
     }
 
     [Fact]
-    public async Task Create_WhenDuplicateNameOrCode_ReturnsConflict()
+    public async Task Create_WhenDuplicateNameOrCode_PropagatesConflict()
     {
         _labTestService
             .Setup(service => service.CreateAsync(It.IsAny<CreateLabTestDto>(), 17, It.IsAny<CancellationToken>()))
-            .ThrowsAsync(new DbUpdateException());
+            .ThrowsAsync(new ConflictException("A lab test with this name or code already exists."));
 
-        var result = await _controller.Create(new CreateLabTestDto { Name = "CBC" }, CancellationToken.None);
-
-        Assert.IsType<ConflictObjectResult>(result.Result);
+        await Assert.ThrowsAsync<ConflictException>(() =>
+            _controller.Create(new CreateLabTestDto { Name = "CBC" }, CancellationToken.None));
     }
 
     [Fact]
-    public async Task Update_WhenServiceRejectsRequest_ReturnsBadRequest()
+    public async Task Update_WhenServiceRejectsRequest_PropagatesBadRequest()
     {
         _labTestService
             .Setup(service => service.UpdateAsync(5, It.IsAny<UpdateLabTestDto>(), 17, It.IsAny<CancellationToken>()))
-            .ThrowsAsync(new InvalidOperationException("Cannot update inactive test."));
+            .ThrowsAsync(new BadRequestException("Cannot update inactive test."));
 
-        var result = await _controller.Update(5, new UpdateLabTestDto { Name = "CBC" }, CancellationToken.None);
-
-        Assert.IsType<BadRequestObjectResult>(result.Result);
+        await Assert.ThrowsAsync<BadRequestException>(() =>
+            _controller.Update(5, new UpdateLabTestDto { Name = "CBC" }, CancellationToken.None));
     }
 
     [Fact]

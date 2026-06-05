@@ -19,7 +19,7 @@ public sealed class AdminRolesControllerTests
         role.RolePermissions.Add(new RolePermission { Permission = permission, Role = role });
         db.Roles.Add(role);
         await db.SaveChangesAsync();
-        var controller = new AdminRolesController(db, NullLogger<AdminRolesController>.Instance);
+        var controller = new AdminRolesController(ServiceTestFactory.RoleAdministrationService(db), NullLogger<AdminRolesController>.Instance);
 
         var result = await controller.ListRoles(new PaginationQuery { Page = 1, PageSize = 10 }, CancellationToken.None);
 
@@ -36,11 +36,11 @@ public sealed class AdminRolesControllerTests
         await using var db = HmsDbContextTestFactory.Create();
         db.Roles.Add(new Role { Name = "Nurse", Description = "Existing" });
         await db.SaveChangesAsync();
-        var controller = new AdminRolesController(db, NullLogger<AdminRolesController>.Instance);
+        var controller = new AdminRolesController(ServiceTestFactory.RoleAdministrationService(db), NullLogger<AdminRolesController>.Instance);
         ControllerTestHelper.SetUser(controller, userId: 1, roles: ["SuperAdmin"]);
 
         var result = await controller.CreateRole(
-            new RoleUpsertRequest { Name = "Nurse", PermissionNames = [] },
+            new RoleUpsertDto { Name = "Nurse", PermissionNames = [] },
             CancellationToken.None);
 
         Assert.IsType<BadRequestObjectResult>(result);
@@ -52,11 +52,11 @@ public sealed class AdminRolesControllerTests
         await using var db = HmsDbContextTestFactory.Create();
         db.Permissions.Add(new Permission { Name = "Appointments.Read" });
         await db.SaveChangesAsync();
-        var controller = new AdminRolesController(db, NullLogger<AdminRolesController>.Instance);
+        var controller = new AdminRolesController(ServiceTestFactory.RoleAdministrationService(db), NullLogger<AdminRolesController>.Instance);
         ControllerTestHelper.SetUser(controller, userId: 1, roles: ["SuperAdmin"]);
 
         var result = await controller.CreateRole(
-            new RoleUpsertRequest
+            new RoleUpsertDto
             {
                 Name = "Scheduler",
                 Description = "Schedules visits",
@@ -80,12 +80,12 @@ public sealed class AdminRolesControllerTests
         db.Roles.Add(new Role { Name = "SuperAdmin", Description = "System" });
         await db.SaveChangesAsync();
         var roleId = db.Roles.Single().Id;
-        var controller = new AdminRolesController(db, NullLogger<AdminRolesController>.Instance);
+        var controller = new AdminRolesController(ServiceTestFactory.RoleAdministrationService(db), NullLogger<AdminRolesController>.Instance);
         ControllerTestHelper.SetUser(controller, userId: 1, roles: ["SuperAdmin"]);
 
         var result = await controller.UpdateRole(
             roleId,
-            new RoleUpsertRequest { Name = "SuperAdmin", PermissionNames = [] },
+            new RoleUpsertDto { Name = "SuperAdmin", PermissionNames = [] },
             CancellationToken.None);
 
         Assert.IsType<BadRequestObjectResult>(result);
@@ -101,7 +101,7 @@ public sealed class AdminRolesControllerTests
         db.Users.Add(user);
         db.Roles.Add(role);
         await db.SaveChangesAsync();
-        var controller = new AdminRolesController(db, NullLogger<AdminRolesController>.Instance);
+        var controller = new AdminRolesController(ServiceTestFactory.RoleAdministrationService(db), NullLogger<AdminRolesController>.Instance);
         ControllerTestHelper.SetUser(controller, userId: 1, roles: ["SuperAdmin"]);
 
         var result = await controller.DeleteRole(role.Id, CancellationToken.None);
@@ -116,7 +116,7 @@ public sealed class AdminRolesControllerTests
         var role = new Role { Name = "TempRole", Description = "Disposable" };
         db.Roles.Add(role);
         await db.SaveChangesAsync();
-        var controller = new AdminRolesController(db, NullLogger<AdminRolesController>.Instance);
+        var controller = new AdminRolesController(ServiceTestFactory.RoleAdministrationService(db), NullLogger<AdminRolesController>.Instance);
         ControllerTestHelper.SetUser(controller, userId: 1, roles: ["SuperAdmin"]);
 
         var result = await controller.DeleteRole(role.Id, CancellationToken.None);
@@ -125,3 +125,4 @@ public sealed class AdminRolesControllerTests
         Assert.Empty(db.Roles);
     }
 }
+

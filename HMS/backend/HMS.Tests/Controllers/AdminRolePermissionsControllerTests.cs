@@ -1,4 +1,5 @@
 using HMS.Api.Controllers.Admin;
+using HMS.Contracts.Identity;
 using HMS.Tests.TestSupport;
 using Identity.Domain.Entities;
 using Microsoft.AspNetCore.Mvc;
@@ -13,7 +14,7 @@ public sealed class AdminRolePermissionsControllerTests
     public async Task GetForRole_WhenRoleMissing_ReturnsNotFound()
     {
         await using var db = HmsDbContextTestFactory.Create();
-        var controller = new AdminRolePermissionsController(db, NullLogger<AdminRolePermissionsController>.Instance);
+        var controller = new AdminRolePermissionsController(ServiceTestFactory.RoleAdministrationService(db), NullLogger<AdminRolePermissionsController>.Instance);
 
         var result = await controller.GetForRole(404, CancellationToken.None);
 
@@ -27,12 +28,12 @@ public sealed class AdminRolePermissionsControllerTests
         db.Roles.Add(new Role { Name = "LabTech", Description = "Lab" });
         await db.SaveChangesAsync();
         var roleId = db.Roles.Single().Id;
-        var controller = new AdminRolePermissionsController(db, NullLogger<AdminRolePermissionsController>.Instance);
+        var controller = new AdminRolePermissionsController(ServiceTestFactory.RoleAdministrationService(db), NullLogger<AdminRolePermissionsController>.Instance);
         ControllerTestHelper.SetUser(controller, userId: 1, roles: ["SuperAdmin"]);
 
         var result = await controller.SetRolePermissions(
             roleId,
-            new SetRolePermissionsRequest { PermissionNames = ["Missing.Permission"] },
+            new SetRolePermissionsDto { PermissionNames = ["Missing.Permission"] },
             CancellationToken.None);
 
         Assert.IsType<BadRequestObjectResult>(result);
@@ -45,11 +46,11 @@ public sealed class AdminRolePermissionsControllerTests
         db.Roles.Add(new Role { Name = "SuperAdmin", Description = "System" });
         await db.SaveChangesAsync();
         var roleId = db.Roles.Single().Id;
-        var controller = new AdminRolePermissionsController(db, NullLogger<AdminRolePermissionsController>.Instance);
+        var controller = new AdminRolePermissionsController(ServiceTestFactory.RoleAdministrationService(db), NullLogger<AdminRolePermissionsController>.Instance);
 
         var result = await controller.SetRolePermissions(
             roleId,
-            new SetRolePermissionsRequest { PermissionNames = [] },
+            new SetRolePermissionsDto { PermissionNames = [] },
             CancellationToken.None);
 
         Assert.IsType<BadRequestObjectResult>(result);
@@ -66,12 +67,12 @@ public sealed class AdminRolePermissionsControllerTests
         db.Roles.Add(role);
         db.Permissions.Add(newPermission);
         await db.SaveChangesAsync();
-        var controller = new AdminRolePermissionsController(db, NullLogger<AdminRolePermissionsController>.Instance);
+        var controller = new AdminRolePermissionsController(ServiceTestFactory.RoleAdministrationService(db), NullLogger<AdminRolePermissionsController>.Instance);
         ControllerTestHelper.SetUser(controller, userId: 1, roles: ["SuperAdmin"]);
 
         var result = await controller.SetRolePermissions(
             role.Id,
-            new SetRolePermissionsRequest { PermissionNames = ["New.Permission"] },
+            new SetRolePermissionsDto { PermissionNames = ["New.Permission"] },
             CancellationToken.None);
 
         Assert.IsType<NoContentResult>(result);
@@ -82,3 +83,4 @@ public sealed class AdminRolePermissionsControllerTests
         Assert.Equal(["New.Permission"], names);
     }
 }
+

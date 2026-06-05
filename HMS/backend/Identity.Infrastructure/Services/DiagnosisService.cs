@@ -1,7 +1,8 @@
 using HMS.Application.Abstractions.Identity;
 using HMS.Application.Exceptions;
 using HMS.Contracts.Identity;
-using HMS.Persistence;
+using HMS.Domain.Entities;
+using HMS.Application.Abstractions.Persistence;
 using Identity.Domain.Entities;
 using Microsoft.EntityFrameworkCore;
 
@@ -16,11 +17,17 @@ public sealed class DiagnosisService : IDiagnosisService
         "provisional"
     };
 
-    private readonly HmsDbContext _db;
+    private readonly IHmsRepository _db;
 
-    public DiagnosisService(HmsDbContext db)
+
+    private readonly IUnitOfWork _unitOfWork;
+
+    public DiagnosisService(IHmsRepository db,
+        IUnitOfWork unitOfWork)
     {
         _db = db;
+
+        _unitOfWork = unitOfWork;
     }
 
     public async Task<DiagnosisDto> CreateAsync(
@@ -33,7 +40,7 @@ public sealed class DiagnosisService : IDiagnosisService
         if (actorUserId == null)
             throw new UnauthorizedException("Authenticated user is required.");
 
-        var encounter = await _db.Encounters
+        var encounter = await _db.Query<Encounter>()
             .AsNoTracking()
             .FirstOrDefaultAsync(e => e.Id == encounterId, cancellationToken);
 
@@ -74,8 +81,8 @@ public sealed class DiagnosisService : IDiagnosisService
             UpdatedById = actorUserId
         };
 
-        _db.Diagnoses.Add(diagnosis);
-        await _db.SaveChangesAsync(cancellationToken);
+        _db.Add<Diagnosis>(diagnosis);
+        await _unitOfWork.SaveChangesAsync(cancellationToken);
 
         return await GetByIdAsync(diagnosis.Id, cancellationToken)
             ?? throw new Exception("Diagnosis was created but could not be loaded.");
@@ -85,13 +92,13 @@ public sealed class DiagnosisService : IDiagnosisService
         int encounterId,
         CancellationToken cancellationToken)
     {
-        var encounterExists = await _db.Encounters
+        var encounterExists = await _db.Query<Encounter>()
             .AnyAsync(e => e.Id == encounterId, cancellationToken);
 
         if (!encounterExists)
             throw new NotFoundException("Encounter not found.");
 
-        return await _db.Diagnoses
+        return await _db.Query<Diagnosis>()
             .AsNoTracking()
             .Where(d => d.EncounterId == encounterId)
             .OrderByDescending(d => d.DiagnosedAt)
@@ -117,7 +124,7 @@ public sealed class DiagnosisService : IDiagnosisService
         int id,
         CancellationToken cancellationToken)
     {
-        return await _db.Diagnoses
+        return await _db.Query<Diagnosis>()
             .AsNoTracking()
             .Where(d => d.Id == id)
             .Select(d => new DiagnosisDto
@@ -159,7 +166,7 @@ public sealed class DiagnosisService : IDiagnosisService
         if (!HasRole(roleList, "Doctor"))
             throw new ForbiddenException("Only admins and doctors can add diagnoses.");
 
-        var doctorProfileId = await _db.DoctorProfiles
+        var doctorProfileId = await _db.Query<DoctorProfile>()
             .AsNoTracking()
             .Where(d =>
                 d.IsActive &&

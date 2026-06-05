@@ -12,6 +12,10 @@ public interface ISettingsService
         int id,
         CancellationToken cancellationToken);
 
+    Task<string?> GetValueAsync(
+        string key,
+        CancellationToken cancellationToken);
+
     Task<PaginatedResponse<SettingDto>> GetAllAsync(
         PaginationQuery pagination,
         CancellationToken cancellationToken);

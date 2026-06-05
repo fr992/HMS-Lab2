@@ -1,7 +1,8 @@
 using HMS.Application.Abstractions.Identity;
 using HMS.Application.Exceptions;
 using HMS.Contracts.Identity;
-using HMS.Persistence;
+using HMS.Domain.Entities;
+using HMS.Application.Abstractions.Persistence;
 using Identity.Infrastructure.Common;
 using Identity.Domain.Entities;
 using Microsoft.EntityFrameworkCore;
@@ -10,11 +11,16 @@ namespace Identity.Infrastructure.Services.Patients;
 
 public sealed class EncounterService : IEncounterService
 {
-    private readonly HmsDbContext _db;
+    private readonly IHmsRepository _db;
 
-    public EncounterService(HmsDbContext db)
+    private readonly IUnitOfWork _unitOfWork;
+
+    public EncounterService(IHmsRepository db,
+        IUnitOfWork unitOfWork)
     {
         _db = db;
+
+        _unitOfWork = unitOfWork;
     }
 
     public async Task<EncounterDto> CreateAsync(
@@ -25,14 +31,14 @@ public sealed class EncounterService : IEncounterService
         if (!EncounterTypes.IsValid(request.EncounterType))
             throw new BadRequestException("Invalid encounter type.");
 
-        var patientExists = await _db.PatientProfiles.AnyAsync(
+        var patientExists = await _db.Query<PatientProfile>().AnyAsync(
             p => p.Id == request.PatientProfileId,
             cancellationToken);
 
         if (!patientExists)
             throw new NotFoundException("Patient profile does not exist.");
 
-        var doctorExists = await _db.DoctorProfiles.AnyAsync(
+        var doctorExists = await _db.Query<DoctorProfile>().AnyAsync(
             d => d.Id == request.DoctorProfileId,
             cancellationToken);
 
@@ -72,8 +78,8 @@ public sealed class EncounterService : IEncounterService
             UpdatedByUserId = actorUserId,
         };
 
-        _db.Encounters.Add(encounter);
-        await _db.SaveChangesAsync(cancellationToken);
+        _db.Add<Encounter>(encounter);
+        await _unitOfWork.SaveChangesAsync(cancellationToken);
 
         return await GetByIdAsync(encounter.Id, cancellationToken)
             ?? throw new Exception("Encounter was created but could not be loaded.");
@@ -83,7 +89,7 @@ public sealed class EncounterService : IEncounterService
         int id,
         CancellationToken cancellationToken)
     {
-        return await _db.Encounters
+        return await _db.Query<Encounter>()
             .AsNoTracking()
             .Include(e => e.PatientProfile)
                 .ThenInclude(p => p.Person)
@@ -115,9 +121,9 @@ public sealed class EncounterService : IEncounterService
 
                 Status = e.Status,
                 Notes = e.Notes,
-                DiagnosesCount = _db.Diagnoses
+                DiagnosesCount = _db.Query<Diagnosis>()
                     .Count(d => d.EncounterId == e.Id),
-                PrescriptionsCount = _db.Prescriptions
+                PrescriptionsCount = _db.Query<Prescription>()
                     .Count(p => p.EncounterId == e.Id),
             })
             .FirstOrDefaultAsync(cancellationToken);
@@ -179,7 +185,7 @@ public sealed class EncounterService : IEncounterService
             roleList,
             cancellationToken);
 
-        var query = _db.Encounters.AsNoTracking().AsQueryable();
+        var query = _db.Query<Encounter>().AsNoTracking().AsQueryable();
 
         var normalizedSearch = string.IsNullOrWhiteSpace(search) ? null : search.Trim();
         if ((HasRole(roleList, "Admin") || HasRole(roleList, "SuperAdmin")) && normalizedSearch is null)
@@ -241,9 +247,9 @@ public sealed class EncounterService : IEncounterService
 
                 Status = e.Status,
                 Notes = e.Notes,
-                DiagnosesCount = _db.Diagnoses
+                DiagnosesCount = _db.Query<Diagnosis>()
                     .Count(d => d.EncounterId == e.Id),
-                PrescriptionsCount = _db.Prescriptions
+                PrescriptionsCount = _db.Query<Prescription>()
                     .Count(p => p.EncounterId == e.Id),
             });
     }
@@ -272,7 +278,7 @@ public sealed class EncounterService : IEncounterService
         int userId,
         CancellationToken cancellationToken)
     {
-        var doctorProfileId = await _db.DoctorProfiles
+        var doctorProfileId = await _db.Query<DoctorProfile>()
             .AsNoTracking()
             .Where(d =>
                 d.IsActive &&
@@ -290,7 +296,7 @@ public sealed class EncounterService : IEncounterService
         int? actorUserId,
         CancellationToken cancellationToken)
     {
-        var encounter = await _db.Encounters
+        var encounter = await _db.Query<Encounter>()
             .FirstOrDefaultAsync(e => e.Id == id, cancellationToken);
 
         if (encounter == null)
@@ -313,7 +319,7 @@ public sealed class EncounterService : IEncounterService
         encounter.UpdatedById = actorUserId;
         encounter.UpdatedByUserId = actorUserId;
 
-        await _db.SaveChangesAsync(cancellationToken);
+        await _unitOfWork.SaveChangesAsync(cancellationToken);
 
         return await GetByIdAsync(encounter.Id, cancellationToken)
             ?? throw new Exception("Encounter was updated but could not be loaded.");
@@ -325,7 +331,7 @@ public sealed class EncounterService : IEncounterService
         int? actorUserId,
         CancellationToken cancellationToken)
     {
-        var encounter = await _db.Encounters
+        var encounter = await _db.Query<Encounter>()
             .FirstOrDefaultAsync(e => e.Id == id, cancellationToken);
 
         if (encounter == null)
@@ -349,7 +355,7 @@ public sealed class EncounterService : IEncounterService
         encounter.UpdatedById = actorUserId;
         encounter.UpdatedByUserId = actorUserId;
 
-        await _db.SaveChangesAsync(cancellationToken);
+        await _unitOfWork.SaveChangesAsync(cancellationToken);
 
         return await GetByIdAsync(encounter.Id, cancellationToken)
             ?? throw new Exception("Encounter was updated but could not be loaded.");
@@ -360,7 +366,7 @@ public sealed class EncounterService : IEncounterService
         int? actorUserId,
         CancellationToken cancellationToken)
     {
-        var appointment = await _db.Appointments
+        var appointment = await _db.Query<Appointment>()
             .FirstOrDefaultAsync(a => a.Id == appointmentId, cancellationToken);
 
         if (appointment == null)
@@ -390,7 +396,7 @@ public sealed class EncounterService : IEncounterService
             actorRoles,
             cancellationToken);
 
-        var panel = await _db.Encounters
+        var panel = await _db.Query<Encounter>()
             .AsNoTracking()
             .Where(e => e.Id == id)
             .Select(e => new EncounterPanelDto
@@ -413,9 +419,9 @@ public sealed class EncounterService : IEncounterService
                     ClosedAt = e.ClosedAt,
                     Status = e.Status,
                     Notes = e.Notes,
-                    DiagnosesCount = _db.Diagnoses
+                    DiagnosesCount = _db.Query<Diagnosis>()
                         .Count(d => d.EncounterId == e.Id),
-                    PrescriptionsCount = _db.Prescriptions
+                    PrescriptionsCount = _db.Query<Prescription>()
                         .Count(p => p.EncounterId == e.Id)
                 },
                 Patient = new PatientProfileDto
@@ -449,7 +455,7 @@ public sealed class EncounterService : IEncounterService
                     UpdatedAt = e.PatientProfile.UpdatedAt,
                 },
 
-                Diagnoses = _db.Diagnoses
+                Diagnoses = _db.Query<Diagnosis>()
                     .AsNoTracking()
                     .Where(d => d.EncounterId == e.Id)
                     .Select(d => new DiagnosisDto
@@ -468,7 +474,7 @@ public sealed class EncounterService : IEncounterService
                     })
                     .ToList(),
 
-                Prescriptions = _db.Prescriptions
+                Prescriptions = _db.Query<Prescription>()
                     .AsNoTracking()
                     .Where(p => p.EncounterId == e.Id)
                     .Select(p => new PrescriptionDto
@@ -492,7 +498,7 @@ public sealed class EncounterService : IEncounterService
                         }).ToList()
                     }).ToList(),
 
-                LabRequests = _db.LabRequests
+                LabRequests = _db.Query<LabRequest>()
                     .AsNoTracking()
                     .Where(lr => lr.EncounterId == e.Id)
                     .OrderByDescending(lr => lr.RequestedAt)
@@ -556,7 +562,7 @@ public sealed class EncounterService : IEncounterService
                             }).ToList()
                     }).ToList(),
 
-                BedAssignmentRequests = _db.BedAssignmentRequests
+                BedAssignmentRequests = _db.Query<BedAssignmentRequest>()
                     .AsNoTracking()
                     .Where(br => br.EncounterId == e.Id)
                     .OrderByDescending(br => br.RequestedAt)
@@ -584,7 +590,7 @@ public sealed class EncounterService : IEncounterService
                         CreatedByUserId = br.CreatedById,
                         CreatedByUserName = br.CreatedById == null
                             ? null
-                            : _db.Users
+                            : _db.Query<User>()
                                 .Where(u => u.Id == br.CreatedById.Value)
                                 .Select(u => u.Person == null
                                     ? u.UserName
@@ -620,7 +626,7 @@ public sealed class EncounterService : IEncounterService
             actorUserId.Value,
             cancellationToken);
 
-        var allowed = await _db.Encounters
+        var allowed = await _db.Query<Encounter>()
             .AsNoTracking()
             .AnyAsync(
                 e => e.Id == encounterId && e.DoctorProfileId == doctorProfileId,
@@ -638,7 +644,7 @@ public sealed class EncounterService : IEncounterService
         if (currentUserId == null)
             return null;
 
-        var allowed = await _db.Encounters
+        var allowed = await _db.Query<Encounter>()
             .AsNoTracking()
             .AnyAsync(e =>
                 e.Id == id &&
@@ -692,7 +698,7 @@ public sealed class EncounterService : IEncounterService
 
     private IQueryable<Encounter> BuildPatientEncountersQuery(int currentUserId)
     {
-        return _db.Encounters
+        return _db.Query<Encounter>()
             .AsNoTracking()
             .Where(e => e.PatientProfile.Person.UserId == currentUserId);
     }
@@ -703,7 +709,7 @@ public sealed class EncounterService : IEncounterService
         int doctorProfileId,
         CancellationToken cancellationToken)
     {
-        var appointment = await _db.Appointments
+        var appointment = await _db.Query<Appointment>()
             .AsNoTracking()
             .FirstOrDefaultAsync(a => a.Id == appointmentId, cancellationToken);
 
@@ -716,7 +722,7 @@ public sealed class EncounterService : IEncounterService
         if (appointment.DoctorProfileId != doctorProfileId)
             throw new BadRequestException("Appointment does not belong to this doctor.");
 
-        var encounterAlreadyExists = await _db.Encounters.AnyAsync(
+        var encounterAlreadyExists = await _db.Query<Encounter>().AnyAsync(
             e => e.AppointmentId == appointmentId,
             cancellationToken);
 

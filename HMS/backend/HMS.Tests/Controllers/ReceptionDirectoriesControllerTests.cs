@@ -18,7 +18,7 @@ public sealed class ReceptionDirectoriesControllerTests
             CreateDoctor("Inactive", "User", roleName: "Doctor", isUserActive: false, isProfileActive: true),
             CreateDoctor("Inactive", "Profile", roleName: "Doctor", isUserActive: true, isProfileActive: false));
         await db.SaveChangesAsync();
-        var controller = new DoctorsController(db);
+        var controller = new DoctorsController(ServiceTestFactory.StaffDirectoryService(db));
         ControllerTestHelper.SetUser(controller, permissions: ["Patients.Read"]);
 
         var result = await controller.GetDoctors(CancellationToken.None);
@@ -38,7 +38,7 @@ public sealed class ReceptionDirectoriesControllerTests
             CreateNurse("Inactive", "User", roleName: "Nurse", isUserActive: false, isProfileActive: true),
             CreateNurse("Inactive", "Profile", roleName: "Nurse", isUserActive: true, isProfileActive: false));
         await db.SaveChangesAsync();
-        var controller = new NursesController(db);
+        var controller = new NursesController(ServiceTestFactory.StaffDirectoryService(db));
         ControllerTestHelper.SetUser(controller, permissions: ["Nurses.Read"]);
 
         var result = await controller.GetNurses(CancellationToken.None);
@@ -104,3 +104,4 @@ public sealed class ReceptionDirectoriesControllerTests
         };
     }
 }
+

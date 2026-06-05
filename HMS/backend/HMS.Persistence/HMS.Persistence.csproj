@@ -16,6 +16,7 @@
   </ItemGroup>
 
   <ItemGroup>
+    <ProjectReference Include="..\HMS.Application\HMS.Application.csproj" />
     <ProjectReference Include="..\HMS.Shared\HMS.Shared.csproj" />
     <ProjectReference Include="..\Identity.Domain\Identity.Domain.csproj" />
   </ItemGroup>

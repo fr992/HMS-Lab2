@@ -1,7 +1,8 @@
 using HMS.Application.Abstractions.Identity;
 using HMS.Application.Exceptions;
 using HMS.Contracts.Identity;
-using HMS.Persistence;
+using HMS.Domain.Entities;
+using HMS.Application.Abstractions.Persistence;
 using Identity.Infrastructure.Common;
 using Identity.Domain.Entities;
 using Microsoft.EntityFrameworkCore;
@@ -11,18 +12,23 @@ namespace Identity.Infrastructure.Services.Patients;
 
 public sealed class AppointmentRequestService : IAppointmentRequestService
 {
-    private readonly HmsDbContext _db;
+    private readonly IHmsRepository _db;
 
-    public AppointmentRequestService(HmsDbContext db)
+    private readonly IUnitOfWork _unitOfWork;
+
+    public AppointmentRequestService(IHmsRepository db,
+        IUnitOfWork unitOfWork)
     {
         _db = db;
+
+        _unitOfWork = unitOfWork;
     }
 
     public async Task<AppointmentRequestDto> CreateAsync(
         CreateAppointmentRequestDto dto,
         CancellationToken ct)
     {
-        var onlineRequestsEnabled = await _db.Settings
+        var onlineRequestsEnabled = await _db.Query<Setting>()
             .AsNoTracking()
             .Where(setting => setting.Key == "appointments.allowOnlineRequests")
             .Select(setting => setting.Value)
@@ -58,8 +64,8 @@ public sealed class AppointmentRequestService : IAppointmentRequestService
             UpdatedAt = now
         };
 
-        _db.AppointmentRequests.Add(entity);
-        await _db.SaveChangesAsync(ct);
+        _db.Add<AppointmentRequest>(entity);
+        await _unitOfWork.SaveChangesAsync(ct);
 
         return await LoadByIdForManagerAsync(entity.Id, ct)
             ?? throw new Exception("Appointment request was created but could not be loaded.");
@@ -74,7 +80,7 @@ public sealed class AppointmentRequestService : IAppointmentRequestService
         CancellationToken ct)
     {
         var permissionSet = permissions as ISet<string> ?? permissions.ToHashSet(StringComparer.Ordinal);
-        var query = _db.AppointmentRequests
+        var query = _db.Query<AppointmentRequest>()
             .AsNoTracking()
             .AsQueryable();
 
@@ -133,7 +139,7 @@ public sealed class AppointmentRequestService : IAppointmentRequestService
         CancellationToken ct)
     {
         var permissionSet = permissions as ISet<string> ?? permissions.ToHashSet(StringComparer.Ordinal);
-        var query = _db.AppointmentRequests
+        var query = _db.Query<AppointmentRequest>()
             .AsNoTracking()
             .Where(a => a.Id == id);
 
@@ -160,7 +166,7 @@ public sealed class AppointmentRequestService : IAppointmentRequestService
         int? actorUserId,
         CancellationToken ct)
     {
-        var entity = await _db.AppointmentRequests
+        var entity = await _db.Query<AppointmentRequest>()
             .FirstOrDefaultAsync(a => a.Id == id, ct);
 
         if (entity == null)
@@ -184,7 +190,7 @@ public sealed class AppointmentRequestService : IAppointmentRequestService
             entity.UpdatedAt = DateTime.UtcNow;
             entity.UpdatedById = actorUserId;
 
-            await _db.SaveChangesAsync(ct);
+            await _unitOfWork.SaveChangesAsync(ct);
         }
 
         return await LoadByIdForManagerAsync(id, ct)
@@ -207,7 +213,7 @@ public sealed class AppointmentRequestService : IAppointmentRequestService
 
     private async Task EnsureDoctorExistsAsync(int doctorProfileId, CancellationToken ct)
     {
-        var exists = await _db.DoctorProfiles.AnyAsync(
+        var exists = await _db.Query<DoctorProfile>().AnyAsync(
             d =>
                 d.Id == doctorProfileId &&
                 d.IsActive &&
@@ -221,7 +227,7 @@ public sealed class AppointmentRequestService : IAppointmentRequestService
 
     private async Task<int?> ResolveDoctorProfileIdAsync(int userId, CancellationToken ct)
     {
-        return await _db.DoctorProfiles
+        return await _db.Query<DoctorProfile>()
             .AsNoTracking()
             .Where(d =>
                 d.IsActive &&
@@ -234,7 +240,7 @@ public sealed class AppointmentRequestService : IAppointmentRequestService
 
     private async Task<AppointmentRequestDto?> LoadByIdForManagerAsync(int id, CancellationToken ct)
     {
-        return await _db.AppointmentRequests
+        return await _db.Query<AppointmentRequest>()
             .AsNoTracking()
             .Where(a => a.Id == id)
             .Select(ToDto)

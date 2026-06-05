@@ -17,7 +17,7 @@ public sealed class AdminDepartmentsControllerTests
             new Department { Name = "Neurology", Description = "Brain care" },
             new Department { Name = "Oncology", Description = "Cancer care" });
         await db.SaveChangesAsync();
-        var controller = new AdminDepartmentsController(db);
+        var controller = new AdminDepartmentsController(ServiceTestFactory.DepartmentService(db));
 
         var result = await controller.GetDepartments(
             new PaginationQuery { Page = 1, PageSize = 2 },
@@ -39,7 +39,7 @@ public sealed class AdminDepartmentsControllerTests
             new Department { Name = "Neurology" },
             new Department { Name = "Oncology" });
         await db.SaveChangesAsync();
-        var controller = new AdminDepartmentsController(db);
+        var controller = new AdminDepartmentsController(ServiceTestFactory.DepartmentService(db));
 
         var result = await controller.GetDepartments(new PaginationQuery { PageSize = 1 }, all: true, CancellationToken.None);
 
@@ -53,7 +53,7 @@ public sealed class AdminDepartmentsControllerTests
     public async Task CreateDepartment_NormalizesValuesAndStoresCurrentUser()
     {
         await using var db = HmsDbContextTestFactory.Create();
-        var controller = new AdminDepartmentsController(db);
+        var controller = new AdminDepartmentsController(ServiceTestFactory.DepartmentService(db));
         ControllerTestHelper.SetUser(controller, userId: 91, roles: ["Admin"]);
 
         var result = await controller.CreateDepartment(
@@ -73,7 +73,7 @@ public sealed class AdminDepartmentsControllerTests
     public async Task UpdateDepartment_WhenMissing_ReturnsNotFound()
     {
         await using var db = HmsDbContextTestFactory.Create();
-        var controller = new AdminDepartmentsController(db);
+        var controller = new AdminDepartmentsController(ServiceTestFactory.DepartmentService(db));
 
         var result = await controller.UpdateDepartment(
             404,
@@ -92,7 +92,7 @@ public sealed class AdminDepartmentsControllerTests
         await db.SaveChangesAsync();
         db.Beds.Add(new Bed { DepartmentId = department.Id, Ward = "A", RoomNumber = "101", BedNumber = "1" });
         await db.SaveChangesAsync();
-        var controller = new AdminDepartmentsController(db);
+        var controller = new AdminDepartmentsController(ServiceTestFactory.DepartmentService(db));
 
         var result = await controller.DeleteDepartment(department.Id, CancellationToken.None);
 
@@ -106,7 +106,7 @@ public sealed class AdminDepartmentsControllerTests
         var department = new Department { Name = "Temporary" };
         db.Set<Department>().Add(department);
         await db.SaveChangesAsync();
-        var controller = new AdminDepartmentsController(db);
+        var controller = new AdminDepartmentsController(ServiceTestFactory.DepartmentService(db));
 
         var result = await controller.DeleteDepartment(department.Id, CancellationToken.None);
 
@@ -114,3 +114,4 @@ public sealed class AdminDepartmentsControllerTests
         Assert.Empty(db.Set<Department>());
     }
 }
+

@@ -1,9 +1,7 @@
+using HMS.Application.Abstractions.Identity;
 using HMS.Contracts.Identity;
-using HMS.Domain.Entities;
-using HMS.Persistence;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.EntityFrameworkCore;
 
 namespace HMS.Api.Controllers.Public;
 
@@ -12,26 +10,16 @@ namespace HMS.Api.Controllers.Public;
 [Route("api/public/landing-stats")]
 public sealed class LandingStatsController : ControllerBase
 {
-    private readonly HmsDbContext _db;
+    private readonly ILandingStatsService _landingStats;
 
-    public LandingStatsController(HmsDbContext db)
+    public LandingStatsController(ILandingStatsService landingStats)
     {
-        _db = db;
+        _landingStats = landingStats;
     }
 
     [HttpGet]
     public async Task<ActionResult<LandingStatsDto>> Get(CancellationToken cancellationToken)
     {
-        var stats = new LandingStatsDto
-        {
-            Patients = await _db.PatientProfiles.AsNoTracking().CountAsync(cancellationToken),
-            Staff = await _db.Set<StaffProfile>().AsNoTracking().CountAsync(cancellationToken),
-            Doctors = await _db.DoctorProfiles.AsNoTracking().CountAsync(d => d.IsActive, cancellationToken),
-            Departments = await _db.Set<Department>().AsNoTracking().CountAsync(cancellationToken),
-            Specialties = await _db.Set<Specialization>().AsNoTracking().CountAsync(cancellationToken),
-            Appointments = await _db.Appointments.AsNoTracking().CountAsync(cancellationToken),
-        };
-
-        return Ok(stats);
+        return Ok(await _landingStats.GetAsync(cancellationToken));
     }
 }

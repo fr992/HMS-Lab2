@@ -2,7 +2,8 @@ using HMS.Application.Abstractions.Identity;
 using HMS.Application.Exceptions;
 using HMS.Contracts.Identity;
 using HMS.Domain.Entities;
-using HMS.Persistence;
+using Identity.Domain.Entities;
+using HMS.Application.Abstractions.Persistence;
 using Identity.Infrastructure.Common;
 using Microsoft.Data.SqlClient;
 using Microsoft.EntityFrameworkCore;
@@ -11,11 +12,16 @@ namespace Identity.Infrastructure.Services;
 
 public sealed class InvoiceService : IInvoiceService
 {
-    private readonly HmsDbContext _db;
+    private readonly IHmsRepository _db;
 
-    public InvoiceService(HmsDbContext db)
+    private readonly IUnitOfWork _unitOfWork;
+
+    public InvoiceService(IHmsRepository db,
+        IUnitOfWork unitOfWork)
     {
         _db = db;
+
+        _unitOfWork = unitOfWork;
     }
 
     public async Task<InvoiceDto> CreateAsync(
@@ -29,7 +35,7 @@ public sealed class InvoiceService : IInvoiceService
         if (request.Items.Count == 0)
             throw new BadRequestException("Invoice must contain at least one item.");
 
-        var patientExists = await _db.PatientProfiles
+        var patientExists = await _db.Query<PatientProfile>()
             .AsNoTracking()
             .AnyAsync(x => x.Id == request.PatientProfileId, cancellationToken);
 
@@ -68,7 +74,7 @@ public sealed class InvoiceService : IInvoiceService
             Items = items
         };
 
-        _db.Invoices.Add(invoice);
+        _db.Add<Invoice>(invoice);
 
         await SaveCreatedInvoiceAsync(cancellationToken);
 
@@ -77,7 +83,7 @@ public sealed class InvoiceService : IInvoiceService
 
     public async Task<InvoiceDto> GetByIdAsync(int id, CancellationToken cancellationToken)
     {
-        var invoice = await ProjectToDto(_db.Invoices.AsNoTracking().Where(x => x.Id == id))
+        var invoice = await ProjectToDto(_db.Query<Invoice>().AsNoTracking().Where(x => x.Id == id))
             .FirstOrDefaultAsync(cancellationToken);
 
         if (invoice is null)
@@ -98,7 +104,7 @@ public sealed class InvoiceService : IInvoiceService
         if (normalizedStatus is not null)
             EnsureValidStatus(normalizedStatus);
 
-        var query = _db.Invoices
+        var query = _db.Query<Invoice>()
             .AsNoTracking()
             .Where(x => !patientId.HasValue || x.PatientProfileId == patientId.Value)
             .Where(x => normalizedStatus == null || x.Status == normalizedStatus)
@@ -119,7 +125,7 @@ public sealed class InvoiceService : IInvoiceService
         PaginationQuery pagination,
         CancellationToken cancellationToken)
     {
-        var patientProfileId = await _db.PatientProfiles
+        var patientProfileId = await _db.Query<PatientProfile>()
             .AsNoTracking()
             .Where(x => x.Person.UserId == userId)
             .Select(x => (int?)x.Id)
@@ -137,7 +143,7 @@ public sealed class InvoiceService : IInvoiceService
         int actorUserId,
         CancellationToken cancellationToken)
     {
-        var invoice = await _db.Invoices
+        var invoice = await _db.Query<Invoice>()
             .FirstOrDefaultAsync(x => x.Id == id, cancellationToken);
 
         if (invoice is null)
@@ -151,7 +157,7 @@ public sealed class InvoiceService : IInvoiceService
         invoice.UpdatedAt = DateTime.UtcNow;
         invoice.UpdatedById = actorUserId;
 
-        await _db.SaveChangesAsync(cancellationToken);
+        await _unitOfWork.SaveChangesAsync(cancellationToken);
 
         return await GetByIdAsync(invoice.Id, cancellationToken);
     }
@@ -204,7 +210,7 @@ public sealed class InvoiceService : IInvoiceService
         int patientProfileId,
         CancellationToken cancellationToken)
     {
-        var encounterPatientId = await _db.Encounters
+        var encounterPatientId = await _db.Query<Encounter>()
             .AsNoTracking()
             .Where(x => x.Id == encounterId)
             .Select(x => (int?)x.PatientProfileId)
@@ -220,7 +226,7 @@ public sealed class InvoiceService : IInvoiceService
     private async Task<string> GenerateInvoiceNumberAsync(DateTime now, CancellationToken cancellationToken)
     {
         var prefix = $"INV-{now:yyyyMMdd}";
-        var count = await _db.Invoices
+        var count = await _db.Query<Invoice>()
             .AsNoTracking()
             .CountAsync(x => x.InvoiceNumber.StartsWith(prefix), cancellationToken);
 
@@ -231,7 +237,7 @@ public sealed class InvoiceService : IInvoiceService
     {
         try
         {
-            await _db.SaveChangesAsync(cancellationToken);
+            await _unitOfWork.SaveChangesAsync(cancellationToken);
         }
         catch (DbUpdateException ex) when (IsUniqueConstraintViolation(ex))
         {
