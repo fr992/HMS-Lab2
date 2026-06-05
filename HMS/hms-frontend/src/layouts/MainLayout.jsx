@@ -3,19 +3,30 @@ import { BriefcaseMedical, Clock3, LogIn, Mail, MapPin, Phone } from "lucide-rea
 import { Button } from "@/components/ui/button";
 import {
   getPublicSetting,
+  getLocalizedPublicSetting,
   getShortHospitalName,
   usePublicSettings,
 } from "@/features/landing/publicSettings";
-
-const NAV_LINKS = [
-  { href: "#leadership", label: "Services" },
-  { href: "#clinics", label: "Departments" },
-  { href: "#equipment", label: "Technology" },
-  { href: "#appointment", label: "Book a Visit" },
-];
+import { LandingLanguageProvider } from "@/features/landing/landingI18n";
+import { useLandingLanguage } from "@/features/landing/landingLanguage";
 
 export default function MainLayout() {
+  return (
+    <LandingLanguageProvider>
+      <PublicLandingLayout />
+    </LandingLanguageProvider>
+  );
+}
+
+function PublicLandingLayout() {
+  const { language, setLanguage, t } = useLandingLanguage();
   const { settings } = usePublicSettings();
+  const navLinks = [
+    { href: "#leadership", label: t("nav.services") },
+    { href: "#clinics", label: t("nav.departments") },
+    { href: "#equipment", label: t("nav.technology") },
+    { href: "#appointment", label: t("nav.appointment") },
+  ];
   const hospitalName = getPublicSetting(settings, "hospital.name");
   const shortHospitalName = getShortHospitalName(settings);
   const logoUrl = getPublicSetting(settings, "hospital.logoUrl");
@@ -23,7 +34,7 @@ export default function MainLayout() {
   const email = getPublicSetting(settings, "hospital.email");
   const phone = getPublicSetting(settings, "hospital.phone");
   const workingHours = getPublicSetting(settings, "hospital.workingHours");
-  const footerText = getPublicSetting(settings, "landing.footerText");
+  const footerText = getLocalizedPublicSetting(settings, "landing.footerText", language);
 
   return (
     <div className="min-h-screen bg-white text-cyan-950">
@@ -35,7 +46,7 @@ export default function MainLayout() {
             </span>
             <span className="flex flex-col leading-none">
               <span className="text-sm font-semibold text-cyan-950">{shortHospitalName}</span>
-              <span className="mt-1 text-xs font-medium text-cyan-700">Hospital</span>
+              <span className="mt-1 text-xs font-medium text-cyan-700">{t("brandType")}</span>
             </span>
           </a>
 
@@ -43,7 +54,7 @@ export default function MainLayout() {
             aria-label="Landing page sections"
             className="scrollbar-none order-last flex w-full items-center gap-1 overflow-x-auto pt-2 sm:order-0 sm:ml-6 sm:w-auto sm:flex-1 sm:justify-center sm:pt-0"
           >
-            {NAV_LINKS.map((link) => (
+            {navLinks.map((link) => (
               <a
                 key={link.href}
                 href={link.href}
@@ -55,10 +66,11 @@ export default function MainLayout() {
           </nav>
 
           <div className="ml-auto flex items-center gap-2">
+            <LanguageSwitcher language={language} onChange={setLanguage} />
             <Button asChild size="lg" className="h-10 rounded-full bg-blue-600 px-5 text-white shadow-sm shadow-blue-700/20 hover:bg-blue-500">
               <Link to="/login">
                 <LogIn className="size-4" />
-                Login
+                {t("login")}
               </Link>
             </Button>
           </div>
@@ -101,7 +113,7 @@ export default function MainLayout() {
           </div>
 
           <div className="flex flex-wrap gap-1 text-sm font-medium text-cyan-700">
-            {NAV_LINKS.map((link) => (
+            {navLinks.map((link) => (
               <a
                 key={link.href}
                 href={link.href}
@@ -113,6 +125,35 @@ export default function MainLayout() {
           </div>
         </div>
       </footer>
+    </div>
+  );
+}
+
+function LanguageSwitcher({ language, onChange }) {
+  return (
+    <div className="inline-flex h-9 shrink-0 items-center rounded-full border border-cyan-100 bg-cyan-50/70 p-0.5 text-xs font-semibold text-cyan-700">
+      {[
+        { code: "sq", label: "SQ" },
+        { code: "en", label: "EN" },
+      ].map((item) => {
+        const active = language === item.code;
+        return (
+          <button
+            key={item.code}
+            type="button"
+            onClick={() => onChange(item.code)}
+            className={[
+              "h-7 rounded-full px-2.5 transition",
+              active
+                ? "bg-white text-blue-700 shadow-sm ring-1 ring-cyan-100"
+                : "text-cyan-700 hover:bg-white/70 hover:text-cyan-950",
+            ].join(" ")}
+            aria-pressed={active}
+          >
+            {item.label}
+          </button>
+        );
+      })}
     </div>
   );
 }

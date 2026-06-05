@@ -14,53 +14,54 @@ import {
   FALLBACK_LANDING_STATS,
 } from "@/features/landing/landingData";
 import { fetchLandingStats } from "@/features/landing/api/landingStatsApi";
-import { getPublicSetting, usePublicSettings } from "@/features/landing/publicSettings";
+import { useLandingLanguage } from "@/features/landing/landingLanguage";
+import { getLocalizedPublicSetting, usePublicSettings } from "@/features/landing/publicSettings";
 
 const numberFormatter = new Intl.NumberFormat("en-US");
 
 const SUMMARY_STATS = [
   {
     key: "patients",
-    label: "Patients served",
+    labelKey: "summaryStats.patients",
     patientApproximation: true,
   },
   {
     key: "doctors",
-    label: "Specialists",
+    labelKey: "summaryStats.doctors",
   },
   {
     key: "departments",
-    label: "Departments",
+    labelKey: "summaryStats.departments",
   },
   {
     key: "equipment",
-    label: "Advanced systems",
+    labelKey: "summaryStats.equipment",
   },
 ];
 
 const SNAPSHOT_CARDS = [
   {
     key: "patients",
-    label: "Active Patients",
+    labelKey: "snapshot.patients",
     icon: UsersRound,
     tone: "bg-blue-50 text-blue-700",
     patientApproximation: true,
   },
   {
     key: "doctors",
-    label: "Active Doctors",
+    labelKey: "snapshot.doctors",
     icon: Stethoscope,
     tone: "bg-teal-50 text-teal-700",
   },
   {
     key: "staff",
-    label: "Medical Staff",
+    labelKey: "snapshot.staff",
     icon: BriefcaseMedical,
     tone: "bg-emerald-50 text-emerald-700",
   },
   {
     key: "equipment",
-    label: "Advanced Systems",
+    labelKey: "snapshot.equipment",
     icon: HeartPulse,
     tone: "bg-cyan-50 text-cyan-700",
   },
@@ -99,6 +100,7 @@ function formatStat(item, stats) {
 }
 
 export default function HeroSection() {
+  const { language, t } = useLandingLanguage();
   const { data } = useQuery({
     queryKey: ["landing-stats"],
     queryFn: fetchLandingStats,
@@ -106,8 +108,8 @@ export default function HeroSection() {
   });
   const { settings } = usePublicSettings();
   const stats = normalizeStats(data);
-  const heroTitle = getPublicSetting(settings, "landing.heroTitle");
-  const heroSubtitle = getPublicSetting(settings, "landing.heroSubtitle");
+  const heroTitle = getLocalizedPublicSetting(settings, "landing.heroTitle", language);
+  const heroSubtitle = getLocalizedPublicSetting(settings, "landing.heroSubtitle", language);
 
   return (
     <section id="home" className="bg-[#f7fbfd]">
@@ -115,7 +117,7 @@ export default function HeroSection() {
         <div className="landing-reveal">
           <div className="inline-flex items-center gap-2 rounded-full border border-blue-200 bg-blue-50 px-4 py-2 text-sm font-semibold text-blue-700">
             <Sparkles className="size-4" />
-            Modern healthcare, organized around you
+            {t("heroBadge")}
           </div>
 
           <h1 className="mt-8 max-w-3xl text-5xl font-semibold leading-[1.05] text-cyan-950 sm:text-6xl">
@@ -131,49 +133,49 @@ export default function HeroSection() {
               href="#appointment"
               className="inline-flex h-12 items-center gap-2 rounded-md bg-blue-600 px-6 text-sm font-semibold text-white shadow-lg shadow-blue-700/20 transition hover:-translate-y-0.5 hover:bg-blue-500"
             >
-              Book an Appointment
+              {t("heroCta")}
               <ArrowRight className="size-4" />
             </a>
             <a
               href="/login"
               className="inline-flex h-12 items-center gap-2 rounded-md border border-cyan-200 bg-white px-6 text-sm font-semibold text-cyan-950 transition hover:-translate-y-0.5 hover:border-blue-200 hover:bg-blue-50"
             >
-              Portal Login
+              {t("portalLogin")}
             </a>
           </div>
 
           <div className="mt-10 grid gap-5 border-t border-cyan-100 pt-8 sm:grid-cols-4">
             {SUMMARY_STATS.map((item) => (
-              <SummaryStat key={item.key} item={item} stats={stats} />
+              <SummaryStat key={item.key} item={item} stats={stats} t={t} />
             ))}
           </div>
         </div>
 
-        <HospitalSnapshot stats={stats} />
+        <HospitalSnapshot stats={stats} t={t} />
       </div>
     </section>
   );
 }
 
-function SummaryStat({ item, stats }) {
+function SummaryStat({ item, stats, t }) {
   return (
     <div>
       <p className="text-3xl font-semibold leading-none text-cyan-950">
         {formatStat(item, stats)}
       </p>
-      <p className="mt-2 text-sm font-medium text-cyan-800/65">{item.label}</p>
+      <p className="mt-2 text-sm font-medium text-cyan-800/65">{t(item.labelKey)}</p>
     </div>
   );
 }
 
-function HospitalSnapshot({ stats }) {
+function HospitalSnapshot({ stats, t }) {
   return (
     <div className="landing-reveal landing-delay-2 rounded-md border border-cyan-100 bg-white p-5 shadow-2xl shadow-cyan-950/10 sm:p-7">
       <div className="mb-7 flex items-start justify-between gap-4">
         <div>
-          <p className="text-sm font-medium text-cyan-800/60">Today&apos;s overview</p>
+          <p className="text-sm font-medium text-cyan-800/60">{t("snapshot.eyebrow")}</p>
           <h2 className="mt-1 text-2xl font-semibold text-cyan-950">
-            Live Hospital Snapshot
+            {t("snapshot.title")}
           </h2>
         </div>
         <span className="inline-flex size-12 items-center justify-center rounded-full bg-emerald-50 text-emerald-700">
@@ -183,19 +185,19 @@ function HospitalSnapshot({ stats }) {
 
       <div className="grid gap-4 sm:grid-cols-2">
         {SNAPSHOT_CARDS.map((item) => (
-          <SnapshotCard key={item.key} item={item} stats={stats} />
+          <SnapshotCard key={item.key} item={item} stats={stats} t={t} />
         ))}
       </div>
 
       <div className="mt-5 flex items-center gap-3 rounded-md border border-blue-100 bg-blue-50 px-4 py-3 text-sm font-medium text-cyan-900">
         <CheckCircle2 className="size-4 shrink-0 text-blue-600" />
-        Registry data refreshed from Nexora records.
+        {t("snapshot.refreshed")}
       </div>
     </div>
   );
 }
 
-function SnapshotCard({ item, stats }) {
+function SnapshotCard({ item, stats, t }) {
   const Icon = item.icon;
 
   return (
@@ -206,7 +208,7 @@ function SnapshotCard({ item, stats }) {
       <p className="mt-5 text-3xl font-semibold leading-none text-cyan-950">
         {formatStat(item, stats)}
       </p>
-      <p className="mt-2 text-sm font-medium text-cyan-800/65">{item.label}</p>
+      <p className="mt-2 text-sm font-medium text-cyan-800/65">{t(item.labelKey)}</p>
     </div>
   );
 }

@@ -19,7 +19,12 @@ import {
 } from "@/features/landing/api/appointmentRequestApi";
 import DoctorSearchSelect from "@/features/patients/components/DoctorSearchSelect";
 import { appointmentRequestSchema } from "@/features/landing/schemas/appointmentRequestSchema";
-import { getPublicSetting, usePublicSettings } from "@/features/landing/publicSettings";
+import { useLandingLanguage } from "@/features/landing/landingLanguage";
+import {
+  getLocalizedPublicSetting,
+  getPublicSetting,
+  usePublicSettings,
+} from "@/features/landing/publicSettings";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -47,11 +52,12 @@ const dateInputClass =
   "flex h-10 w-full rounded-md border border-cyan-100 bg-white px-3 text-sm text-cyan-950 transition outline-none focus-visible:border-teal-300 focus-visible:ring-3 focus-visible:ring-teal-100";
 
 export default function AppointmentForm() {
+  const { language, t } = useLandingLanguage();
   const { submitted, setSubmitted, reset: resetSubmitted } = useAppointmentStore();
   const { settings } = usePublicSettings();
   const [selectedDoctor, setSelectedDoctor] = useState(null);
   const workingHours = getPublicSetting(settings, "hospital.workingHours");
-  const emergencyText = getPublicSetting(settings, "landing.emergencyContactText");
+  const emergencyText = getLocalizedPublicSetting(settings, "landing.emergencyContactText", language);
   const emergencyPhone = getPublicSetting(settings, "hospital.emergencyPhone");
   const form = useForm({
     resolver: zodResolver(appointmentRequestSchema),
@@ -61,13 +67,13 @@ export default function AppointmentForm() {
   const mutation = useMutation({
     mutationFn: createAppointmentRequest,
     onSuccess: () => {
-      toast.success("Request received. Our team will contact you shortly.");
+      toast.success(t("appointment.success"));
       form.reset(defaultValues);
       setSelectedDoctor(null);
       setSubmitted(true);
     },
     onError: (error) => {
-      toast.error(error?.response?.data?.error ?? "Something went wrong. Please try again.");
+      toast.error(error?.response?.data?.error ?? t("appointment.error"));
     },
   });
 
@@ -79,18 +85,17 @@ export default function AppointmentForm() {
     <section id="appointment" className="bg-[#f7fbfd] py-20 text-cyan-950 sm:py-24">
       <div className="mx-auto grid max-w-7xl gap-10 px-6 lg:grid-cols-[0.8fr_1.2fr] lg:px-8">
         <div className="landing-reveal">
-          <p className="text-sm font-semibold text-blue-600">Appointment</p>
+          <p className="text-sm font-semibold text-blue-600">{t("appointment.eyebrow")}</p>
           <h2 className="mt-3 max-w-md text-3xl font-semibold leading-tight sm:text-4xl">
-            Request care with the right clinic from the first step.
+            {t("appointment.title")}
           </h2>
           <p className="mt-4 max-w-md text-sm leading-7 text-cyan-800/75">
-            Share the essentials and the reception team will coordinate your
-            preferred date, clinic, and next available specialist.
+            {t("appointment.description")}
           </p>
 
           <div className="mt-8 grid max-w-md gap-3">
-            <ContactSignal icon={CalendarCheck} title="Appointment review" text="Requests are checked by the reception workflow." />
-            <ContactSignal icon={Clock3} title="Working hours" text={workingHours} />
+            <ContactSignal icon={CalendarCheck} title={t("appointment.reviewTitle")} text={t("appointment.reviewText")} />
+            <ContactSignal icon={Clock3} title={t("appointment.hoursTitle")} text={workingHours} />
             <ContactSignal icon={Phone} title={emergencyText} text={emergencyPhone} />
           </div>
         </div>
@@ -100,13 +105,13 @@ export default function AppointmentForm() {
             <div className="mb-4 flex items-start justify-between rounded-md border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-900">
               <span className="flex items-start gap-2">
                 <CheckCircle2 className="mt-0.5 size-4 shrink-0" />
-                Request received. Our team will contact you shortly.
+                {t("appointment.success")}
               </span>
               <button
                 type="button"
                 onClick={resetSubmitted}
                 className="text-emerald-700 transition hover:text-emerald-950"
-                aria-label="Dismiss success message"
+                aria-label={t("appointment.dismissSuccess")}
               >
                 <X className="size-4" />
               </button>
@@ -123,8 +128,8 @@ export default function AppointmentForm() {
                   <ShieldCheck className="size-4" />
                 </span>
                 <div>
-                  <h3 className="text-base font-semibold text-cyan-950">Patient request</h3>
-                  <p className="mt-1 text-sm text-cyan-800/70">Use your legal name and reachable contact details.</p>
+                  <h3 className="text-base font-semibold text-cyan-950">{t("appointment.cardTitle")}</h3>
+                  <p className="mt-1 text-sm text-cyan-800/70">{t("appointment.cardSubtitle")}</p>
                 </div>
               </div>
 
@@ -134,9 +139,9 @@ export default function AppointmentForm() {
                   name="firstName"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>First Name</FormLabel>
+                      <FormLabel>{t("appointment.firstName")}</FormLabel>
                       <FormControl>
-                        <Input placeholder="First Name" autoComplete="given-name" {...field} />
+                        <Input placeholder={t("appointment.firstName")} autoComplete="given-name" {...field} />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
@@ -147,9 +152,9 @@ export default function AppointmentForm() {
                   name="lastName"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Last Name</FormLabel>
+                      <FormLabel>{t("appointment.lastName")}</FormLabel>
                       <FormControl>
-                        <Input placeholder="Last Name" autoComplete="family-name" {...field} />
+                        <Input placeholder={t("appointment.lastName")} autoComplete="family-name" {...field} />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
@@ -163,7 +168,7 @@ export default function AppointmentForm() {
                   name="email"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Email</FormLabel>
+                      <FormLabel>{t("appointment.email")}</FormLabel>
                       <FormControl>
                         <Input type="email" placeholder="you@example.com" autoComplete="email" {...field} />
                       </FormControl>
@@ -176,7 +181,7 @@ export default function AppointmentForm() {
                   name="phone"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Phone Number</FormLabel>
+                      <FormLabel>{t("appointment.phone")}</FormLabel>
                       <FormControl>
                         <Input type="tel" placeholder="+383 44 123 456" autoComplete="tel" {...field} />
                       </FormControl>
@@ -192,7 +197,7 @@ export default function AppointmentForm() {
                   name="dateOfBirth"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Date of Birth</FormLabel>
+                      <FormLabel>{t("appointment.dateOfBirth")}</FormLabel>
                       <FormControl>
                         <input type="date" className={dateInputClass} {...field} />
                       </FormControl>
@@ -205,7 +210,7 @@ export default function AppointmentForm() {
                   name="preferredDate"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Preferred Appointment Date</FormLabel>
+                      <FormLabel>{t("appointment.preferredDate")}</FormLabel>
                       <FormControl>
                         <input type="date" className={dateInputClass} {...field} />
                       </FormControl>
@@ -221,7 +226,7 @@ export default function AppointmentForm() {
                   name="doctorProfileId"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Preferred Doctor</FormLabel>
+                      <FormLabel>{t("appointment.preferredDoctor")}</FormLabel>
                       <FormControl>
                         <DoctorSearchSelect
                           value={field.value}
@@ -232,8 +237,8 @@ export default function AppointmentForm() {
                           fetchDoctors={fetchPublicDoctors}
                           queryKey="public-doctor-search"
                           selectedDoctor={selectedDoctor}
-                          placeholder="Search doctor by name or specialty"
-                          emptyLabel="No preference"
+                          placeholder={t("appointment.doctorPlaceholder")}
+                          emptyLabel={t("appointment.noPreference")}
                           inputClassName="rounded-md border-cyan-100 text-cyan-950 focus:border-teal-300 focus:ring-teal-100"
                         />
                       </FormControl>
@@ -249,9 +254,9 @@ export default function AppointmentForm() {
                   name="reasonForVisit"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Reason for Visit</FormLabel>
+                      <FormLabel>{t("appointment.reason")}</FormLabel>
                       <FormControl>
-                        <Textarea rows={4} maxLength={300} placeholder="Briefly describe your concern" {...field} />
+                        <Textarea rows={4} maxLength={300} placeholder={t("appointment.reasonPlaceholder")} {...field} />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
@@ -265,10 +270,10 @@ export default function AppointmentForm() {
                 disabled={mutation.isPending}
               >
                 <Send className="size-4" />
-                {mutation.isPending ? "Submitting..." : "Request Appointment"}
+                {mutation.isPending ? t("appointment.submitting") : t("appointment.submit")}
               </Button>
               <p className="mt-3 text-center text-xs text-cyan-800/65">
-                We will review your request and contact you within one business day.
+                {t("appointment.footnote")}
               </p>
             </form>
           </Form>
