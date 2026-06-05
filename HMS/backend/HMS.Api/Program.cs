@@ -185,8 +185,10 @@ app.UseCors("frontend");
 app.UseAuthentication();
 app.UseMiddleware<MaintenanceModeMiddleware>();
 app.UseAuthorization();
+app.UseMiddleware<DashboardUpdateMiddleware>();
 app.MapControllers();
 app.MapHub<NotificationsHub>("/hubs/notifications");
+app.MapHub<DashboardHub>("/hubs/dashboard");
 
 await app.RunAsync();
 

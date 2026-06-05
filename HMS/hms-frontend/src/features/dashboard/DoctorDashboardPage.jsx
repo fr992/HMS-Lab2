@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import {
   Activity,
@@ -16,6 +16,7 @@ import {
   fetchDoctorDashboard,
   getApiErrorMessage,
 } from "@/features/dashboard/doctorDashboardApi";
+import { useDashboardRealtime } from "@/features/dashboard/useDashboardRealtime";
 import {
   AnimatedStatNumber,
   DashboardPageSkeleton,
@@ -98,8 +99,8 @@ export default function DoctorDashboardPage() {
   const [dashboard, setDashboard] = useState(emptyDashboard);
   const [search, setSearch] = useState("");
 
-  const loadDashboard = async () => {
-    setStatus("loading");
+  const loadDashboard = useCallback(async ({ quiet = false } = {}) => {
+    if (!quiet) setStatus("loading");
     setError(null);
     try {
       const data = await fetchDoctorDashboard();
@@ -109,11 +110,15 @@ export default function DoctorDashboardPage() {
       setError(getApiErrorMessage(err));
       setStatus("error");
     }
-  };
+  }, []);
 
   useEffect(() => {
     void loadDashboard();
-  }, []);
+  }, [loadDashboard]);
+
+  useDashboardRealtime(() => {
+    void loadDashboard({ quiet: true });
+  });
 
   const displayName = dashboard.doctorName || auth.userName || "Doctor";
   const normalizedSearch = search.trim().toLowerCase();

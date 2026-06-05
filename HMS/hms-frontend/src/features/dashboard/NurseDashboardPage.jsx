@@ -10,6 +10,7 @@ import {
   MetricCard,
 } from "@/features/dashboard/DashboardPrimitives";
 import { fetchNurseDashboardData } from "@/features/dashboard/roleDashboardApi";
+import { useDashboardRealtime } from "@/features/dashboard/useDashboardRealtime";
 import {
   formatDateTime,
   getApiErrorMessage,
@@ -22,8 +23,12 @@ export default function NurseDashboardPage() {
   const auth = useAuth();
   const [state, setState] = useState({ status: "loading", data: {}, error: "" });
 
-  const load = useCallback(async () => {
-    setState((current) => ({ ...current, status: "loading", error: "" }));
+  const load = useCallback(async ({ quiet = false } = {}) => {
+    setState((current) => ({
+      ...current,
+      status: quiet ? current.status : "loading",
+      error: "",
+    }));
     try {
       const data = await fetchNurseDashboardData(auth);
       setState({ status: "ready", data, error: "" });
@@ -35,6 +40,10 @@ export default function NurseDashboardPage() {
   useEffect(() => {
     void load();
   }, [load]);
+
+  useDashboardRealtime(() => {
+    void load({ quiet: true });
+  });
 
   const dashboard = useMemo(() => buildNurseDashboard(state.data), [state.data]);
 

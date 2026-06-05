@@ -22,6 +22,7 @@ import {
   getOverviewTotal,
 } from "@/features/staffOverview/api/overviewApi";
 import { keyOf } from "@/features/dashboard/dashboardUtils";
+import { useDashboardRealtime } from "@/features/dashboard/useDashboardRealtime";
 
 const WORKSTREAM_OPTIONS = [
   { value: "priority", label: "Priority queue", icon: ListFilter },
@@ -297,6 +298,10 @@ export default function OverviewPage() {
     }, 30000);
     return () => window.clearInterval(intervalId);
   }, [load]);
+
+  useDashboardRealtime(() => {
+    void load({ quiet: true });
+  });
 
   const alerts = getOverviewItems(overview?.alerts?.data);
   const nurseTasks = useMemo(

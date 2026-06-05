@@ -21,6 +21,7 @@ import {
   MetricCard,
 } from "@/features/dashboard/DashboardPrimitives";
 import { fetchPatientDashboardData } from "@/features/dashboard/roleDashboardApi";
+import { useDashboardRealtime } from "@/features/dashboard/useDashboardRealtime";
 import { payInvoiceOnline, rememberPaymentReturnPath } from "@/api/paymentService";
 import {
   formatDateTime,
@@ -38,8 +39,12 @@ export default function PatientDashboardPage() {
   const [state, setState] = useState({ status: "loading", data: {}, error: "" });
   const [payingInvoiceId, setPayingInvoiceId] = useState(null);
 
-  const load = useCallback(async () => {
-    setState((current) => ({ ...current, status: "loading", error: "" }));
+  const load = useCallback(async ({ quiet = false } = {}) => {
+    setState((current) => ({
+      ...current,
+      status: quiet ? current.status : "loading",
+      error: "",
+    }));
     try {
       const data = await fetchPatientDashboardData();
       setState({ status: "ready", data, error: "" });
@@ -51,6 +56,10 @@ export default function PatientDashboardPage() {
   useEffect(() => {
     void load();
   }, [load]);
+
+  useDashboardRealtime(() => {
+    void load({ quiet: true });
+  });
 
   useEffect(() => {
     if (state.status !== "ready" || !location.hash) return;

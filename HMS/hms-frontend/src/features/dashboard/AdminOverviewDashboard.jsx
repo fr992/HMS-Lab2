@@ -37,6 +37,7 @@ import { useAuth } from "@/auth/AuthContext";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { getPagedItems, getTotalCount, keyOf } from "@/features/dashboard/dashboardUtils";
+import { useDashboardRealtime } from "@/features/dashboard/useDashboardRealtime";
 import { useTopBarSearch } from "@/layouts/TopBarSearchContext";
 import { useNavigate } from "react-router-dom";
 
@@ -333,6 +334,11 @@ export default function AdminOverviewDashboard() {
   const [loadingPatients, setLoadingPatients] = useState(true);
   const [loadingApts, setLoadingApts] = useState(true);
   const [loadingAlerts, setLoadingAlerts] = useState(true);
+  const [liveRefreshTick, setLiveRefreshTick] = useState(0);
+
+  useDashboardRealtime(() => {
+    setLiveRefreshTick((tick) => tick + 1);
+  });
 
   const canReadPatients = auth.hasPermission("Patients.Read");
   const canReadAppointments = auth.hasPermission("Appointments.Read");
@@ -478,7 +484,7 @@ export default function AdminOverviewDashboard() {
 
   useEffect(() => {
     void loadStats();
-  }, [loadStats]);
+  }, [loadStats, liveRefreshTick]);
 
   useEffect(() => {
     async function fetchCharts() {
@@ -544,7 +550,7 @@ export default function AdminOverviewDashboard() {
     }
 
     void fetchCharts();
-  }, [canReadAppointments, canReadBeds, canReadInvoices, canReadPatients, canReadPayments]);
+  }, [canReadAppointments, canReadBeds, canReadInvoices, canReadPatients, canReadPayments, liveRefreshTick]);
 
   useEffect(() => {
     async function fetchPatients() {
@@ -572,7 +578,7 @@ export default function AdminOverviewDashboard() {
     }
 
     void fetchPatients();
-  }, [canReadPatients]);
+  }, [canReadPatients, liveRefreshTick]);
 
   useEffect(() => {
     async function fetchAppointments() {
@@ -600,7 +606,7 @@ export default function AdminOverviewDashboard() {
     }
 
     void fetchAppointments();
-  }, [canReadAppointments]);
+  }, [canReadAppointments, liveRefreshTick]);
 
   useEffect(() => {
     async function fetchAlerts() {
@@ -621,7 +627,7 @@ export default function AdminOverviewDashboard() {
     }
 
     void fetchAlerts();
-  }, []);
+  }, [liveRefreshTick]);
 
   const pieData = [
     { name: "Occupied", value: bedOccupancy.occupied, color: "#2563eb" },
