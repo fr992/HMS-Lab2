@@ -16,27 +16,32 @@ export default function ConfirmDeleteModal({
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center p-4"
+      className="hms-modal-overlay"
       role="dialog"
       aria-modal="true"
       aria-labelledby={titleId}
     >
       <button
         type="button"
-        className="absolute inset-0 cursor-default bg-slate-900/40"
+        className="absolute inset-0 cursor-default"
         aria-label="Close"
         onClick={loading ? undefined : onClose}
       />
-      <div className="relative w-full max-w-md rounded-lg bg-white p-5 shadow-lg">
-        <h2 id={titleId} className="text-lg font-semibold text-slate-900">
-          {title}
-        </h2>
-        {message && (
-          <p className="mt-2 text-sm text-slate-600" role="note">
-            {message}
-          </p>
-        )}
-        <div className="mt-5 flex flex-wrap justify-end gap-2">
+      <div className="hms-modal-panel relative max-w-md">
+        <div className="hms-modal-header">
+          <div>
+            <h2 id={titleId} className="text-xl font-semibold text-slate-950">
+              {title}
+            </h2>
+            {message && (
+              <p className="mt-1 text-sm text-slate-600" role="note">
+                {message}
+              </p>
+            )}
+          </div>
+        </div>
+        <div className="hms-modal-body">
+        <div className="hms-modal-footer">
           <button
             type="button"
             onClick={onClose}
@@ -53,6 +58,7 @@ export default function ConfirmDeleteModal({
           >
             {loading ? "Deleting…" : confirmLabel}
           </button>
+        </div>
         </div>
       </div>
     </div>

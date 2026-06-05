@@ -44,7 +44,7 @@ export default function AppointmentCancelModal({
 
   return (
     <div
-      className="fixed inset-0 z-[300] flex items-end justify-center bg-slate-900/40 p-4 sm:items-center"
+      className="hms-modal-overlay-mobile z-[300]"
       role="dialog"
       aria-modal="true"
       aria-labelledby="cancel-appt-title"
@@ -55,17 +55,18 @@ export default function AppointmentCancelModal({
         aria-label="Close"
         onClick={submitting ? undefined : onClose}
       />
-      <div className="relative z-10 w-full max-w-md rounded-xl border border-slate-200 bg-white p-5 shadow-xl">
-        <h2
-          id="cancel-appt-title"
-          className="text-lg font-semibold text-slate-900"
-        >
-          Cancel appointment
-        </h2>
-        <p className="mt-1 text-sm text-slate-600">
-          A cancellation reason is required for the record.
-        </p>
-        <form onSubmit={handleSubmit} className="mt-4 space-y-3">
+      <div className="hms-modal-panel relative z-10 max-w-md">
+        <div className="hms-modal-header">
+          <div>
+            <h2 id="cancel-appt-title" className="text-xl font-semibold text-slate-950">
+              Cancel appointment
+            </h2>
+            <p className="mt-1 text-sm text-slate-600">
+              A cancellation reason is required for the record.
+            </p>
+          </div>
+        </div>
+        <form onSubmit={handleSubmit} className="hms-modal-body">
           <label className="block">
             <span className="text-sm font-medium text-slate-700">
               Cancellation reason
@@ -86,7 +87,7 @@ export default function AppointmentCancelModal({
               {error || localError}
             </p>
           )}
-          <div className="flex justify-end gap-2 pt-2">
+          <div className="hms-modal-footer">
             <button
               type="button"
               disabled={submitting}

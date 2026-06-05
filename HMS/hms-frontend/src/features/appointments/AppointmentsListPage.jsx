@@ -263,6 +263,16 @@ function visitStatusPillForList(appointment) {
   };
 }
 
+function isUpcomingAppointment(appointment) {
+  const k = statusKey(appointment.status);
+  const start = new Date(appointment.scheduledStart).getTime();
+  return (
+    Number.isFinite(start) &&
+    start >= Date.now() &&
+    (k === APPOINTMENT_STATUS.SCHEDULED || k === APPOINTMENT_STATUS.CONFIRMED)
+  );
+}
+
 function matchesListSegment(appointment, segment) {
   const k = statusKey(appointment.status);
   if (segment === "all") return true;
@@ -271,7 +281,7 @@ function matchesListSegment(appointment, segment) {
     return k === APPOINTMENT_STATUS.CANCELLED || k === APPOINTMENT_STATUS.NO_SHOW;
   }
   if (segment === "upcoming") {
-    return k === APPOINTMENT_STATUS.SCHEDULED || k === APPOINTMENT_STATUS.CONFIRMED;
+    return isUpcomingAppointment(appointment);
   }
   return true;
 }

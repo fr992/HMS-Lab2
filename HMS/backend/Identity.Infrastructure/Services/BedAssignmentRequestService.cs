@@ -5,6 +5,7 @@ using HMS.Domain.Entities;
 using Identity.Infrastructure.Common;
 using HMS.Persistence;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
 
 namespace Identity.Infrastructure.Services;
 
@@ -14,11 +15,19 @@ public sealed class BedAssignmentRequestService : IBedAssignmentRequestService
 
     private readonly HmsDbContext _db;
     private readonly IBedService _bedService;
+    private readonly INotificationService _notificationService;
+    private readonly ILogger<BedAssignmentRequestService> _logger;
 
-    public BedAssignmentRequestService(HmsDbContext db, IBedService bedService)
+    public BedAssignmentRequestService(
+        HmsDbContext db,
+        IBedService bedService,
+        INotificationService notificationService,
+        ILogger<BedAssignmentRequestService> logger)
     {
         _db = db;
         _bedService = bedService;
+        _notificationService = notificationService;
+        _logger = logger;
     }
 
     public async Task<BedAssignmentRequestDto> CreateForEncounterAsync(
@@ -108,7 +117,10 @@ public sealed class BedAssignmentRequestService : IBedAssignmentRequestService
             throw new ConflictException("This encounter already has a pending bed request.");
         }
 
-        return await GetByIdAsync(entity.Id, cancellationToken);
+        var dto = await GetByIdAsync(entity.Id, cancellationToken);
+        await NotifyManagersRequestCreatedAsync(dto, actorUserId, cancellationToken);
+
+        return dto;
     }
 
     public async Task<IReadOnlyList<BedAssignmentRequestDto>> GetForEncounterAsync(
@@ -168,90 +180,116 @@ public sealed class BedAssignmentRequestService : IBedAssignmentRequestService
         int actorUserId,
         CancellationToken cancellationToken)
     {
-        await using var transaction = await _db.Database.BeginTransactionAsync(cancellationToken);
+        var strategy = _db.Database.CreateExecutionStrategy();
 
-        var entity = await _db.BedAssignmentRequests
-            .FirstOrDefaultAsync(x => x.Id == requestId, cancellationToken);
-
-        if (entity is null)
-            throw new NotFoundException("Bed assignment request not found.");
-
-        EnsurePending(entity);
-
-        var isReleaseRequest = IsBedReleaseRequest(entity, entity.Notes);
-        if (request.BedId <= 0 && !isReleaseRequest)
-            throw new BadRequestException("Available bed is required.");
-
-        if (isReleaseRequest)
+        var assignedRequestId = await strategy.ExecuteAsync(async () =>
         {
-            var activeAssignment = await _db.BedAssignments
-                .FirstOrDefaultAsync(
-                    x => x.PatientProfileId == entity.PatientProfileId && x.ReleasedAt == null,
-                    cancellationToken);
+            await using var transaction = await _db.Database.BeginTransactionAsync(cancellationToken);
+            int resolvedRequestId;
 
-            if (activeAssignment is null)
-                throw new ConflictException("Patient does not have an active bed assignment to release.");
-
-            var releasedAt = DateTime.UtcNow;
-            activeAssignment.ReleasedAt = releasedAt;
-            activeAssignment.ReleasedByUserId = actorUserId;
-            activeAssignment.ReleaseNotes = NormalizeOptional(request.Notes) ?? "Approved bed release request.";
-            activeAssignment.UpdatedAt = releasedAt;
-
-            entity.Status = BedAssignmentRequestStatus.Assigned;
-            entity.ResolvedAt = releasedAt;
-            entity.ResolvedByUserId = actorUserId;
-            entity.BedAssignmentId = activeAssignment.Id;
-            entity.UpdatedAt = releasedAt;
-            entity.UpdatedById = actorUserId;
-
-            await _db.SaveChangesAsync(cancellationToken);
-            await transaction.CommitAsync(cancellationToken);
-
-            return await GetByIdAsync(entity.Id, cancellationToken);
-        }
-
-        if (IsBedChangeRequest(entity.Notes))
-        {
-            var activeAssignment = await _db.BedAssignments
-                .FirstOrDefaultAsync(
-                    x => x.PatientProfileId == entity.PatientProfileId && x.ReleasedAt == null,
-                    cancellationToken);
-
-            if (activeAssignment is not null)
+            try
             {
-                var releasedAt = DateTime.UtcNow;
-                activeAssignment.ReleasedAt = releasedAt;
-                activeAssignment.ReleasedByUserId = actorUserId;
-                activeAssignment.ReleaseNotes = "Released for approved bed change request.";
-                activeAssignment.UpdatedAt = releasedAt;
-                await _db.SaveChangesAsync(cancellationToken);
+                var entity = await _db.BedAssignmentRequests
+                    .FirstOrDefaultAsync(x => x.Id == requestId, cancellationToken);
+
+                if (entity is null)
+                    throw new NotFoundException("Bed assignment request not found.");
+
+                EnsurePending(entity);
+
+                var isReleaseRequest = IsBedReleaseRequest(entity, entity.Notes);
+                if (request.BedId <= 0 && !isReleaseRequest)
+                    throw new BadRequestException("Available bed is required.");
+
+                if (isReleaseRequest)
+                {
+                    var activeAssignment = await _db.BedAssignments
+                        .FirstOrDefaultAsync(
+                            x => x.PatientProfileId == entity.PatientProfileId && x.ReleasedAt == null,
+                            cancellationToken);
+
+                    if (activeAssignment is null)
+                        throw new ConflictException("Patient does not have an active bed assignment to release.");
+
+                    var releasedAt = DateTime.UtcNow;
+                    activeAssignment.ReleasedAt = releasedAt;
+                    activeAssignment.ReleasedByUserId = actorUserId;
+                    activeAssignment.ReleaseNotes = NormalizeOptional(request.Notes) ?? "Approved bed release request.";
+                    activeAssignment.UpdatedAt = releasedAt;
+
+                    entity.Status = BedAssignmentRequestStatus.Assigned;
+                    entity.ResolvedAt = releasedAt;
+                    entity.ResolvedByUserId = actorUserId;
+                    entity.BedAssignmentId = activeAssignment.Id;
+                    entity.UpdatedAt = releasedAt;
+                    entity.UpdatedById = actorUserId;
+
+                    await _db.SaveChangesAsync(cancellationToken);
+                    await transaction.CommitAsync(cancellationToken);
+
+                    resolvedRequestId = entity.Id;
+                }
+                else
+                {
+                    if (IsBedChangeRequest(entity.Notes))
+                    {
+                        var activeAssignment = await _db.BedAssignments
+                            .FirstOrDefaultAsync(
+                                x => x.PatientProfileId == entity.PatientProfileId && x.ReleasedAt == null,
+                                cancellationToken);
+
+                        if (activeAssignment is not null)
+                        {
+                            if (activeAssignment.BedId == request.BedId)
+                                throw new ConflictException("Patient is already assigned to the selected bed.");
+
+                            var releasedAt = DateTime.UtcNow;
+                            activeAssignment.ReleasedAt = releasedAt;
+                            activeAssignment.ReleasedByUserId = actorUserId;
+                            activeAssignment.ReleaseNotes = "Released for approved bed change request.";
+                            activeAssignment.UpdatedAt = releasedAt;
+                            await _db.SaveChangesAsync(cancellationToken);
+                        }
+                    }
+
+                    var assignment = await _bedService.AssignAsync(
+                        request.BedId,
+                        new AssignBedDto
+                        {
+                            PatientProfileId = entity.PatientProfileId,
+                            EncounterId = entity.EncounterId,
+                            Notes = NormalizeOptional(request.Notes) ?? entity.Notes
+                        },
+                        actorUserId,
+                        cancellationToken);
+
+                    var now = DateTime.UtcNow;
+                    entity.Status = BedAssignmentRequestStatus.Assigned;
+                    entity.ResolvedAt = now;
+                    entity.ResolvedByUserId = actorUserId;
+                    entity.BedAssignmentId = assignment.Id;
+                    entity.UpdatedAt = now;
+                    entity.UpdatedById = actorUserId;
+
+                    await _db.SaveChangesAsync(cancellationToken);
+                    await transaction.CommitAsync(cancellationToken);
+
+                    resolvedRequestId = entity.Id;
+                }
             }
-        }
-
-        var assignment = await _bedService.AssignAsync(
-            request.BedId,
-            new AssignBedDto
+            catch
             {
-                PatientProfileId = entity.PatientProfileId,
-                EncounterId = entity.EncounterId,
-                Notes = NormalizeOptional(request.Notes) ?? entity.Notes
-            },
-            actorUserId,
-            cancellationToken);
+                await transaction.RollbackAsync(cancellationToken);
+                throw;
+            }
 
-        var now = DateTime.UtcNow;
-        entity.Status = BedAssignmentRequestStatus.Assigned;
-        entity.ResolvedAt = now;
-        entity.ResolvedByUserId = actorUserId;
-        entity.BedAssignmentId = assignment.Id;
-        entity.UpdatedAt = now;
-        entity.UpdatedById = actorUserId;
+            return resolvedRequestId;
+        });
 
-        await _db.SaveChangesAsync(cancellationToken);
-        await transaction.CommitAsync(cancellationToken);
+        var dto = await GetByIdAsync(assignedRequestId, cancellationToken);
+        await NotifyRequesterRequestResolvedAsync(dto, "completed", cancellationToken);
 
-        return await GetByIdAsync(entity.Id, cancellationToken);
+        return dto;
     }
 
     public async Task<BedAssignmentRequestDto> RejectAsync(
@@ -278,7 +316,10 @@ public sealed class BedAssignmentRequestService : IBedAssignmentRequestService
 
         await _db.SaveChangesAsync(cancellationToken);
 
-        return await GetByIdAsync(entity.Id, cancellationToken);
+        var dto = await GetByIdAsync(entity.Id, cancellationToken);
+        await NotifyRequesterRequestResolvedAsync(dto, "rejected", cancellationToken);
+
+        return dto;
     }
 
     private async Task<BedAssignmentRequestDto> GetByIdAsync(int id, CancellationToken cancellationToken)
@@ -325,7 +366,7 @@ public sealed class BedAssignmentRequestService : IBedAssignmentRequestService
             ?? throw new ForbiddenException("Current user is not linked to an active doctor profile.");
     }
 
-    private static IQueryable<BedAssignmentRequestDto> ProjectToDto(IQueryable<BedAssignmentRequest> query)
+    private IQueryable<BedAssignmentRequestDto> ProjectToDto(IQueryable<BedAssignmentRequest> query)
     {
         return query.Select(x => new BedAssignmentRequestDto
         {
@@ -349,6 +390,15 @@ public sealed class BedAssignmentRequestService : IBedAssignmentRequestService
             AssignedBedLabel = x.BedAssignment == null
                 ? null
                 : x.BedAssignment.Bed.Ward + " / " + x.BedAssignment.Bed.RoomNumber + " / " + x.BedAssignment.Bed.BedNumber,
+            CreatedByUserId = x.CreatedById,
+            CreatedByUserName = x.CreatedById == null
+                ? null
+                : _db.Users
+                    .Where(u => u.Id == x.CreatedById.Value)
+                    .Select(u => u.Person == null
+                        ? u.UserName
+                        : u.Person.FirstName + " " + u.Person.LastName)
+                    .FirstOrDefault(),
             CreatedAt = x.CreatedAt,
             UpdatedAt = x.UpdatedAt
         });
@@ -416,6 +466,96 @@ public sealed class BedAssignmentRequestService : IBedAssignmentRequestService
     private static string? NormalizeOptional(string? value)
     {
         return string.IsNullOrWhiteSpace(value) ? null : value.Trim();
+    }
+
+    private async Task NotifyManagersRequestCreatedAsync(
+        BedAssignmentRequestDto request,
+        int actorUserId,
+        CancellationToken cancellationToken)
+    {
+        var recipientUserIds = await _db.Users
+            .AsNoTracking()
+            .Where(user =>
+                user.IsActive &&
+                user.Id != actorUserId &&
+                user.UserRoles.Any(userRole =>
+                    userRole.Role.Name == "Receptionist" ||
+                    userRole.Role.Name == "Admin" ||
+                    userRole.Role.Name == "SuperAdmin"))
+            .Select(user => user.Id)
+            .Distinct()
+            .ToListAsync(cancellationToken);
+
+        if (recipientUserIds.Count == 0)
+            return;
+
+        var isChangeRequest = IsBedChangeRequest(request.Notes);
+        var title = isChangeRequest ? "New bed change request" : "New bed request";
+        var actionText = isChangeRequest ? "requested a bed change" : "requested a bed";
+
+        foreach (var userId in recipientUserIds)
+        {
+            await TryCreateNotificationAsync(
+                new CreateNotificationRequestDto
+                {
+                    UserId = userId,
+                    Type = "bed_assignment_request",
+                    Title = title,
+                    Message = $"{request.CreatedByUserName ?? "A clinician"} {actionText} for {request.PatientName ?? "a patient"}.",
+                    RelatedEntityType = "BedAssignmentRequest",
+                    RelatedEntityId = request.Id.ToString()
+                },
+                cancellationToken);
+        }
+    }
+
+    private async Task NotifyRequesterRequestResolvedAsync(
+        BedAssignmentRequestDto request,
+        string result,
+        CancellationToken cancellationToken)
+    {
+        if (!request.CreatedByUserId.HasValue || request.CreatedByUserId == request.ResolvedByUserId)
+            return;
+
+        var isRejected = string.Equals(result, "rejected", StringComparison.OrdinalIgnoreCase);
+        var isChangeRequest = IsBedChangeRequest(request.Notes);
+        var subject = isChangeRequest ? "Bed change request" : "Bed request";
+        var bedText = string.IsNullOrWhiteSpace(request.AssignedBedLabel)
+            ? string.Empty
+            : $" New bed: {request.AssignedBedLabel}.";
+
+        await TryCreateNotificationAsync(
+            new CreateNotificationRequestDto
+            {
+                UserId = request.CreatedByUserId.Value,
+                Type = "bed_assignment_request",
+                Title = $"{subject} {result}",
+                Message = isRejected
+                    ? $"{subject} for {request.PatientName ?? "the patient"} was rejected."
+                    : $"{subject} for {request.PatientName ?? "the patient"} has been completed.{bedText}",
+                RelatedEntityType = "BedAssignmentRequest",
+                RelatedEntityId = request.Id.ToString()
+            },
+            cancellationToken);
+    }
+
+    private async Task TryCreateNotificationAsync(
+        CreateNotificationRequestDto request,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            await _notificationService.CreateAsync(request, cancellationToken);
+        }
+        catch (Exception exception) when (exception is not OperationCanceledException)
+        {
+            _logger.LogWarning(
+                exception,
+                "Failed to create notification for user {UserId} related to {RelatedEntityType} {RelatedEntityId}.",
+                request.UserId,
+                request.RelatedEntityType,
+                request.RelatedEntityId);
+        }
     }
 
     private static bool HasRole(IEnumerable<string> roles, string roleName)

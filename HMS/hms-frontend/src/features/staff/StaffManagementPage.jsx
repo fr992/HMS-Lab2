@@ -782,8 +782,8 @@ function StaffDialog({
   const currentStep = STAFF_CREATE_STEPS[createStep];
   const showLicenseField = needsClinicalProfile(form.staffType);
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/55 p-4" role="dialog" aria-modal="true">
-      <section className="flex max-h-[92vh] w-full max-w-3xl flex-col overflow-hidden rounded-xl border border-slate-200 bg-white shadow-2xl">
+    <div className="hms-modal-overlay" role="dialog" aria-modal="true">
+      <section className="hms-modal-panel-scroll max-w-3xl">
         <DialogHeader
           title={mode === "create" ? "Add Staff" : `Edit ${fullName(staff)}`}
           subtitle={mode === "create" ? "Create a staff account and linked person record." : "Update account details and access."}
@@ -1045,10 +1045,10 @@ function StaffDialog({
 
 function ViewStaffDialog({ staff, onClose }) {
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/55 p-4" role="dialog" aria-modal="true">
-      <section className="w-full max-w-2xl overflow-hidden rounded-xl border border-slate-200 bg-white shadow-2xl">
+    <div className="hms-modal-overlay" role="dialog" aria-modal="true">
+      <section className="hms-modal-panel max-w-2xl">
         <DialogHeader title="Staff Profile" subtitle="Staff account and available profile details." onClose={onClose} />
-        <div className="space-y-4 bg-slate-50 px-6 py-5">
+        <div className="hms-modal-body">
           <div className="rounded-lg border border-slate-200 bg-white p-4">
             <DetailGrid
               items={[
@@ -1078,9 +1078,9 @@ function ViewStaffDialog({ staff, onClose }) {
 
 function DialogHeader({ title, subtitle, onClose }) {
   return (
-    <div className="flex items-start justify-between gap-4 border-b border-slate-200 px-6 py-5">
+    <div className="hms-modal-header">
       <div className="flex items-start gap-4">
-        <div className="flex size-12 items-center justify-center rounded-xl bg-blue-50 text-blue-600">
+        <div className="hms-modal-header-icon">
           <Users className="size-6" aria-hidden />
         </div>
         <div>
@@ -1088,7 +1088,7 @@ function DialogHeader({ title, subtitle, onClose }) {
           <p className="mt-1 text-sm text-slate-600">{subtitle}</p>
         </div>
       </div>
-      <button type="button" onClick={onClose} className="inline-flex size-9 items-center justify-center rounded-lg text-slate-500 transition hover:bg-slate-100 hover:text-slate-900" aria-label="Close">
+      <button type="button" onClick={onClose} className="hms-modal-close" aria-label="Close">
         <X className="size-5" aria-hidden />
       </button>
     </div>

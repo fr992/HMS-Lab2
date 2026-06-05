@@ -66,7 +66,7 @@ export default function AppointmentCreatePage() {
     <div className="relative min-h-full">
       <AppointmentsListPage />
       <div
-        className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/45 p-3 backdrop-blur-sm sm:p-6"
+        className="hms-modal-overlay"
         role="presentation"
       >
         <section

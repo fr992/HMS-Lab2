@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   AlertTriangle,
   Activity,
@@ -37,6 +37,7 @@ import { useAuth } from "@/auth/AuthContext";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { getPagedItems, getTotalCount, keyOf } from "@/features/dashboard/dashboardUtils";
+import { useTopBarSearch } from "@/layouts/TopBarSearchContext";
 import { useNavigate } from "react-router-dom";
 
 const tooltipStyle = {
@@ -78,6 +79,19 @@ function hasAnyValue(items, keys) {
   return items.some((item) =>
     keys.some((key) => Number(item?.[key] ?? 0) > 0)
   );
+}
+
+function normalizeSearch(value) {
+  return String(value ?? "").trim().replace(/\s+/g, " ").toLowerCase();
+}
+
+function dashboardMatches(search, values) {
+  const term = normalizeSearch(search);
+  if (!term) return true;
+
+  return values
+    .filter((value) => value !== null && value !== undefined && value !== "")
+    .some((value) => normalizeSearch(value).includes(term));
 }
 
 function StatCard({ stat, loading }) {
@@ -297,6 +311,7 @@ function appointmentIsUpcoming(appointment) {
 export default function AdminOverviewDashboard() {
   const navigate = useNavigate();
   const auth = useAuth();
+  const { search: topBarSearch } = useTopBarSearch();
   const [stats, setStats] = useState([]);
   const [patientData, setPatientData] = useState([]);
   const [revenueData, setRevenueData] = useState([]);
@@ -615,9 +630,59 @@ export default function AdminOverviewDashboard() {
   const revenueStart = revenueData[0]?.revenue || 0;
   const revenueEnd = revenueData.at(-1)?.revenue || 0;
   const revenueChange = revenueStart > 0 ? (((revenueEnd - revenueStart) / revenueStart) * 100).toFixed(1) : "-";
+  const isSearching = normalizeSearch(topBarSearch).length > 0;
+  const filteredStats = useMemo(
+    () =>
+      stats.filter((stat) =>
+        dashboardMatches(topBarSearch, [stat.label, stat.value, stat.change])
+      ),
+    [stats, topBarSearch]
+  );
+  const filteredDepartmentData = useMemo(
+    () => departmentData.filter((item) => dashboardMatches(topBarSearch, [item.name, item.patients])),
+    [departmentData, topBarSearch]
+  );
+  const filteredRecentPatients = useMemo(
+    () =>
+      recentPatients.filter((patient) =>
+        dashboardMatches(topBarSearch, [
+          patient.name,
+          patient.department,
+          patient.status,
+          patient.age,
+          patient.time,
+        ])
+      ),
+    [recentPatients, topBarSearch]
+  );
+  const filteredUpcomingAppointments = useMemo(
+    () =>
+      upcomingAppointments.filter((appointment) =>
+        dashboardMatches(topBarSearch, [
+          appointment.patient,
+          appointment.doctor,
+          appointment.type,
+          appointment.time,
+        ])
+      ),
+    [topBarSearch, upcomingAppointments]
+  );
+  const filteredNotifications = useMemo(
+    () =>
+      notifications.filter((notification) =>
+        dashboardMatches(topBarSearch, [
+          notification.title,
+          notification.desc,
+          notification.message,
+          notification.type,
+          notification.time,
+        ])
+      ),
+    [notifications, topBarSearch]
+  );
   const hasPatientTrendData = hasAnyValue(patientData, ["inpatient", "outpatient"]);
   const hasRevenueData = hasAnyValue(revenueData, ["revenue"]);
-  const hasDepartmentData = hasAnyValue(departmentData, ["patients"]);
+  const hasDepartmentData = hasAnyValue(filteredDepartmentData, ["patients"]);
   const hasBedData = bedOccupancy.total > 0 || pieData.some((item) => item.value > 0);
 
   return (
@@ -625,11 +690,11 @@ export default function AdminOverviewDashboard() {
       <div className="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-6">
         {loadingStats
           ? Array.from({ length: 6 }).map((_, i) => <StatCard key={i} loading />)
-          : stats.length > 0
-            ? stats.map((stat) => <StatCard key={stat.label} stat={stat} />)
+          : filteredStats.length > 0
+            ? filteredStats.map((stat) => <StatCard key={stat.label} stat={stat} />)
             : (
                 <div className="col-span-full">
-                  <EmptyPanel label="No dashboard metrics are available for this role." />
+                  <EmptyPanel label={isSearching ? "No dashboard metrics match your search." : "No dashboard metrics are available for this role."} />
                 </div>
               )}
       </div>
@@ -708,10 +773,10 @@ export default function AdminOverviewDashboard() {
             {loadingCharts ? (
               <Skeleton className="h-60 w-full" />
             ) : !hasDepartmentData ? (
-              <EmptyChart label="No department patient data yet." />
+              <EmptyChart label={isSearching ? "No departments match your search." : "No department patient data yet."} />
             ) : (
               <ResponsiveContainer width="100%" height={240}>
-                <BarChart data={departmentData} layout="vertical" margin={{ left: 10 }}>
+                <BarChart data={filteredDepartmentData} layout="vertical" margin={{ left: 10 }}>
                   <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" horizontal={false} />
                   <XAxis type="number" tick={{ fontSize: 11 }} stroke="#64748b" />
                   <YAxis dataKey="name" type="category" tick={{ fontSize: 11 }} stroke="#64748b" width={75} />
@@ -784,9 +849,9 @@ export default function AdminOverviewDashboard() {
                     </div>
                   </div>
                 ))
-              : notifications.length === 0 ? (
-                  <EmptyPanel label="No live alerts right now." />
-                ) : notifications.map((n, i) => {
+              : filteredNotifications.length === 0 ? (
+                  <EmptyPanel label={isSearching ? "No live alerts match your search." : "No live alerts right now."} />
+                ) : filteredNotifications.map((n, i) => {
                   const Icon = n.icon;
                   return (
                     <div key={`${n.title}-${i}`} className="flex gap-3">
@@ -830,9 +895,9 @@ export default function AdminOverviewDashboard() {
                       <Skeleton className="h-5 w-20 rounded-full" />
                     </div>
                   ))
-                : recentPatients.length === 0 ? (
-                    <EmptyPanel label="No recent patients found." />
-                  ) : recentPatients.map((p, i) => (
+                : filteredRecentPatients.length === 0 ? (
+                    <EmptyPanel label={isSearching ? "No recent patients match your search." : "No recent patients found."} />
+                  ) : filteredRecentPatients.map((p, i) => (
                     <div key={`${p.name}-${i}`} className="grid gap-3 border-b border-slate-200 py-2 last:border-0 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center">
                       <div className="flex min-w-0 items-center gap-3">
                         <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-blue-50 text-xs font-semibold text-blue-700">
@@ -876,9 +941,9 @@ export default function AdminOverviewDashboard() {
                     <Skeleton className="h-3 w-1/2" />
                   </div>
                 ))
-              : upcomingAppointments.length === 0 ? (
-                  <EmptyPanel label="No upcoming appointments found." />
-                ) : upcomingAppointments.map((apt, i) => (
+              : filteredUpcomingAppointments.length === 0 ? (
+                  <EmptyPanel label={isSearching ? "No upcoming appointments match your search." : "No upcoming appointments found."} />
+                ) : filteredUpcomingAppointments.map((apt, i) => (
                   <div key={`${apt.patient}-${i}`} className="rounded-lg border border-slate-200 p-3 transition-shadow hover:shadow-sm">
                     <div className="mb-1.5 flex items-center justify-between">
                       <Badge variant="secondary" className="text-[10px]">{apt.type}</Badge>

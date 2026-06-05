@@ -281,28 +281,33 @@ export default function DepartmentsPage() {
       )}
 
       {formOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/45 p-4" role="dialog" aria-modal="true">
-          <section className="w-full max-w-lg rounded-lg border border-slate-200 bg-white p-5 shadow-xl">
-            <div className="flex items-start justify-between gap-4">
-              <div>
-                <h2 className="text-sm font-semibold text-slate-900">
-                  {editing ? "Edit department" : "Create department"}
-                </h2>
-                <p className="mt-1 text-xs text-slate-500">
-                  Department name is required. Description is optional.
-                </p>
+        <div className="hms-modal-overlay" role="dialog" aria-modal="true">
+          <section className="hms-modal-panel-scroll max-w-4xl">
+            <div className="hms-modal-header">
+              <div className="flex items-start gap-4">
+                <div className="hms-modal-header-icon">
+                  <Building2 className="size-6" aria-hidden />
+                </div>
+                <div>
+                  <h2 className="text-xl font-semibold text-slate-950">
+                    {editing ? "Edit department" : "Create department"}
+                  </h2>
+                  <p className="mt-1 text-sm text-slate-600">
+                    Department name is required. Description is optional.
+                  </p>
+                </div>
               </div>
               <button
                 type="button"
                 onClick={closeForm}
-                className="inline-flex size-8 items-center justify-center rounded-lg text-slate-500 transition hover:bg-slate-100 hover:text-slate-900"
+                className="hms-modal-close"
                 aria-label="Close"
               >
-                <X className="size-4" aria-hidden />
+                <X className="size-5" aria-hidden />
               </button>
             </div>
 
-            <form onSubmit={handleSubmit} className="mt-4 space-y-3">
+            <form onSubmit={handleSubmit} className="hms-modal-body min-h-0 overflow-y-auto">
               <label className="block">
                 <span className="mb-1 block text-xs font-medium text-slate-600">Name *</span>
                 <input
@@ -325,7 +330,7 @@ export default function DepartmentsPage() {
                 />
               </label>
 
-              <div className="flex justify-end gap-2 pt-2">
+              <div className="hms-modal-footer">
                 <button
                   type="button"
                   onClick={closeForm}
@@ -349,7 +354,7 @@ export default function DepartmentsPage() {
 
       {deleteTarget && (
         <div
-          className="fixed inset-0 z-50 flex items-end justify-center bg-slate-950/50 p-4 sm:items-center"
+          className="hms-modal-overlay-mobile"
           role="dialog"
           aria-modal="true"
           aria-labelledby="delete-department-title"
@@ -361,7 +366,7 @@ export default function DepartmentsPage() {
             onClick={saving ? undefined : closeDelete}
           />
           <section className="relative w-full max-w-md overflow-hidden rounded-xl border border-slate-200 bg-white shadow-2xl">
-            <div className="flex items-start gap-4 border-b border-slate-200 px-5 py-4">
+            <div className="hms-modal-header">
               <div className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-rose-50 text-rose-600">
                 <AlertTriangle className="size-5" aria-hidden />
               </div>
@@ -375,7 +380,7 @@ export default function DepartmentsPage() {
               </div>
             </div>
 
-            <div className="space-y-4 bg-slate-50 px-5 py-4">
+            <div className="hms-modal-body">
               <p className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
                 Deletion is only allowed when no staff, beds, or appointments reference this department.
               </p>
@@ -386,7 +391,7 @@ export default function DepartmentsPage() {
                 </div>
               )}
 
-              <div className="flex justify-end gap-2 border-t border-slate-200 pt-4">
+              <div className="hms-modal-footer">
                 <button
                   type="button"
                   onClick={closeDelete}

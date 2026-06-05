@@ -348,7 +348,7 @@ function RequestDetailsModal({ open, onClose, children }) {
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/45 p-3 backdrop-blur-sm sm:p-6"
+      className="hms-modal-overlay"
       role="presentation"
     >
       <div
@@ -357,7 +357,7 @@ function RequestDetailsModal({ open, onClose, children }) {
         aria-modal="true"
         aria-labelledby="request-detail-title"
       >
-        <div className="flex items-start justify-between gap-4 border-b border-slate-200 px-5 py-4">
+        <div className="hms-modal-header">
           <div>
             <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
               Online request

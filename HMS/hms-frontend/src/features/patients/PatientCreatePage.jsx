@@ -40,7 +40,7 @@ const labelClass =
 
 function WizardIcon() {
   return (
-    <div className="flex size-12 items-center justify-center rounded-xl bg-blue-50 text-blue-600">
+    <div className="hms-modal-header-icon">
       <UserRound className="size-6" aria-hidden />
     </div>
   );
@@ -172,13 +172,13 @@ export function RegisterPatientModal({ onClose, onCreated }) {
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/70 p-4">
+    <div className="hms-modal-overlay">
       <section
         className="flex h-140 w-full max-w-200 flex-col overflow-hidden rounded-xl border border-slate-200 bg-white shadow-2xl"
         role="dialog"
         aria-modal="true"
       >
-        <div className="flex items-start justify-between gap-4 border-b border-slate-200 px-6 py-5">
+        <div className="hms-modal-header">
           <div className="flex items-start gap-4">
             <WizardIcon />
             <div>

@@ -832,11 +832,11 @@ function PaymentActionsMenu({
 
 function DialogFrame({ title, subtitle, icon, children, onClose, maxWidth = "max-w-2xl" }) {
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/55 p-4" role="dialog" aria-modal="true">
+    <div className="hms-modal-overlay" role="dialog" aria-modal="true">
       <section className={`w-full ${maxWidth} overflow-hidden rounded-xl border border-slate-200 bg-white shadow-2xl`}>
-        <div className="flex items-start justify-between gap-4 border-b border-slate-200 px-6 py-5">
+        <div className="hms-modal-header">
           <div className="flex items-start gap-4">
-            <div className="flex size-12 items-center justify-center rounded-xl bg-blue-50 text-blue-600">
+            <div className="hms-modal-header-icon">
               {icon}
             </div>
             <div>
@@ -844,7 +844,7 @@ function DialogFrame({ title, subtitle, icon, children, onClose, maxWidth = "max
               <p className="mt-1 text-sm text-slate-600">{subtitle}</p>
             </div>
           </div>
-          <button type="button" onClick={onClose} className="inline-flex size-9 items-center justify-center rounded-lg text-slate-500 transition hover:bg-slate-100 hover:text-slate-900" aria-label="Close">
+          <button type="button" onClick={onClose} className="hms-modal-close" aria-label="Close">
             <X className="size-5" aria-hidden />
           </button>
         </div>
@@ -865,7 +865,7 @@ function PaymentDetailsModal({ payment, onClose }) {
       onClose={onClose}
       maxWidth="max-w-4xl"
     >
-      <div className="space-y-4 bg-slate-50 px-6 py-5">
+      <div className="hms-modal-body">
         <section className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-[1.35fr_1fr_1fr_1fr]">
             <PaymentSummaryItem
@@ -1003,7 +1003,7 @@ function NewPaymentModal({ form, error, saving, onChange, onClose, onSubmit }) {
       onClose={onClose}
       maxWidth="max-w-2xl"
     >
-      <form onSubmit={onSubmit} className="space-y-4 bg-slate-50 px-6 py-5">
+      <form onSubmit={onSubmit} className="hms-modal-body">
         <div className="grid gap-4 md:grid-cols-2">
           <FormField label="Invoice" required>
             <div className="relative">
@@ -1109,7 +1109,7 @@ function UpdateStatusModal({ payment, nextStatus, choices, error, saving, onNext
       onClose={onClose}
       maxWidth="max-w-xl"
     >
-      <form onSubmit={onSubmit} className="space-y-4 bg-slate-50 px-6 py-5">
+      <form onSubmit={onSubmit} className="hms-modal-body">
         <div className="rounded-lg border border-slate-200 bg-white p-4">
           <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Current status</p>
           <div className="mt-2"><StatusBadge status={payment?.status} /></div>
@@ -1148,7 +1148,7 @@ function ConfirmCashModal({ payment, error, saving, onClose, onConfirm }) {
       onClose={onClose}
       maxWidth="max-w-xl"
     >
-      <div className="space-y-4 bg-slate-50 px-6 py-5">
+      <div className="hms-modal-body">
         <div className="rounded-lg border border-slate-200 bg-white p-4">
           <p className="text-sm font-medium text-slate-900">Confirm this cash payment as paid?</p>
           <p className="mt-1 text-sm text-slate-500">
@@ -1156,7 +1156,7 @@ function ConfirmCashModal({ payment, error, saving, onClose, onConfirm }) {
           </p>
         </div>
         <ModalError message={error} />
-        <div className="flex justify-end gap-2 border-t border-slate-200 pt-4">
+        <div className="hms-modal-footer">
           <button type="button" onClick={onClose} disabled={saving} className="h-10 rounded-lg border border-slate-200 bg-white px-4 text-sm font-medium text-slate-700 transition hover:bg-slate-50 disabled:opacity-50">
             Cancel
           </button>
@@ -1183,7 +1183,7 @@ function FormField({ label, required, children }) {
 
 function DialogActions({ saving, submitLabel, savingLabel, onClose }) {
   return (
-    <div className="flex justify-end gap-2 border-t border-slate-200 pt-4">
+    <div className="hms-modal-footer">
       <button type="button" onClick={onClose} disabled={saving} className="h-10 rounded-lg border border-slate-200 bg-white px-4 text-sm font-medium text-slate-700 transition hover:bg-slate-50 disabled:opacity-50">
         Cancel
       </button>

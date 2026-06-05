@@ -204,15 +204,15 @@ export default function CalendarDayModal({
   return (
     <div
       ref={overlayRef}
-      className="fixed inset-0 z-[200] flex items-end justify-center bg-slate-950/40 p-3 sm:items-center"
+      className="hms-modal-overlay-mobile z-[200]"
       role="dialog"
       aria-modal="true"
       onClick={(event) => {
         if (event.target === overlayRef.current) onClose();
       }}
     >
-      <div className="max-h-[90vh] w-full max-w-3xl overflow-hidden rounded-xl border border-slate-200 bg-white shadow-xl">
-        <div className="flex items-start justify-between gap-4 border-b border-slate-100 px-5 py-4">
+      <div className="hms-modal-panel-scroll max-w-3xl">
+        <div className="hms-modal-header">
           <div>
             <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
               Daily schedule
@@ -340,7 +340,7 @@ export default function CalendarDayModal({
           )}
         </div>
 
-        <div className="border-t border-slate-100 px-5 py-3 text-xs text-slate-500">
+        <div className="border-t border-slate-200 px-6 py-4 text-xs text-slate-500">
           {sorted.length} {sorted.length === 1 ? "appointment" : "appointments"}
         </div>
       </div>

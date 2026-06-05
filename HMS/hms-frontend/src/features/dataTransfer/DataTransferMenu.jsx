@@ -1,4 +1,4 @@
-import { useRef, useState } from "react";
+import { createElement, useRef, useState } from "react";
 import { ChevronDown, Database, Download, FileJson, FileSpreadsheet, FileText } from "lucide-react";
 import { DropdownMenu as DropdownMenuPrimitive } from "radix-ui";
 import { toast } from "sonner";
@@ -153,15 +153,18 @@ export default function DataTransferMenu({
                 <DropdownMenuPrimitive.Separator className="my-1 h-px bg-slate-200" />
 
                 <MenuLabel>Import</MenuLabel>
-                {FORMATS.map(({ value, label: itemLabel, detail, Icon }) => (
+                {FORMATS.map((format) => (
                   <MenuItem
-                    key={`import-${value}`}
-                    icon={<Icon className="size-4 text-slate-500" aria-hidden />}
-                    label={itemLabel}
-                    detail={detail}
+                    key={`import-${format.value}`}
+                    icon={createElement(format.Icon, {
+                      className: "size-4 text-slate-500",
+                      "aria-hidden": true,
+                    })}
+                    label={format.label}
+                    detail={format.detail}
                     disabled={disabled}
                     onSelect={() => {
-                      openImportPicker(value);
+                      openImportPicker(format.value);
                     }}
                   />
                 ))}

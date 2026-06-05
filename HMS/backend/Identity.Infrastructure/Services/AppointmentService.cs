@@ -259,8 +259,18 @@ public sealed class AppointmentService : IAppointmentService
 
         if (!string.IsNullOrWhiteSpace(status) && !string.Equals(status, "all", StringComparison.OrdinalIgnoreCase))
         {
-            var normalizedStatus = AppointmentStatus.NormalizeToKnownStatus(status);
-            query = query.Where(a => a.Status == normalizedStatus);
+            if (string.Equals(status.Trim(), "upcoming", StringComparison.OrdinalIgnoreCase))
+            {
+                var now = DateTime.UtcNow;
+                query = query.Where(a =>
+                    a.ScheduledStart >= now &&
+                    (a.Status == AppointmentStatus.Scheduled || a.Status == AppointmentStatus.Confirmed));
+            }
+            else
+            {
+                var normalizedStatus = AppointmentStatus.NormalizeToKnownStatus(status);
+                query = query.Where(a => a.Status == normalizedStatus);
+            }
         }
 
         if (!string.IsNullOrWhiteSpace(pagination.Search))

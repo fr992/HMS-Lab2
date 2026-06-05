@@ -581,6 +581,15 @@ public sealed class EncounterService : IEncounterService
                         AssignedBedLabel = br.BedAssignment == null
                             ? null
                             : br.BedAssignment.Bed.Ward + " / " + br.BedAssignment.Bed.RoomNumber + " / " + br.BedAssignment.Bed.BedNumber,
+                        CreatedByUserId = br.CreatedById,
+                        CreatedByUserName = br.CreatedById == null
+                            ? null
+                            : _db.Users
+                                .Where(u => u.Id == br.CreatedById.Value)
+                                .Select(u => u.Person == null
+                                    ? u.UserName
+                                    : u.Person.FirstName + " " + u.Person.LastName)
+                                .FirstOrDefault(),
                         CreatedAt = br.CreatedAt,
                         UpdatedAt = br.UpdatedAt
                     }).ToList()

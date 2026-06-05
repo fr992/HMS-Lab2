@@ -467,11 +467,11 @@ function RoleDialog({
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/55 p-4"
+      className="hms-modal-overlay"
       role="dialog"
       aria-modal="true"
     >
-      <section className="flex max-h-[92vh] w-full max-w-5xl flex-col overflow-hidden rounded-xl border border-slate-200 bg-white shadow-2xl">
+      <section className="hms-modal-panel-scroll max-w-5xl">
         <div className="flex items-start justify-between gap-4 border-b border-slate-200 px-7 py-6">
           <div className="flex min-w-0 items-start gap-4">
             <div className="flex size-12 shrink-0 items-center justify-center rounded-xl bg-blue-50 text-blue-600">
@@ -487,7 +487,7 @@ function RoleDialog({
           <button
             type="button"
             onClick={onClose}
-            className="inline-flex size-9 shrink-0 items-center justify-center rounded-lg text-slate-500 transition hover:bg-slate-100 hover:text-slate-900"
+            className="hms-modal-close"
             aria-label="Close"
           >
             <X className="size-5" aria-hidden />

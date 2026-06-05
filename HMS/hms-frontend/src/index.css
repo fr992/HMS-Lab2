@@ -154,6 +154,44 @@ section[id] {
   }
 }
 
+@layer components {
+  .hms-modal-overlay {
+    @apply fixed inset-0 z-50 flex items-center justify-center bg-slate-950/55 p-4;
+  }
+
+  .hms-modal-overlay-mobile {
+    @apply fixed inset-0 z-50 flex items-center justify-center bg-slate-950/55 p-3 sm:p-4;
+  }
+
+  .hms-modal-panel {
+    @apply max-h-[92vh] w-full overflow-hidden rounded-xl border border-slate-200 bg-white shadow-2xl;
+  }
+
+  .hms-modal-panel-scroll {
+    @apply flex max-h-[92vh] w-full flex-col overflow-hidden rounded-xl border border-slate-200 bg-white shadow-2xl;
+  }
+
+  .hms-modal-header {
+    @apply flex items-start justify-between gap-4 border-b border-slate-200 px-6 py-5;
+  }
+
+  .hms-modal-header-icon {
+    @apply flex size-12 shrink-0 items-center justify-center rounded-xl bg-blue-50 text-blue-600;
+  }
+
+  .hms-modal-close {
+    @apply inline-flex size-9 shrink-0 items-center justify-center rounded-lg text-slate-500 transition hover:bg-slate-100 hover:text-slate-900;
+  }
+
+  .hms-modal-body {
+    @apply space-y-4 bg-slate-50 px-6 py-5;
+  }
+
+  .hms-modal-footer {
+    @apply flex flex-col-reverse gap-2 border-t border-slate-200 pt-4 sm:flex-row sm:flex-wrap sm:justify-end;
+  }
+}
+
 @layer utilities {
   .scrollbar-none {
     -ms-overflow-style: none;

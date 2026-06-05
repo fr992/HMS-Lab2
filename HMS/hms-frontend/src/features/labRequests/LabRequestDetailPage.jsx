@@ -262,13 +262,13 @@ function ResultModal({
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/45 p-3 sm:p-4"
+      className="hms-modal-overlay"
       role="dialog"
       aria-modal="true"
       aria-labelledby="lab-result-modal-title"
     >
-      <section className="flex max-h-[calc(100vh-2rem)] w-full max-w-xl flex-col overflow-hidden rounded-lg border border-slate-200 bg-white shadow-xl">
-        <div className="flex shrink-0 items-start justify-between gap-4 border-b border-slate-200 px-4 py-3.5">
+      <section className="hms-modal-panel-scroll max-w-xl">
+        <div className="hms-modal-header shrink-0">
           <div className="min-w-0">
             <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
               Lab result

@@ -233,9 +233,9 @@ export default function InvoiceFormDialog({
   if (!open) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/55 p-3">
-      <section className="flex max-h-[calc(100vh-1.5rem)] w-full max-w-5xl flex-col overflow-hidden rounded-xl border border-slate-200 bg-white shadow-2xl">
-        <header className="flex items-start justify-between gap-4 border-b border-slate-200 px-4 py-3.5 sm:px-6">
+    <div className="hms-modal-overlay">
+      <section className="hms-modal-panel-scroll max-w-5xl">
+        <header className="hms-modal-header">
           <div className="min-w-0">
             <h2 className="flex items-center gap-2 text-lg font-semibold text-slate-950">
               <DollarSign className="size-5 text-blue-600" />
@@ -248,7 +248,7 @@ export default function InvoiceFormDialog({
           <button
             type="button"
             onClick={() => onOpenChange(false)}
-            className="inline-flex size-9 shrink-0 items-center justify-center rounded-lg text-slate-500 transition hover:bg-slate-100 hover:text-slate-900"
+            className="hms-modal-close"
             aria-label="Close create invoice"
           >
             <X className="size-5" />

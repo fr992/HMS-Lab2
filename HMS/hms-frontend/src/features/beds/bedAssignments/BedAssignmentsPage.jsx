@@ -237,6 +237,16 @@ function isBedReleaseRequest(request) {
     .includes("[bed release request]");
 }
 
+function isBedChangeRequest(request) {
+  return String(request?.notes ?? "")
+    .toLowerCase()
+    .includes("[bed change request]");
+}
+
+function requestCreatorName(request) {
+  return request?.createdByUserName || request?.requestedByDoctorName || "-";
+}
+
 function currentBedFromRequest(request) {
   if (request?.assignedBedLabel) return request.assignedBedLabel;
   const notes = String(request?.notes ?? "");
@@ -266,6 +276,7 @@ export default function BedAssignmentsPage({ readOnly = false, requestsOnly = fa
   const canAssign = !readOnly && !isRequesterOnlyRole && auth.hasPermission("Beds.Assign");
   const canRelease = !readOnly && !isRequesterOnlyRole && auth.hasPermission("Beds.Release");
   const canLoadAssignmentOptions = !readOnly && auth.hasPermission("Patients.Read");
+  const canLoadEncounterOptions = canLoadAssignmentOptions && !requestsOnly;
   const canReadBedRequests =
     !readOnly && requestsOnly && auth.hasPermission("BedAssignmentRequests.Read");
   const canAssignBedRequests = !readOnly && auth.hasPermission("BedAssignmentRequests.Assign");
@@ -333,7 +344,7 @@ export default function BedAssignmentsPage({ readOnly = false, requestsOnly = fa
         }),
         canLoadAssignmentOptions ? fetchDepartmentsList() : Promise.resolve([]),
         canLoadAssignmentOptions ? fetchPatients() : Promise.resolve([]),
-        canLoadAssignmentOptions ? fetchEncounters().catch(() => []) : Promise.resolve([]),
+        canLoadEncounterOptions ? fetchEncounters().catch(() => []) : Promise.resolve([]),
       ]);
       const items = getPagedItems(bedData);
       setBeds((current) => (append ? [...current, ...items] : items));
@@ -357,7 +368,7 @@ export default function BedAssignmentsPage({ readOnly = false, requestsOnly = fa
       setLoading(false);
       setRefreshing(false);
     }
-  }, [assignmentFilter, bedStatusFilter, canLoadAssignmentOptions, departmentFilter, roomFilter, search]);
+  }, [assignmentFilter, bedStatusFilter, canLoadAssignmentOptions, canLoadEncounterOptions, departmentFilter, roomFilter, search]);
 
   const loadBedRequests = useCallback(
     async (page = 1, { append = false } = {}) => {
@@ -585,6 +596,7 @@ export default function BedAssignmentsPage({ readOnly = false, requestsOnly = fa
         request.encounterNumber,
         request.encounterId,
         request.requestedByDoctorName,
+        request.createdByUserName,
         request.preferredWard,
         request.notes,
         request.assignedBedLabel,
@@ -644,11 +656,7 @@ export default function BedAssignmentsPage({ readOnly = false, requestsOnly = fa
     requestWardFilter !== "all";
 
   const selectedBedRequest = useMemo(() => {
-    return (
-      sortedBedRequests.find((request) => request.id === selectedRequestId) ||
-      sortedBedRequests[0] ||
-      null
-    );
+    return sortedBedRequests.find((request) => request.id === selectedRequestId) || null;
   }, [selectedRequestId, sortedBedRequests]);
 
   const requestStats = useMemo(() => {
@@ -685,17 +693,6 @@ export default function BedAssignmentsPage({ readOnly = false, requestsOnly = fa
     ];
   }, [bedRequests, requestPagination.totalCount]);
 
-  useEffect(() => {
-    if (!requestsOnly) return;
-    if (!selectedBedRequest) {
-      setSelectedRequestId(null);
-      return;
-    }
-    if (selectedRequestId !== selectedBedRequest.id) {
-      setSelectedRequestId(selectedBedRequest.id);
-    }
-  }, [requestsOnly, selectedBedRequest, selectedRequestId]);
-
   function openAssign(bed = null) {
     setDialog({ type: "assign", bed, assignment: null });
     setPatientSearch("");
@@ -709,6 +706,7 @@ export default function BedAssignmentsPage({ readOnly = false, requestsOnly = fa
   }
 
   function openRequestAssign(request) {
+    setSelectedRequestId(null);
     setRequestDialog({ type: "assignRequest", request });
     setAssignForm({
       ...EMPTY_ASSIGN_FORM,
@@ -720,6 +718,7 @@ export default function BedAssignmentsPage({ readOnly = false, requestsOnly = fa
   }
 
   function openRequestReject(request) {
+    setSelectedRequestId(null);
     setRejectNotes("");
     setRequestDialog({ type: "rejectRequest", request });
   }
@@ -768,6 +767,7 @@ export default function BedAssignmentsPage({ readOnly = false, requestsOnly = fa
     setEncounterSearch("");
     setReleaseNotes("");
     setRejectNotes("");
+    setSelectedRequestId(null);
   }
 
   async function handleAssign(event) {
@@ -855,9 +855,15 @@ export default function BedAssignmentsPage({ readOnly = false, requestsOnly = fa
         bedId: releaseRequest ? 0 : bedId,
         notes: assignForm.notes.trim() || null,
       });
-      showToast(releaseRequest ? "Bed release request approved." : "Bed request assigned.");
+      showToast(
+        releaseRequest
+          ? "Bed release request approved."
+          : isBedChangeRequest(requestDialog.request)
+            ? "Bed change request completed."
+            : "Bed request assigned."
+      );
       closeDialog();
-      await load();
+      await refreshRequestsView();
     } catch (e) {
       showToast(getApiErrorMessage(e), "error");
     } finally {
@@ -875,7 +881,7 @@ export default function BedAssignmentsPage({ readOnly = false, requestsOnly = fa
       });
       showToast("Bed request rejected.");
       closeDialog();
-      await load();
+      await refreshRequestsView();
     } catch (e) {
       showToast(getApiErrorMessage(e), "error");
     } finally {
@@ -884,7 +890,7 @@ export default function BedAssignmentsPage({ readOnly = false, requestsOnly = fa
   }
 
   return (
-    <div className="flex h-full min-h-0 flex-1 flex-col gap-5">
+    <div className="flex h-full min-h-0 min-w-0 flex-1 flex-col gap-5">
       {!requestsOnly && (
         <>
           <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-end">
@@ -914,14 +920,14 @@ export default function BedAssignmentsPage({ readOnly = false, requestsOnly = fa
             </div>
           </div>
 
-          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+          <div className="grid min-w-0 grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
             {stats.map((stat) => (
               <SummaryCard key={stat.label} stat={stat} />
             ))}
           </div>
 
-          <section className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
-            <div className="grid gap-3 lg:grid-cols-[minmax(16rem,1fr)_12rem_10rem_12rem_13rem_auto] lg:items-end">
+          <section className="min-w-0 rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
+            <div className="grid min-w-0 grid-cols-1 items-end gap-3 sm:grid-cols-2 lg:grid-cols-[minmax(10rem,1fr)_minmax(9rem,0.85fr)_minmax(8rem,0.7fr)_minmax(8.5rem,0.75fr)_minmax(10rem,0.85fr)_auto]">
               <SearchField
                 value={search}
                 onChange={setSearch}
@@ -1030,8 +1036,7 @@ export default function BedAssignmentsPage({ readOnly = false, requestsOnly = fa
       )}
 
       {canReadBedRequests && (
-        <div className="grid min-h-0 items-start gap-4 lg:grid-cols-[22rem_minmax(0,1fr)]">
-          <section className="flex h-136 max-h-[calc(100vh-23rem)] min-h-120 flex-col overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm">
+        <section className="flex h-136 max-h-[calc(100vh-23rem)] min-h-120 flex-col overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm">
             <div className="border-b border-slate-200 p-4">
               <div className="flex items-start justify-between gap-3">
                 <div>
@@ -1097,40 +1102,7 @@ export default function BedAssignmentsPage({ readOnly = false, requestsOnly = fa
                 )}
               </div>
             )}
-          </section>
-
-          <section className="h-136 max-h-[calc(100vh-23rem)] min-h-120 overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm">
-            {loading || requestLoading ? (
-              <RequestDetailSkeleton />
-            ) : error ? (
-              <RequestErrorState
-                message={error}
-                onRetry={() => {
-                  void refreshRequestsView();
-                }}
-              />
-            ) : selectedBedRequest ? (
-              <RequestDetailPane
-                request={selectedBedRequest}
-                encounterHref={encounterRouteForRequest(selectedBedRequest, auth)}
-                canAssign={canAssignBedRequests}
-                canReject={canRejectBedRequests}
-                onAssign={openRequestAssign}
-                onReject={openRequestReject}
-              />
-            ) : (
-              <RequestEmptyState
-                filtered={requestHasActiveFilters}
-                onClear={() => {
-                  setRequestSearch("");
-                  setRequestStatusFilter("all");
-                  setRequestPriorityFilter("all");
-                  setRequestWardFilter("all");
-                }}
-              />
-            )}
-          </section>
-        </div>
+        </section>
       )}
 
       {!requestsOnly && (
@@ -1201,12 +1173,23 @@ export default function BedAssignmentsPage({ readOnly = false, requestsOnly = fa
         />
       )}
 
+      {selectedBedRequest && (
+        <RequestDetailDialog
+          request={selectedBedRequest}
+          encounterHref={encounterRouteForRequest(selectedBedRequest, auth)}
+          canAssign={canAssignBedRequests}
+          canReject={canRejectBedRequests}
+          onAssign={openRequestAssign}
+          onReject={openRequestReject}
+          onClose={() => setSelectedRequestId(null)}
+        />
+      )}
+
       {requestDialog.type === "assignRequest" && (
         <RequestAssignDialog
           request={requestDialog.request}
           form={assignForm}
           saving={saving}
-          beds={beds}
           availableBeds={availableBeds}
           wardOptions={wardOptions}
           roomOptions={modalRoomOptions}
@@ -1312,14 +1295,16 @@ function RequestFilterBar({
 function RequestQueueItem({ request, selected, onSelect }) {
   const currentBed = currentBedFromRequest(request);
   const urgent = ["urgent", "stat"].includes(normalize(request.priority));
+  const changeRequest = isBedChangeRequest(request);
+  const releaseRequest = isBedReleaseRequest(request);
   const selectedClass = selected
     ? "border-blue-300 bg-blue-50 shadow-sm ring-1 ring-blue-100"
     : urgent
       ? "border-rose-200 bg-white hover:bg-rose-50/40"
       : "border-slate-200 bg-white hover:bg-slate-50";
   const accentClass = selected ? "bg-blue-500" : urgent ? "bg-rose-500" : "bg-slate-300";
-  const doctorName = request.requestedByDoctorName || "-";
-  const initials = initialsFromName(doctorName);
+  const creatorName = requestCreatorName(request);
+  const initials = initialsFromName(creatorName);
 
   return (
     <button
@@ -1340,10 +1325,12 @@ function RequestQueueItem({ request, selected, onSelect }) {
       <div className="mt-2 flex items-center justify-between gap-3 pl-2">
         <div className="min-w-0">
           <p className="truncate text-xs text-slate-500">{formatDateTime(request.requestedAt)}</p>
-          <p className="mt-1 truncate text-xs text-slate-500">{currentBed || request.preferredWard || "Ward not set"}</p>
+          <p className="mt-1 truncate text-xs text-slate-500">
+            {changeRequest ? "Bed change" : releaseRequest ? "Bed release" : "Bed request"} · {currentBed || request.preferredWard || "Ward not set"}
+          </p>
         </div>
         <div className="flex items-center gap-2">
-          <span className="inline-flex size-7 items-center justify-center rounded-full bg-slate-100 text-[11px] font-bold text-slate-600" title={doctorName}>
+          <span className="inline-flex size-7 items-center justify-center rounded-full bg-slate-100 text-[11px] font-bold text-slate-600" title={creatorName}>
             {initials}
           </span>
           <span className={`size-2 rounded-full ${statusDotClass(request.status)}`} title={request.status} />
@@ -1353,81 +1340,92 @@ function RequestQueueItem({ request, selected, onSelect }) {
   );
 }
 
-function RequestDetailPane({ request, encounterHref, canAssign, canReject, onAssign, onReject }) {
+function RequestDetailDialog({ request, encounterHref, canAssign, canReject, onAssign, onReject, onClose }) {
   const currentBed = currentBedFromRequest(request);
   const reason = requestReason(request);
   const pending = normalize(request.status) === "pending";
+  const changeRequest = isBedChangeRequest(request);
+  const releaseRequest = isBedReleaseRequest(request);
+  const actionLabel = releaseRequest ? "Approve Release" : changeRequest ? "Approve & Change Bed" : "Assign Bed";
 
   return (
-    <div className="flex h-136 max-h-[calc(100vh-23rem)] min-h-120 flex-col">
-      <div className="shrink-0 border-b border-slate-200 p-4">
-        <div className="flex flex-wrap items-start justify-between gap-3">
-          <div className="min-w-0">
-            <h2 className="truncate text-xl font-semibold text-slate-950">{request.patientName || "Patient"}</h2>
-            <p className="mt-1 text-sm text-slate-500">
-              {[request.patientNumber, request.encounterNumber || `Encounter #${request.encounterId}`].filter(Boolean).join(" - ")}
-            </p>
-          </div>
-          <div className="flex flex-wrap gap-2">
-            <span className={`inline-flex rounded-full px-2.5 py-1 text-xs font-medium ring-1 ring-inset ${requestPriorityClasses(request.priority)}`}>
-              {request.priority || "routine"}
-            </span>
-            <StatusBadge status={request.status} />
-          </div>
-        </div>
-      </div>
-
-      <div className="scrollbar-none min-h-0 flex-1 overflow-y-auto p-4">
-        <div className="grid gap-4 lg:grid-cols-2">
-          <section className="rounded-lg border border-slate-200 bg-slate-50/70 p-4">
-            <h3 className="text-sm font-semibold text-slate-950">Patient Info</h3>
-            <div className="mt-3 grid gap-3 sm:grid-cols-2">
-              <InfoLine label="Patient" value={request.patientName || "-"} />
-              <InfoLine label="Encounter" value={request.encounterNumber || request.encounterId || "-"} />
-              <InfoLine label="Requested by" value={request.requestedByDoctorName || "-"} />
-              <InfoLine label="Requested date" value={formatDateTime(request.requestedAt)} />
-              <InfoLine label="Preferred ward" value={request.preferredWard || "-"} />
-              <InfoLine label="Current bed" value={currentBed || "-"} />
+    <div className="hms-modal-overlay-mobile" role="dialog" aria-modal="true">
+      <section className="hms-modal-panel-scroll max-w-4xl">
+        <div className="shrink-0 border-b border-slate-200 p-4 sm:p-5">
+          <div className="flex items-start justify-between gap-4">
+            <div className="min-w-0">
+              <div className="flex flex-wrap items-center gap-2">
+                <h2 className="truncate text-xl font-semibold text-slate-950">{request.patientName || "Patient"}</h2>
+                <span className={`inline-flex rounded-full px-2.5 py-1 text-xs font-medium ring-1 ring-inset ${requestPriorityClasses(request.priority)}`}>
+                  {request.priority || "routine"}
+                </span>
+                <StatusBadge status={request.status} />
+              </div>
+              <p className="mt-1 text-sm text-slate-500">
+                {[request.patientNumber, request.encounterNumber || `Encounter #${request.encounterId}`].filter(Boolean).join(" - ")}
+              </p>
             </div>
-          </section>
-
-          <section className="rounded-lg border border-sky-100 bg-sky-50/70 p-4">
-            <h3 className="text-sm font-semibold text-slate-950">Reason</h3>
-            <p className="mt-3 text-sm leading-6 text-slate-700">
-              {reason || "No request note provided."}
-            </p>
-          </section>
+            <button type="button" onClick={onClose} className="hms-modal-close" aria-label="Close">
+              <X className="size-5" aria-hidden />
+            </button>
+          </div>
         </div>
-      </div>
 
-      <div className="flex shrink-0 flex-wrap justify-end gap-2 border-t border-slate-200 bg-white p-4">
-        {encounterHref && (
-          <Link
-            to={encounterHref}
-            className="inline-flex h-10 items-center justify-center rounded-lg border border-slate-200 bg-white px-4 text-sm font-medium text-slate-700 transition hover:bg-slate-50"
-          >
-            View Encounter
-          </Link>
-        )}
-        {canReject && pending && (
-          <button
-            type="button"
-            onClick={() => onReject(request)}
-            className="h-10 rounded-lg border border-rose-200 bg-white px-4 text-sm font-medium text-rose-700 transition hover:bg-rose-50"
-          >
-            Reject
+        <div className="scrollbar-none min-h-0 flex-1 overflow-y-auto bg-slate-50 p-4 sm:p-5">
+          <div className="grid gap-4 lg:grid-cols-2">
+            <section className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
+              <h3 className="text-sm font-semibold text-slate-950">Patient Info</h3>
+              <div className="mt-3 grid gap-3 sm:grid-cols-2">
+                <InfoLine label="Patient" value={request.patientName || "-"} />
+                <InfoLine label="Encounter" value={request.encounterNumber || request.encounterId || "-"} />
+                <InfoLine label="Requested by" value={requestCreatorName(request)} />
+                <InfoLine label="Requested date" value={formatDateTime(request.requestedAt)} />
+                <InfoLine label="Preferred ward" value={request.preferredWard || "-"} />
+                <InfoLine label="Current bed" value={currentBed || "-"} />
+              </div>
+            </section>
+
+            <section className="rounded-lg border border-sky-100 bg-sky-50/70 p-4">
+              <h3 className="text-sm font-semibold text-slate-950">Reason</h3>
+              <p className="mt-3 text-sm leading-6 text-slate-700">
+                {reason || "No request note provided."}
+              </p>
+            </section>
+          </div>
+        </div>
+
+        <div className="flex shrink-0 flex-col-reverse gap-2 border-t border-slate-200 bg-white p-4 sm:flex-row sm:flex-wrap sm:justify-end">
+          <button type="button" onClick={onClose} className="h-10 rounded-lg border border-slate-200 bg-white px-4 text-sm font-medium text-slate-700 transition hover:bg-slate-50">
+            Close
           </button>
-        )}
-        {canAssign && pending && (
-          <button
-            type="button"
-            onClick={() => onAssign(request)}
-            className="h-10 rounded-lg bg-sky-600 px-4 text-sm font-medium text-white transition hover:bg-sky-700"
-          >
-            Assign Bed
-          </button>
-        )}
-      </div>
+          {encounterHref && (
+            <Link
+              to={encounterHref}
+              className="inline-flex h-10 items-center justify-center rounded-lg border border-slate-200 bg-white px-4 text-sm font-medium text-slate-700 transition hover:bg-slate-50"
+            >
+              View Encounter
+            </Link>
+          )}
+          {canReject && pending && (
+            <button
+              type="button"
+              onClick={() => onReject(request)}
+              className="h-10 rounded-lg border border-rose-200 bg-white px-4 text-sm font-medium text-rose-700 transition hover:bg-rose-50"
+            >
+              Reject
+            </button>
+          )}
+          {canAssign && pending && (
+            <button
+              type="button"
+              onClick={() => onAssign(request)}
+              className="h-10 rounded-lg bg-sky-600 px-4 text-sm font-medium text-white transition hover:bg-sky-700"
+            >
+              {actionLabel}
+            </button>
+          )}
+        </div>
+      </section>
     </div>
   );
 }
@@ -1445,19 +1443,6 @@ function RequestQueueSkeleton() {
           <div className="mt-3 h-3 w-40 rounded bg-slate-100" />
         </div>
       ))}
-    </div>
-  );
-}
-
-function RequestDetailSkeleton() {
-  return (
-    <div className="animate-pulse p-5">
-      <div className="h-6 w-48 rounded bg-slate-200" />
-      <div className="mt-3 h-4 w-72 rounded bg-slate-100" />
-      <div className="mt-6 grid gap-4 lg:grid-cols-2">
-        <div className="h-48 rounded-lg bg-slate-100" />
-        <div className="h-48 rounded-lg bg-sky-50" />
-      </div>
     </div>
   );
 }
@@ -1525,10 +1510,10 @@ function SummaryCard({ stat }) {
     amber: "bg-amber-50 text-amber-600",
   };
   return (
-    <div className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
+    <div className="min-w-0 rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
       <div className="flex items-center justify-between gap-4">
-        <div>
-          <p className="text-sm font-medium text-slate-600">{stat.label}</p>
+        <div className="min-w-0">
+          <p className="break-words text-sm font-medium text-slate-600">{stat.label}</p>
           <p className="mt-2 text-3xl font-semibold tracking-tight text-slate-950">
             <CountUpValue value={stat.value} />
           </p>
@@ -1564,7 +1549,7 @@ function BedRevealControls({ visibleCount, totalCount, loading, hasMore, onMore 
 
 function SelectField({ label, value, onChange, children }) {
   return (
-    <label className="block">
+    <label className="block min-w-0">
       <span className="text-xs font-semibold uppercase tracking-wide text-slate-500">
         {label}
       </span>
@@ -1581,7 +1566,7 @@ function SelectField({ label, value, onChange, children }) {
 
 function SearchField({ value, onChange, placeholder }) {
   return (
-    <label className="block">
+    <label className="block min-w-0">
       <span className="text-xs font-semibold uppercase tracking-wide text-slate-500">
         Search
       </span>
@@ -1875,157 +1860,167 @@ function AssignBedDialog({
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/55 p-4" role="dialog" aria-modal="true">
-      <section className="w-full max-w-3xl overflow-hidden rounded-xl border border-slate-200 bg-white shadow-2xl">
+    <div className="hms-modal-overlay" role="dialog" aria-modal="true">
+      <section className="hms-modal-panel-scroll max-w-4xl">
         <DialogHeader title="Assign bed" subtitle="Select a patient and an available bed." onClose={onClose} />
-        <form onSubmit={onSubmit} className="space-y-4 bg-slate-50 px-6 py-5">
-          <div className="grid gap-4 md:grid-cols-2">
-            <Field label="Encounter">
-              <div className="relative">
-                <input
-                  type="search"
-                  value={encounterSearch}
-                  onChange={(event) => {
-                    onEncounterSearch(event.target.value);
-                    onChange({ encounterId: "" });
-                    setEncounterPickerOpen(true);
-                  }}
-                  onFocus={() => setEncounterPickerOpen(true)}
-                  disabled={saving}
-                  placeholder="Search and select encounter"
-                  className="h-11 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm text-slate-900 shadow-sm outline-none transition placeholder:text-slate-400 focus:border-sky-500 focus:ring-2 focus:ring-sky-500/20"
-                />
-                {encounterPickerOpen && !form.encounterId && (
-                  <div className="absolute z-20 mt-1 max-h-56 w-full overflow-auto rounded-lg border border-slate-200 bg-white py-1 shadow-lg">
-                    {visibleEncounters.length > 0 ? (
-                      visibleEncounters.map((encounter) => (
+        <form onSubmit={onSubmit} className="flex min-h-0 flex-1 flex-col bg-slate-50">
+          <div className="min-h-0 flex-1 space-y-4 overflow-y-auto px-6 py-5">
+            <div className="grid gap-4 md:grid-cols-2">
+              <Field label="Encounter">
+                <div className="relative">
+                  <input
+                    type="search"
+                    value={encounterSearch}
+                    onChange={(event) => {
+                      onEncounterSearch(event.target.value);
+                      onChange({ encounterId: "" });
+                      setEncounterPickerOpen(true);
+                    }}
+                    onFocus={() => setEncounterPickerOpen(true)}
+                    disabled={saving}
+                    placeholder="Search and select encounter"
+                    className="h-11 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm text-slate-900 shadow-sm outline-none transition placeholder:text-slate-400 focus:border-sky-500 focus:ring-2 focus:ring-sky-500/20"
+                  />
+                  {encounterPickerOpen && !form.encounterId && (
+                    <div className="absolute z-20 mt-1 max-h-56 w-full overflow-auto rounded-lg border border-slate-200 bg-white py-1 shadow-lg">
+                      {visibleEncounters.length > 0 ? (
+                        visibleEncounters.map((encounter) => (
+                          <button
+                            key={encounter.id}
+                            type="button"
+                            onClick={() => chooseEncounter(encounter)}
+                            className="flex w-full items-center justify-between gap-3 px-3 py-2 text-left text-sm transition hover:bg-slate-50"
+                          >
+                            <span className="min-w-0">
+                              <span className="block truncate font-medium text-slate-900">
+                                {encounter.encounterNumber || `Encounter #${encounter.id}`}
+                              </span>
+                              <span className="block truncate text-xs text-slate-500">
+                                {[encounter.patientName, encounter.patientNumber, encounter.status]
+                                  .filter(Boolean)
+                                  .join(" - ") || "No patient details"}
+                              </span>
+                            </span>
+                          </button>
+                        ))
+                      ) : (
+                        <p className="px-3 py-2 text-sm text-slate-500">No encounters found.</p>
+                      )}
+                    </div>
+                  )}
+                </div>
+                {selectedEncounter && (
+                  <p className="mt-1.5 text-xs font-medium text-slate-500">
+                    Selected: {encounterLabel(selectedEncounter)}
+                  </p>
+                )}
+              </Field>
+              <Field label="Patient" required>
+                <div className="relative">
+                  <input
+                    type="search"
+                    value={patientSearch}
+                    onChange={(event) => {
+                      onPatientSearch(event.target.value);
+                      onChange({ patientProfileId: "", encounterId: "" });
+                      onEncounterSearch("");
+                    }}
+                    disabled={saving}
+                    placeholder="Search and select patient"
+                    className="h-11 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm text-slate-900 shadow-sm outline-none transition placeholder:text-slate-400 focus:border-sky-500 focus:ring-2 focus:ring-sky-500/20"
+                  />
+                  {patientSearch && !form.patientProfileId && visiblePatients.length > 0 && (
+                    <div className="absolute z-20 mt-1 max-h-56 w-full overflow-auto rounded-lg border border-slate-200 bg-white py-1 shadow-lg">
+                      {visiblePatients.map((patient) => (
                         <button
-                          key={encounter.id}
+                          key={patient.id}
                           type="button"
-                          onClick={() => chooseEncounter(encounter)}
+                          onClick={() => choosePatient(patient)}
                           className="flex w-full items-center justify-between gap-3 px-3 py-2 text-left text-sm transition hover:bg-slate-50"
                         >
                           <span className="min-w-0">
                             <span className="block truncate font-medium text-slate-900">
-                              {encounter.encounterNumber || `Encounter #${encounter.id}`}
+                              {patientLabel(patient)}
                             </span>
                             <span className="block truncate text-xs text-slate-500">
-                              {[encounter.patientName, encounter.patientNumber, encounter.status]
-                                .filter(Boolean)
-                                .join(" - ") || "No patient details"}
+                              {patient.patientNumber || patient.personalNumber || "No patient number"}
                             </span>
                           </span>
                         </button>
-                      ))
-                    ) : (
-                      <p className="px-3 py-2 text-sm text-slate-500">No encounters found.</p>
-                    )}
-                  </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+                {selectedPatient && (
+                  <p className="mt-1.5 text-xs font-medium text-slate-500">
+                    Selected: {patientLabel(selectedPatient)}
+                    {selectedPatient.patientNumber ? ` - ${selectedPatient.patientNumber}` : ""}
+                  </p>
                 )}
-              </div>
-              {selectedEncounter && (
-                <p className="mt-1.5 text-xs font-medium text-slate-500">
-                  Selected: {encounterLabel(selectedEncounter)}
-                </p>
-              )}
-            </Field>
-            <Field label="Patient" required>
-              <div className="relative">
-                <input
-                  type="search"
-                  value={patientSearch}
-                  onChange={(event) => {
-                    onPatientSearch(event.target.value);
-                    onChange({ patientProfileId: "", encounterId: "" });
-                    onEncounterSearch("");
-                  }}
+              </Field>
+              <Field label="Ward filter">
+                <select
+                  value={form.ward}
+                  onChange={(event) =>
+                    onChange({ ward: event.target.value, roomNumber: "all", bedId: "" })
+                  }
                   disabled={saving}
-                  placeholder="Search and select patient"
-                  className="h-11 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm text-slate-900 shadow-sm outline-none transition placeholder:text-slate-400 focus:border-sky-500 focus:ring-2 focus:ring-sky-500/20"
-                />
-                {patientSearch && !form.patientProfileId && visiblePatients.length > 0 && (
-                  <div className="absolute z-20 mt-1 max-h-56 w-full overflow-auto rounded-lg border border-slate-200 bg-white py-1 shadow-lg">
-                    {visiblePatients.map((patient) => (
-                      <button
-                        key={patient.id}
-                        type="button"
-                        onClick={() => choosePatient(patient)}
-                        className="flex w-full items-center justify-between gap-3 px-3 py-2 text-left text-sm transition hover:bg-slate-50"
-                      >
-                        <span className="min-w-0">
-                          <span className="block truncate font-medium text-slate-900">
-                            {patientLabel(patient)}
-                          </span>
-                          <span className="block truncate text-xs text-slate-500">
-                            {patient.patientNumber || patient.personalNumber || "No patient number"}
-                          </span>
-                        </span>
-                      </button>
-                    ))}
-                  </div>
-                )}
-              </div>
-              {selectedPatient && (
-                <p className="mt-1.5 text-xs font-medium text-slate-500">
-                  Selected: {patientLabel(selectedPatient)}
-                  {selectedPatient.patientNumber ? ` - ${selectedPatient.patientNumber}` : ""}
-                </p>
-              )}
-            </Field>
-            <Field label="Ward filter">
-              <select
-                value={form.ward}
-                onChange={(event) =>
-                  onChange({ ward: event.target.value, roomNumber: "all", bedId: "" })
-                }
+                  className="h-11 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm text-slate-900 shadow-sm outline-none transition focus:border-sky-500 focus:ring-2 focus:ring-sky-500/20"
+                >
+                  <option value="all">All wards</option>
+                  {wardOptions.map((ward) => (
+                    <option key={ward} value={ward}>{ward}</option>
+                  ))}
+                </select>
+              </Field>
+              <Field label="Room filter">
+                <select
+                  value={form.roomNumber}
+                  onChange={(event) => onChange({ roomNumber: event.target.value, bedId: "" })}
+                  disabled={saving}
+                  className="h-11 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm text-slate-900 shadow-sm outline-none transition focus:border-sky-500 focus:ring-2 focus:ring-sky-500/20"
+                >
+                  <option value="all">All rooms</option>
+                  {roomOptions.map((room) => (
+                    <option key={room} value={room}>{room}</option>
+                  ))}
+                </select>
+              </Field>
+              <Field label="Available bed" required>
+                <select
+                  value={form.bedId}
+                  onChange={(event) => onChange({ bedId: event.target.value })}
+                  disabled={saving}
+                  className="h-11 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm text-slate-900 shadow-sm outline-none transition focus:border-sky-500 focus:ring-2 focus:ring-sky-500/20"
+                  required
+                >
+                  <option value="">Select bed</option>
+                  {availableBeds.map((bed) => (
+                    <option key={bed.id} value={bed.id}>{bedLocation(bed)}</option>
+                  ))}
+                </select>
+              </Field>
+            </div>
+            <Field label="Notes">
+              <textarea
+                value={form.notes}
+                onChange={(event) => onChange({ notes: event.target.value })}
                 disabled={saving}
-                className="h-11 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm text-slate-900 shadow-sm outline-none transition focus:border-sky-500 focus:ring-2 focus:ring-sky-500/20"
-              >
-                <option value="all">All wards</option>
-                {wardOptions.map((ward) => (
-                  <option key={ward} value={ward}>{ward}</option>
-                ))}
-              </select>
-            </Field>
-            <Field label="Room filter">
-              <select
-                value={form.roomNumber}
-                onChange={(event) => onChange({ roomNumber: event.target.value, bedId: "" })}
-                disabled={saving}
-                className="h-11 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm text-slate-900 shadow-sm outline-none transition focus:border-sky-500 focus:ring-2 focus:ring-sky-500/20"
-              >
-                <option value="all">All rooms</option>
-                {roomOptions.map((room) => (
-                  <option key={room} value={room}>{room}</option>
-                ))}
-              </select>
-            </Field>
-            <Field label="Available bed" required>
-              <select
-                value={form.bedId}
-                onChange={(event) => onChange({ bedId: event.target.value })}
-                disabled={saving}
-                className="h-11 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm text-slate-900 shadow-sm outline-none transition focus:border-sky-500 focus:ring-2 focus:ring-sky-500/20"
-                required
-              >
-                <option value="">Select bed</option>
-                {availableBeds.map((bed) => (
-                  <option key={bed.id} value={bed.id}>{bedLocation(bed)}</option>
-                ))}
-              </select>
+                rows={4}
+                placeholder="Assignment notes"
+                className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 shadow-sm outline-none transition placeholder:text-slate-400 focus:border-sky-500 focus:ring-2 focus:ring-sky-500/20"
+              />
             </Field>
           </div>
-          <Field label="Notes">
-            <textarea
-              value={form.notes}
-              onChange={(event) => onChange({ notes: event.target.value })}
-              disabled={saving}
-              rows={4}
-              placeholder="Assignment notes"
-              className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 shadow-sm outline-none transition placeholder:text-slate-400 focus:border-sky-500 focus:ring-2 focus:ring-sky-500/20"
+          <div className="hms-modal-footer bg-white px-6 py-4">
+            <DialogActions
+              onClose={onClose}
+              saving={saving}
+              submitLabel="Assign bed"
+              savingLabel="Assigning..."
+              className="flex flex-col-reverse gap-2 sm:flex-row sm:flex-wrap sm:justify-end"
             />
-          </Field>
-          <DialogActions onClose={onClose} saving={saving} submitLabel="Assign bed" savingLabel="Assigning..." />
+          </div>
         </form>
       </section>
     </div>
@@ -2036,7 +2031,6 @@ function RequestAssignDialog({
   request,
   form,
   saving,
-  beds,
   availableBeds,
   wardOptions,
   roomOptions,
@@ -2047,8 +2041,9 @@ function RequestAssignDialog({
 }) {
   const currentBed = currentBedFromRequest(request);
   const reason = requestReason(request);
+  const isChangeRequest = isBedChangeRequest(request);
   const bedsByRoom = useMemo(() => {
-    const sourceBeds = beds.length > 0 ? beds : availableBeds;
+    const sourceBeds = availableBeds;
     const groups = new Map();
     for (const bed of sourceBeds) {
       const matchesWard = form.ward === "all" || bed.ward === form.ward;
@@ -2065,17 +2060,17 @@ function RequestAssignDialog({
         beds: beds.sort((a, b) => `${a.bedNumber || ""}`.localeCompare(`${b.bedNumber || ""}`, undefined, { numeric: true })),
       }))
       .sort((a, b) => `${a.room}`.localeCompare(`${b.room}`, undefined, { numeric: true }));
-  }, [availableBeds, beds, form.roomNumber, form.ward]);
+  }, [availableBeds, form.roomNumber, form.ward]);
 
   return (
-    <div className="fixed inset-0 z-160 flex items-center justify-center bg-slate-950/45 p-4" role="dialog" aria-modal="true">
+    <div className="hms-modal-overlay z-160" role="dialog" aria-modal="true">
       <section className="animate-in fade-in-0 zoom-in-95 flex max-h-[80vh] w-full max-w-250 flex-col overflow-hidden rounded-xl border border-slate-200 bg-white shadow-2xl duration-150">
         <div className="shrink-0 border-b border-slate-200 bg-white px-5 py-4 sm:px-6">
           <div className="flex items-start justify-between gap-4">
             <div className="min-w-0">
               <div className="flex flex-wrap items-center gap-2">
                 <h2 className="text-xl font-semibold text-slate-950">
-                  {isReleaseRequest ? "Approve Bed Release" : "Assign Bed"}
+                  {isReleaseRequest ? "Approve Bed Release" : isChangeRequest ? "Approve & Change Bed" : "Assign Bed"}
                 </h2>
                 <span className={`inline-flex rounded-full px-2.5 py-1 text-xs font-medium ring-1 ring-inset ${requestPriorityClasses(request?.priority)}`}>
                   {request?.priority || "routine"}
@@ -2087,11 +2082,11 @@ function RequestAssignDialog({
               </p>
               <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-xs font-medium text-slate-500">
                 <span>Preferred ward: <span className="text-slate-800">{request?.preferredWard || "-"}</span></span>
-                <span>Requested by: <span className="text-slate-800">{request?.requestedByDoctorName || "-"}</span></span>
+                <span>Requested by: <span className="text-slate-800">{requestCreatorName(request)}</span></span>
                 <span>Requested: <span className="text-slate-800">{formatDateTime(request?.requestedAt)}</span></span>
               </div>
             </div>
-            <button type="button" onClick={onClose} className="inline-flex size-9 shrink-0 items-center justify-center rounded-lg text-slate-500 transition hover:bg-slate-100 hover:text-slate-900" aria-label="Close">
+            <button type="button" onClick={onClose} className="hms-modal-close" aria-label="Close">
               <X className="size-5" aria-hidden />
             </button>
           </div>
@@ -2110,6 +2105,7 @@ function RequestAssignDialog({
                       ["Encounter", request?.encounterNumber || request?.encounterId || "-"],
                       ["Current room/bed", currentBed || "-"],
                       ["Preferred ward", request?.preferredWard || "-"],
+                      ["Requesting user", requestCreatorName(request)],
                     ]}
                   />
                 </section>
@@ -2223,7 +2219,17 @@ function RequestAssignDialog({
               Cancel
             </button>
             <button type="submit" disabled={saving} className="h-10 rounded-lg bg-sky-600 px-4 text-sm font-medium text-white transition hover:bg-sky-700 disabled:opacity-50">
-              {saving ? (isReleaseRequest ? "Approving..." : "Assigning...") : (isReleaseRequest ? "Approve Release" : "Assign Bed")}
+              {saving
+                ? isReleaseRequest
+                  ? "Approving..."
+                  : isChangeRequest
+                    ? "Changing..."
+                    : "Assigning..."
+                : isReleaseRequest
+                  ? "Approve Release"
+                  : isChangeRequest
+                    ? "Approve & Change Bed"
+                    : "Assign Bed"}
             </button>
           </div>
         </form>
@@ -2265,10 +2271,10 @@ function RequestBedOption({ bed, selected, disabled, onSelect }) {
 
 function RejectRequestDialog({ request, saving, notes, onNotes, onClose, onConfirm }) {
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/55 p-4" role="dialog" aria-modal="true">
-      <section className="w-full max-w-xl overflow-hidden rounded-xl border border-slate-200 bg-white shadow-2xl">
+    <div className="hms-modal-overlay" role="dialog" aria-modal="true">
+      <section className="hms-modal-panel max-w-xl">
         <DialogHeader title="Reject Bed Request" subtitle="Confirm that this request should not be assigned." onClose={onClose} />
-        <div className="space-y-4 bg-slate-50 px-6 py-5">
+        <div className="hms-modal-body">
           <div className="rounded-lg border border-slate-200 bg-white p-4">
             <DetailGrid
               items={[
@@ -2289,7 +2295,7 @@ function RejectRequestDialog({ request, saving, notes, onNotes, onClose, onConfi
               className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 shadow-sm outline-none transition placeholder:text-slate-400 focus:border-sky-500 focus:ring-2 focus:ring-sky-500/20"
             />
           </Field>
-          <div className="flex justify-end gap-2 border-t border-slate-200 pt-4">
+          <div className="hms-modal-footer">
             <button type="button" onClick={onClose} disabled={saving} className="h-10 rounded-lg border border-slate-200 bg-white px-4 text-sm font-medium text-slate-700 transition hover:bg-slate-50 disabled:opacity-50">
               Cancel
             </button>
@@ -2305,10 +2311,10 @@ function RejectRequestDialog({ request, saving, notes, onNotes, onClose, onConfi
 
 function ReleaseDialog({ bed, assignment, saving, releaseNotes, onReleaseNotes, onClose, onConfirm }) {
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/55 p-4" role="dialog" aria-modal="true">
-      <section className="w-full max-w-xl overflow-hidden rounded-xl border border-slate-200 bg-white shadow-2xl">
+    <div className="hms-modal-overlay" role="dialog" aria-modal="true">
+      <section className="hms-modal-panel max-w-xl">
         <DialogHeader title="Release bed" subtitle="Confirm that this patient is leaving the bed." onClose={onClose} />
-        <div className="space-y-4 bg-slate-50 px-6 py-5">
+        <div className="hms-modal-body">
           <div className="rounded-lg border border-slate-200 bg-white p-4">
             <DetailGrid
               items={[
@@ -2330,7 +2336,7 @@ function ReleaseDialog({ bed, assignment, saving, releaseNotes, onReleaseNotes, 
               className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 shadow-sm outline-none transition placeholder:text-slate-400 focus:border-sky-500 focus:ring-2 focus:ring-sky-500/20"
             />
           </Field>
-          <div className="flex justify-end gap-2 border-t border-slate-200 pt-4">
+          <div className="hms-modal-footer">
             <button type="button" onClick={onClose} disabled={saving} className="h-10 rounded-lg border border-slate-200 bg-white px-4 text-sm font-medium text-slate-700 transition hover:bg-slate-50 disabled:opacity-50">
               Cancel
             </button>
@@ -2356,9 +2362,9 @@ function ViewDialog({
   const meta = statusMeta(bed?.status);
   const activeAssignment = assignment && !assignment.releasedAt && normalize(bed?.status) === "occupied";
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/55 p-4" role="dialog" aria-modal="true">
-      <section className="w-full max-w-4xl overflow-hidden rounded-xl border border-slate-200 bg-white shadow-2xl">
-        <div className="flex items-start justify-between gap-4 border-b border-slate-200 px-6 py-5">
+    <div className="hms-modal-overlay" role="dialog" aria-modal="true">
+      <section className="hms-modal-panel max-w-4xl">
+        <div className="hms-modal-header">
           <div>
             <div className="flex flex-wrap items-center gap-2">
               <h2 className="text-xl font-semibold text-slate-950">Bed {bed?.bedNumber || "-"}</h2>
@@ -2370,7 +2376,7 @@ function ViewDialog({
                 .join(" - ") || "Location unavailable"}
             </p>
           </div>
-          <button type="button" onClick={onClose} className="inline-flex size-9 items-center justify-center rounded-lg text-slate-500 transition hover:bg-slate-100 hover:text-slate-900" aria-label="Close">
+          <button type="button" onClick={onClose} className="hms-modal-close" aria-label="Close">
             <X className="size-5" aria-hidden />
           </button>
         </div>
@@ -2475,9 +2481,9 @@ function InfoLine({ label, value }) {
 
 function DialogHeader({ title, subtitle, onClose }) {
   return (
-    <div className="flex items-start justify-between gap-4 border-b border-slate-200 px-6 py-5">
+    <div className="hms-modal-header">
       <div className="flex items-start gap-4">
-        <div className="flex size-12 items-center justify-center rounded-xl bg-blue-50 text-blue-600">
+        <div className="hms-modal-header-icon">
           <BedDouble className="size-6" aria-hidden />
         </div>
         <div>
@@ -2485,16 +2491,16 @@ function DialogHeader({ title, subtitle, onClose }) {
           <p className="mt-1 text-sm text-slate-600">{subtitle}</p>
         </div>
       </div>
-      <button type="button" onClick={onClose} className="inline-flex size-9 items-center justify-center rounded-lg text-slate-500 transition hover:bg-slate-100 hover:text-slate-900" aria-label="Close">
+      <button type="button" onClick={onClose} className="hms-modal-close" aria-label="Close">
         <X className="size-5" aria-hidden />
       </button>
     </div>
   );
 }
 
-function DialogActions({ onClose, saving, submitLabel, savingLabel }) {
+function DialogActions({ onClose, saving, submitLabel, savingLabel, className = "hms-modal-footer" }) {
   return (
-    <div className="flex justify-end gap-2 border-t border-slate-200 pt-4">
+    <div className={className}>
       <button type="button" onClick={onClose} disabled={saving} className="h-10 rounded-lg border border-slate-200 bg-white px-4 text-sm font-medium text-slate-700 transition hover:bg-slate-50 disabled:opacity-50">
         Cancel
       </button>

@@ -172,11 +172,11 @@ function formatDiagnosisType(value) {
 
 function DiagnosisDialog({ form, saving, error, onSubmit, onChange, onClose }) {
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/55 p-4" role="dialog" aria-modal="true">
-      <section className="w-full max-w-2xl overflow-hidden rounded-xl border border-slate-200 bg-white shadow-2xl">
-        <div className="flex items-start justify-between gap-4 border-b border-slate-200 px-6 py-5">
+    <div className="hms-modal-overlay" role="dialog" aria-modal="true">
+      <section className="hms-modal-panel max-w-2xl">
+        <div className="hms-modal-header">
           <div className="flex items-start gap-4">
-            <div className="flex size-12 items-center justify-center rounded-xl bg-blue-50 text-blue-600">
+            <div className="hms-modal-header-icon">
               <ClipboardPlus className="size-6" aria-hidden />
             </div>
             <div>
@@ -187,14 +187,14 @@ function DiagnosisDialog({ form, saving, error, onSubmit, onChange, onClose }) {
           <button
             type="button"
             onClick={onClose}
-            className="inline-flex size-9 items-center justify-center rounded-lg text-slate-500 transition hover:bg-slate-100 hover:text-slate-900"
+            className="hms-modal-close"
             aria-label="Close"
           >
             <X className="size-5" aria-hidden />
           </button>
         </div>
 
-        <form onSubmit={onSubmit} className="space-y-4 bg-slate-50 px-6 py-5">
+        <form onSubmit={onSubmit} className="hms-modal-body">
           {error && (
             <div className="rounded-lg border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-900" role="alert">
               {error}
@@ -234,7 +234,7 @@ function DiagnosisDialog({ form, saving, error, onSubmit, onChange, onClose }) {
             rows={4}
           />
 
-          <div className="flex justify-end gap-2 border-t border-slate-200 pt-4">
+          <div className="hms-modal-footer">
             <Button type="button" variant="outline" disabled={saving} onClick={onClose}>
               Cancel
             </Button>

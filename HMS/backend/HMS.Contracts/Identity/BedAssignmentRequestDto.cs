@@ -19,6 +19,8 @@ public sealed class BedAssignmentRequestDto
     public int? ResolvedByUserId { get; set; }
     public int? BedAssignmentId { get; set; }
     public string? AssignedBedLabel { get; set; }
+    public int? CreatedByUserId { get; set; }
+    public string? CreatedByUserName { get; set; }
     public DateTime CreatedAt { get; set; }
     public DateTime UpdatedAt { get; set; }
 }

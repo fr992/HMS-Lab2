@@ -131,38 +131,43 @@ export default function PatientContactModal({
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center p-4"
+      className="hms-modal-overlay"
       role="dialog"
       aria-modal="true"
     >
       <button
         type="button"
-        className="absolute inset-0 cursor-default bg-slate-900/40"
+        className="absolute inset-0 cursor-default"
         aria-label="Close"
         onClick={saving ? undefined : onClose}
       />
-      <div className="scrollbar-none relative max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-lg bg-white p-5 shadow-lg">
-        <h2 className="text-lg font-semibold text-slate-900">
-          Emergency contacts
-        </h2>
-        <p className="mt-1 text-sm text-slate-600">
-          Add or update contacts. One may be marked as primary.
-        </p>
+      <div className="hms-modal-panel-scroll relative max-w-2xl">
+        <div className="hms-modal-header">
+          <div>
+            <h2 className="text-xl font-semibold text-slate-950">
+              Emergency contacts
+            </h2>
+            <p className="mt-1 text-sm text-slate-600">
+              Add or update contacts. One may be marked as primary.
+            </p>
+          </div>
+        </div>
+        <div className="hms-modal-body min-h-0 overflow-y-auto">
         {loadError && (
-          <p className="mt-3 text-sm text-rose-600" role="alert">
+          <p className="text-sm text-rose-600" role="alert">
             {loadError}
           </p>
         )}
         {loading && (
-          <p className="mt-3 text-sm text-slate-500" aria-live="polite">
+          <p className="text-sm text-slate-500" aria-live="polite">
             Loading…
           </p>
         )}
-        <div className="mt-4 space-y-4">
+        <div className="space-y-4">
           {rows.map((row, i) => (
             <div
               key={`${baseId}-row-${i}`}
-              className="rounded-md border border-slate-200 p-3"
+              className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm"
             >
               <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
                 <label className="flex items-center gap-2 text-sm">
@@ -223,7 +228,7 @@ export default function PatientContactModal({
             + Add another contact
           </button>
         </div>
-        <div className="mt-6 flex justify-end gap-2">
+        <div className="hms-modal-footer">
           <button
             type="button"
             onClick={onClose}
@@ -240,6 +245,7 @@ export default function PatientContactModal({
           >
             {saving ? "Saving…" : "Save contacts"}
           </button>
+        </div>
         </div>
       </div>
     </div>

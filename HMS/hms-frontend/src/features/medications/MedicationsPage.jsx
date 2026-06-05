@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
-import { Plus, RefreshCw } from "lucide-react";
+import { Plus, RefreshCw, X } from "lucide-react";
 import { toast } from "sonner";
 import { useAuth } from "@/auth/AuthContext";
 import {
@@ -348,19 +348,31 @@ export default function MedicationsPage() {
 
       {formOpen && (
         <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/45 p-4"
+          className="hms-modal-overlay"
           role="dialog"
           aria-modal="true"
         >
-          <section className="w-full max-w-lg rounded-lg border border-slate-200 bg-white p-5 shadow-xl">
-            <h2 className="text-sm font-semibold text-slate-900">
-              {editing ? `Edit #${editing.id}` : "Create medication"}
-            </h2>
-            <p className="mt-1 text-xs text-slate-500">
-              Fields align with backend medication DTOs.
-            </p>
+          <section className="hms-modal-panel-scroll max-w-4xl">
+            <div className="hms-modal-header">
+              <div className="flex items-start gap-4">
+                <div className="hms-modal-header-icon">
+                  <Plus className="size-6" aria-hidden />
+                </div>
+                <div>
+                  <h2 className="text-xl font-semibold text-slate-950">
+                    {editing ? `Edit #${editing.id}` : "Create medication"}
+                  </h2>
+                  <p className="mt-1 text-sm text-slate-600">
+                    Fields align with backend medication DTOs.
+                  </p>
+                </div>
+              </div>
+              <button type="button" onClick={resetForm} className="hms-modal-close" aria-label="Close">
+                <X className="size-5" aria-hidden />
+              </button>
+            </div>
 
-            <form onSubmit={handleSubmit} className="mt-4 space-y-3">
+            <form onSubmit={handleSubmit} className="hms-modal-body min-h-0 overflow-y-auto">
               <label className="block">
                 <span className="mb-1 block text-xs font-medium text-slate-600">Name *</span>
                 <input
@@ -400,7 +412,7 @@ export default function MedicationsPage() {
                 </label>
               )}
 
-              <div className="flex justify-end gap-2">
+              <div className="hms-modal-footer">
                 <button
                   type="button"
                   onClick={resetForm}

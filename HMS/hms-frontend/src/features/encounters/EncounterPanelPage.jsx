@@ -1100,15 +1100,15 @@ function AssignNurseTaskDialog({ form, nurses, saving, onClose, onSubmit, onChan
     .slice(0, 8);
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/55 p-4" role="dialog" aria-modal="true">
-      <section className="w-full max-w-2xl overflow-hidden rounded-xl border border-slate-200 bg-white shadow-2xl">
+    <div className="hms-modal-overlay" role="dialog" aria-modal="true">
+      <section className="hms-modal-panel max-w-4xl">
         <DialogHeader
           icon={ClipboardCheck}
           title="Assign Nurse Task"
           subtitle="Create a nursing task linked to this encounter."
           onClose={onClose}
         />
-        <form onSubmit={onSubmit} className="space-y-4 bg-slate-50 px-6 py-5">
+        <form onSubmit={onSubmit} className="hms-modal-body">
           <div className="grid gap-4 md:grid-cols-2">
             <FormField label="Nurse">
               <div className="relative">
@@ -1208,8 +1208,8 @@ function RequestBedDialog({
   const patientName = fullPatientName(patient) || encounter.patientName || "Patient";
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/55 p-4" role="dialog" aria-modal="true">
-      <section className="flex max-h-[92vh] w-full max-w-2xl flex-col overflow-hidden rounded-xl border border-slate-200 bg-white shadow-2xl">
+    <div className="hms-modal-overlay" role="dialog" aria-modal="true">
+      <section className="hms-modal-panel-scroll max-w-2xl">
         <DialogHeader
           icon={BedDouble}
           title="Request Bed"
@@ -1301,9 +1301,9 @@ function RequestBedDialog({
 function DialogHeader({ icon, title, subtitle, onClose }) {
   const HeaderIcon = icon;
   return (
-    <div className="flex items-start justify-between gap-4 border-b border-slate-200 px-6 py-5">
+    <div className="hms-modal-header">
       <div className="flex items-start gap-4">
-        <div className="flex size-12 items-center justify-center rounded-xl bg-blue-50 text-blue-600">
+        <div className="hms-modal-header-icon">
           <HeaderIcon className="size-6" aria-hidden />
         </div>
         <div>
@@ -1314,7 +1314,7 @@ function DialogHeader({ icon, title, subtitle, onClose }) {
       <button
         type="button"
         onClick={onClose}
-        className="inline-flex size-9 items-center justify-center rounded-lg text-slate-500 transition hover:bg-slate-100 hover:text-slate-900"
+        className="hms-modal-close"
         aria-label="Close"
       >
         <X className="size-5" aria-hidden />
@@ -1325,7 +1325,7 @@ function DialogHeader({ icon, title, subtitle, onClose }) {
 
 function DialogActions({ onClose, saving, submitLabel, savingLabel }) {
   return (
-    <div className="flex justify-end gap-2 border-t border-slate-200 pt-4">
+    <div className="hms-modal-footer">
       <button
         type="button"
         onClick={onClose}
@@ -1449,8 +1449,8 @@ function PrescriptionDialog({
   onSubmit,
 }) {
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/55 p-4" role="dialog" aria-modal="true">
-      <section className="flex max-h-[92vh] w-full max-w-3xl flex-col overflow-hidden rounded-xl border border-slate-200 bg-white shadow-2xl">
+    <div className="hms-modal-overlay" role="dialog" aria-modal="true">
+      <section className="hms-modal-panel-scroll max-w-3xl">
         <DialogHeader
           icon={ClipboardCheck}
           title="Add Prescription"
@@ -1689,8 +1689,8 @@ function LabRequestDialog({
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/55 p-4" role="dialog" aria-modal="true">
-      <section className="flex max-h-[92vh] w-full max-w-5xl flex-col overflow-hidden rounded-xl border border-slate-200 bg-white shadow-2xl">
+    <div className="hms-modal-overlay" role="dialog" aria-modal="true">
+      <section className="hms-modal-panel-scroll max-w-5xl">
         <DialogHeader
           icon={Search}
           title="Create Lab Request"
