@@ -20,10 +20,20 @@ public sealed class PublicSettingsController : ControllerBase
         "hospital.emergencyPhone",
         "hospital.workingHours",
         "landing.heroTitle",
+        "landing.heroTitle.sq",
+        "landing.heroTitle.en",
         "landing.heroSubtitle",
+        "landing.heroSubtitle.sq",
+        "landing.heroSubtitle.en",
         "landing.aboutText",
+        "landing.aboutText.sq",
+        "landing.aboutText.en",
         "landing.emergencyContactText",
-        "landing.footerText"
+        "landing.emergencyContactText.sq",
+        "landing.emergencyContactText.en",
+        "landing.footerText",
+        "landing.footerText.sq",
+        "landing.footerText.en"
     ];
 
     private readonly HmsDbContext _db;

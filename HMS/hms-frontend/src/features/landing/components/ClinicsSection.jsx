@@ -11,6 +11,7 @@ import {
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { fetchLandingDepartments } from "@/features/landing/api/landingDepartmentsApi";
+import { useLandingLanguage } from "@/features/landing/landingLanguage";
 
 const CLINIC_ICONS = {
   heart: HeartPulse,
@@ -31,7 +32,6 @@ const CLINIC_TONES = [
 ];
 
 const PREVIEW_COUNT = 6;
-const DEFAULT_SERVICES = ["Appointments", "Specialists", "Follow-up"];
 
 const ICON_MATCHERS = [
   { icon: "heart", pattern: /cardio|heart/i },
@@ -42,8 +42,8 @@ const ICON_MATCHERS = [
   { icon: "scan", pattern: /radio|imaging|scan|diagnostic/i },
 ];
 
-function normalizeDepartment(department) {
-  const name = department?.name ?? department?.Name ?? "Clinic";
+function normalizeDepartment(department, t) {
+  const name = department?.name ?? department?.Name ?? t("clinics.defaultName");
   const icon = ICON_MATCHERS.find((item) => item.pattern.test(name))?.icon ?? "heart";
 
   return {
@@ -53,12 +53,13 @@ function normalizeDepartment(department) {
     description:
       department?.description ??
       department?.Description ??
-      "Coordinated care supported by appointments, specialists, and connected records.",
-    services: DEFAULT_SERVICES,
+      t("clinics.defaultDescription"),
+    services: t("clinics.services"),
   };
 }
 
 export default function ClinicsSection() {
+  const { t } = useLandingLanguage();
   const [showAll, setShowAll] = useState(false);
   const { data, isError, isFetching, isPending } = useQuery({
     queryKey: ["landing-departments", showAll],
@@ -66,7 +67,9 @@ export default function ClinicsSection() {
     staleTime: 5 * 60 * 1000,
     keepPreviousData: true,
   });
-  const clinics = (data?.items ?? data?.Items ?? []).map(normalizeDepartment);
+  const clinics = (data?.items ?? data?.Items ?? []).map((department) =>
+    normalizeDepartment(department, t)
+  );
   const totalCount = data?.totalCount ?? data?.TotalCount ?? clinics.length;
   const hasMore = totalCount > clinics.length;
 
@@ -75,33 +78,32 @@ export default function ClinicsSection() {
       <div className="mx-auto max-w-7xl px-6 lg:px-8">
         <div className="landing-reveal flex flex-col gap-5 md:flex-row md:items-end md:justify-between">
           <div className="max-w-2xl">
-            <p className="text-sm font-semibold text-blue-600">Departments</p>
+            <p className="text-sm font-semibold text-blue-600">{t("clinics.eyebrow")}</p>
             <h2 className="mt-3 text-3xl font-semibold leading-tight text-cyan-950 sm:text-4xl">
-              Clinics organized for fast, connected care.
+              {t("clinics.title")}
             </h2>
             <p className="mt-4 text-sm leading-7 text-cyan-800/75">
-              Each clinic connects appointments, doctors, diagnostics, and
-              follow-up into one clear patient pathway.
+              {t("clinics.description")}
             </p>
           </div>
           <a
             href="#appointment"
             className="inline-flex h-10 items-center gap-2 self-start rounded-md bg-blue-600 px-4 text-sm font-semibold text-white shadow-lg shadow-blue-700/20 transition hover:-translate-y-0.5 hover:bg-blue-500 md:self-auto"
           >
-            Request a Visit
+            {t("clinics.cta")}
             <ArrowUpRight className="size-4" />
           </a>
         </div>
 
         {isError ? (
           <p className="mt-10 rounded-md border border-rose-100 bg-white px-4 py-3 text-sm font-medium text-rose-700">
-            Departments could not be loaded right now.
+            {t("clinics.unavailable")}
           </p>
         ) : null}
 
         {!isPending && !isError && clinics.length === 0 ? (
           <p className="mt-10 rounded-md border border-cyan-100 bg-white px-4 py-3 text-sm font-medium text-cyan-800">
-            No departments are available yet.
+            {t("clinics.empty")}
           </p>
         ) : null}
 
@@ -121,7 +123,7 @@ export default function ClinicsSection() {
                   disabled={isFetching}
                   className="inline-flex h-10 items-center gap-2 rounded-md border border-cyan-200 bg-white px-4 text-sm font-semibold text-cyan-950 shadow-sm transition hover:-translate-y-0.5 hover:border-blue-200 hover:bg-blue-50 disabled:cursor-not-allowed disabled:opacity-70"
                 >
-                  {isFetching ? "Loading..." : `See all ${totalCount} departments`}
+                  {isFetching ? t("clinics.loading") : t("clinics.seeAll")(totalCount)}
                   <ArrowUpRight className="size-4" />
                 </button>
               </div>

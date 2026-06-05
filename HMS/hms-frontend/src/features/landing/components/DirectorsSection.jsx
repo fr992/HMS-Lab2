@@ -1,6 +1,7 @@
 import { ClipboardCheck, HeartHandshake, ShieldCheck, Workflow } from "lucide-react";
 import { DIRECTORS } from "@/features/landing/landingData";
-import { getPublicSetting, usePublicSettings } from "@/features/landing/publicSettings";
+import { useLandingLanguage } from "@/features/landing/landingLanguage";
+import { getLocalizedPublicSetting, usePublicSettings } from "@/features/landing/publicSettings";
 
 const ACCENT_STYLES = {
   sky: {
@@ -28,23 +29,25 @@ const ACCENT_STYLES = {
 const CARD_ICONS = [ShieldCheck, Workflow, ClipboardCheck, HeartHandshake];
 
 export default function DirectorsSection() {
+  const { language, t } = useLandingLanguage();
   const { settings } = usePublicSettings();
-  const aboutText = getPublicSetting(settings, "landing.aboutText");
+  const aboutText = getLocalizedPublicSetting(settings, "landing.aboutText", language);
+  const cards = t("leadership.cards");
 
   return (
     <section id="leadership" className="bg-white py-20 sm:py-24">
       <div className="mx-auto grid max-w-7xl gap-10 px-6 lg:grid-cols-[0.85fr_1.4fr] lg:px-8">
         <div className="landing-reveal">
-          <p className="text-sm font-semibold text-blue-600">Leadership</p>
+          <p className="text-sm font-semibold text-blue-600">{t("leadership.eyebrow")}</p>
           <h2 className="mt-3 max-w-md text-3xl font-semibold leading-tight text-cyan-950 sm:text-4xl">
-            Clinical leadership with a clear operating rhythm.
+            {t("leadership.title")}
           </h2>
           <p className="mt-4 max-w-md text-sm leading-7 text-cyan-800/75">
             {aboutText}
           </p>
           <div className="mt-8 grid max-w-md gap-3 sm:grid-cols-2">
-            <Signal label="Live registry data" value="Patient counts" />
-            <Signal label="Care operations" value="Staff and specialties" />
+            <Signal label={t("leadership.signals.registryLabel")} value={t("leadership.signals.registryValue")} />
+            <Signal label={t("leadership.signals.operationsLabel")} value={t("leadership.signals.operationsValue")} />
           </div>
         </div>
 
@@ -52,7 +55,7 @@ export default function DirectorsSection() {
           {DIRECTORS.map((director, i) => (
             <DirectorCard
               key={director.id}
-              director={director}
+              director={{ ...director, ...cards[i] }}
               icon={CARD_ICONS[i % CARD_ICONS.length]}
               delayClass={`landing-delay-${Math.min(i + 1, 5)}`}
             />

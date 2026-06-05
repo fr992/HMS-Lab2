@@ -45,11 +45,16 @@ const SETTING_SECTIONS = [
     subtitle: "Manage public landing page copy",
     icon: Globe2,
     keys: [
-      "landing.heroTitle",
-      "landing.heroSubtitle",
-      "landing.aboutText",
-      "landing.emergencyContactText",
-      "landing.footerText",
+      "landing.heroTitle.sq",
+      "landing.heroTitle.en",
+      "landing.heroSubtitle.sq",
+      "landing.heroSubtitle.en",
+      "landing.aboutText.sq",
+      "landing.aboutText.en",
+      "landing.emergencyContactText.sq",
+      "landing.emergencyContactText.en",
+      "landing.footerText.sq",
+      "landing.footerText.en",
     ],
   },
   {
@@ -138,9 +143,29 @@ const SETTING_META = {
     description: "Main headline on the public landing page.",
     type: "textarea",
   },
+  "landing.heroTitle.sq": {
+    label: "Hero title (SQ)",
+    description: "Main Albanian headline on the public landing page.",
+    type: "textarea",
+  },
+  "landing.heroTitle.en": {
+    label: "Hero title (EN)",
+    description: "Main English headline on the public landing page.",
+    type: "textarea",
+  },
   "landing.heroSubtitle": {
     label: "Hero description",
     description: "Supporting copy under the public landing page headline.",
+    type: "textarea",
+  },
+  "landing.heroSubtitle.sq": {
+    label: "Hero description (SQ)",
+    description: "Albanian supporting copy under the public landing page headline.",
+    type: "textarea",
+  },
+  "landing.heroSubtitle.en": {
+    label: "Hero description (EN)",
+    description: "English supporting copy under the public landing page headline.",
     type: "textarea",
   },
   "landing.aboutText": {
@@ -148,14 +173,44 @@ const SETTING_META = {
     description: "Copy shown in the public website services section.",
     type: "textarea",
   },
+  "landing.aboutText.sq": {
+    label: "About text (SQ)",
+    description: "Albanian copy shown in the public website services section.",
+    type: "textarea",
+  },
+  "landing.aboutText.en": {
+    label: "About text (EN)",
+    description: "English copy shown in the public website services section.",
+    type: "textarea",
+  },
   "landing.emergencyContactText": {
     label: "Emergency contact text",
     description: "Short label shown beside the emergency number.",
     type: "text",
   },
+  "landing.emergencyContactText.sq": {
+    label: "Emergency contact text (SQ)",
+    description: "Short Albanian label shown beside the emergency number.",
+    type: "text",
+  },
+  "landing.emergencyContactText.en": {
+    label: "Emergency contact text (EN)",
+    description: "Short English label shown beside the emergency number.",
+    type: "text",
+  },
   "landing.footerText": {
     label: "Footer text",
     description: "Small public website footer notice.",
+    type: "text",
+  },
+  "landing.footerText.sq": {
+    label: "Footer text (SQ)",
+    description: "Small Albanian public website footer notice.",
+    type: "text",
+  },
+  "landing.footerText.en": {
+    label: "Footer text (EN)",
+    description: "Small English public website footer notice.",
     type: "text",
   },
   "notifications.emailEnabled": {
