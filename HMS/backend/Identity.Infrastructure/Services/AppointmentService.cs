@@ -114,6 +114,9 @@ public sealed class AppointmentService : IAppointmentService
                 ScheduledEnd = a.ScheduledEnd,
 
                 Status = a.Status,
+                IsOnlineRequest = a.AppointmentRequestId != null,
+                AppointmentRequestId = a.AppointmentRequestId,
+                EncounterId = a.Encounter != null ? a.Encounter.Id : null,
                 AppointmentType = a.AppointmentType,
                 Reason = a.Reason,
             })
@@ -132,6 +135,9 @@ public sealed class AppointmentService : IAppointmentService
             cancellationToken);
         if (appointment == null)
             throw new NotFoundException("Appointment not found.");
+
+        if (appointment.AppointmentRequestId.HasValue)
+            throw new ConflictException("Confirmed online appointments cannot be rescheduled from the internal appointment editor.");
 
         EnsureAppointmentEditable(appointment.Status);
 
@@ -167,19 +173,25 @@ public sealed class AppointmentService : IAppointmentService
         int? actorUserId,
         CancellationToken cancellationToken)
     {
-        var appointment = await _appointments.GetByIdAsync(
-            id,
-            asNoTracking: false,
-            cancellationToken);
+        var appointment = await _appointments.Query(asNoTracking: false)
+            .Include(a => a.AppointmentRequest)
+            .FirstOrDefaultAsync(a => a.Id == id, cancellationToken);
         if (appointment == null)
             throw new NotFoundException("Appointment not found.");
 
         var previousStatus = appointment.Status;
         var targetStatus = NormalizeAppointmentStatus(request.Status);
 
+        EnsureStatusAllowedForAppointmentSource(appointment, targetStatus);
         EnsureAppointmentStatusTransition(appointment.Status, targetStatus);
 
         ApplyStatusTransition(appointment, targetStatus, request, actorUserId);
+        if (targetStatus == AppointmentStatus.Cancelled && appointment.AppointmentRequest != null)
+        {
+            appointment.AppointmentRequest.Status = AppointmentRequestStatus.Cancelled;
+            appointment.AppointmentRequest.UpdatedAt = DateTime.UtcNow;
+            appointment.AppointmentRequest.UpdatedById = actorUserId;
+        }
 
         appointment.UpdatedAt = DateTime.UtcNow;
         appointment.UpdatedById = actorUserId;
@@ -212,7 +224,15 @@ public sealed class AppointmentService : IAppointmentService
 
         if (canReadAll)
         {
-            // Admin / Staff see all
+            if (!permissionSet.Contains("Appointments.ManageStatus")
+                && !permissionSet.Contains("Appointments.Create"))
+            {
+                var doctorProfileId = await _appointments.GetDoctorProfileIdByUserIdAsync(
+                    actorUserId,
+                    cancellationToken);
+                if (doctorProfileId.HasValue)
+                    query = query.Where(a => a.DoctorProfileId == doctorProfileId.Value);
+            }
         }
         else if (canReadOwn)
         {
@@ -300,6 +320,9 @@ public sealed class AppointmentService : IAppointmentService
                 ScheduledStart = a.ScheduledStart,
                 ScheduledEnd = a.ScheduledEnd,
                 Status = a.Status,
+                IsOnlineRequest = a.AppointmentRequestId != null,
+                AppointmentRequestId = a.AppointmentRequestId,
+                EncounterId = a.Encounter != null ? a.Encounter.Id : null,
                 AppointmentType = a.AppointmentType,
                 Reason = a.Reason,
             })
@@ -330,6 +353,15 @@ public sealed class AppointmentService : IAppointmentService
             case AppointmentStatus.Confirmed:
                 appointment.Status = AppointmentStatus.Confirmed;
                 appointment.ConfirmedAt ??= DateTime.UtcNow;
+                break;
+
+            case AppointmentStatus.CheckedIn:
+                appointment.Status = AppointmentStatus.CheckedIn;
+                appointment.CheckedInAt = DateTime.UtcNow;
+                break;
+
+            case AppointmentStatus.InProgress:
+                appointment.Status = AppointmentStatus.InProgress;
                 break;
 
             case AppointmentStatus.Cancelled:
@@ -402,6 +434,19 @@ public sealed class AppointmentService : IAppointmentService
         }
     }
 
+    private static void EnsureStatusAllowedForAppointmentSource(Appointment appointment, string targetStatus)
+    {
+        if (appointment.AppointmentRequestId.HasValue)
+        {
+            if (targetStatus is AppointmentStatus.Completed or AppointmentStatus.InProgress)
+                throw new ForbiddenException("Online appointments can only be completed or started through the assigned doctor's encounter workflow.");
+            return;
+        }
+
+        if (targetStatus is AppointmentStatus.CheckedIn or AppointmentStatus.InProgress)
+            throw new ConflictException("Check-in and in-progress statuses apply only to online appointment requests.");
+    }
+
     private async Task NotifyAppointmentCreatedAsync(
         AppointmentDto appointment,
         CancellationToken cancellationToken)
@@ -467,7 +512,11 @@ public sealed class AppointmentService : IAppointmentService
             return;
 
         if (appointment.Status is not AppointmentStatus.Confirmed and not AppointmentStatus.Cancelled)
+        {
+            if (appointment.Status == AppointmentStatus.CheckedIn)
+                await NotifyDoctorPatientCheckedInAsync(appointment, cancellationToken);
             return;
+        }
 
         var patientUserId = await _appointments.GetPatientUserIdAsync(
             appointment.PatientProfileId,
@@ -486,6 +535,29 @@ public sealed class AppointmentService : IAppointmentService
                 Type = "appointment",
                 Title = isConfirmed ? "Appointment confirmed" : "Appointment cancelled",
                 Message = $"Your appointment with {appointment.DoctorName} on {scheduledAt} was {(isConfirmed ? "confirmed" : "cancelled")}.",
+                RelatedEntityType = "Appointment",
+                RelatedEntityId = appointment.Id.ToString()
+            },
+            cancellationToken);
+    }
+
+    private async Task NotifyDoctorPatientCheckedInAsync(
+        AppointmentDto appointment,
+        CancellationToken cancellationToken)
+    {
+        var doctorUserId = await _appointments.GetDoctorUserIdAsync(
+            appointment.DoctorProfileId,
+            cancellationToken);
+        if (!doctorUserId.HasValue)
+            return;
+
+        await TryCreateNotificationAsync(
+            new CreateNotificationRequestDto
+            {
+                UserId = doctorUserId.Value,
+                Type = "appointment",
+                Title = "Patient checked in",
+                Message = $"{appointment.PatientName} is checked in and ready for their appointment.",
                 RelatedEntityType = "Appointment",
                 RelatedEntityId = appointment.Id.ToString()
             },

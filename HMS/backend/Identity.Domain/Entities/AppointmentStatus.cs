@@ -7,6 +7,8 @@ public static class AppointmentStatus
 {
     public const string Scheduled = "scheduled";
     public const string Confirmed = "confirmed";
+    public const string CheckedIn = "checked_in";
+    public const string InProgress = "in_progress";
     public const string Completed = "completed";
     public const string Cancelled = "cancelled";
     public const string NoShow = "no_show";
@@ -23,8 +25,19 @@ public static class AppointmentStatus
         [Confirmed] =
         [
             Completed,
+            CheckedIn,
             Cancelled,
             NoShow,
+        ],
+        [CheckedIn] =
+        [
+            InProgress,
+            Cancelled,
+            NoShow,
+        ],
+        [InProgress] =
+        [
+            Completed,
         ],
         [NoShow] =
         [
@@ -36,6 +49,8 @@ public static class AppointmentStatus
     [
         Scheduled,
         Confirmed,
+        CheckedIn,
+        InProgress,
         Completed,
         Cancelled,
         NoShow,
@@ -115,6 +130,8 @@ public static class AppointmentStatus
         {
             Scheduled => "Scheduled",
             Confirmed => "Confirmed",
+            CheckedIn => "Checked in",
+            InProgress => "In progress",
             Completed => "Completed",
             Cancelled => "Cancelled",
             NoShow => "No show",

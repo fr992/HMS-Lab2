@@ -14,6 +14,10 @@ namespace Identity.Domain.Entities
         public int? DepartmentId { get; set; }
         public Department? Department { get; set; }
 
+        public int? AppointmentRequestId { get; set; }
+        public AppointmentRequest? AppointmentRequest { get; set; }
+        public Encounter? Encounter { get; set; }
+
         public DateTime ScheduledStart { get; set; }
         public DateTime ScheduledEnd { get; set; }
 
@@ -23,6 +27,7 @@ namespace Identity.Domain.Entities
 
         public string? CancellationReason { get; set; }
         public DateTime? ConfirmedAt { get; set; }
+        public DateTime? CheckedInAt { get; set; }
         public DateTime? CancelledAt { get; set; }
 
         public int? CancelledByUserId { get; set; }

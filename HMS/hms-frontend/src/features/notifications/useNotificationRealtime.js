@@ -70,13 +70,17 @@ export function useNotificationRealtime() {
       }
     });
 
-    connection.start().catch(() => {});
+    let disposed = false;
+    const startPromise = connection.start().catch(() => {});
 
     return () => {
+      disposed = true;
       connection.off("notificationReceived");
-      if (connection.state !== signalR.HubConnectionState.Disconnected) {
-        void connection.stop();
-      }
+      void startPromise.finally(() => {
+        if (disposed && connection.state !== signalR.HubConnectionState.Disconnected) {
+          void connection.stop();
+        }
+      });
     };
   }, [
     auth.accessToken,

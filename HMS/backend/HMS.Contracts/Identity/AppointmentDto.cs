@@ -22,6 +22,9 @@
 
         // Status
         public string Status { get; set; } = string.Empty;
+        public bool IsOnlineRequest { get; set; }
+        public int? AppointmentRequestId { get; set; }
+        public int? EncounterId { get; set; }
 
         // Details
         public string? AppointmentType { get; set; }

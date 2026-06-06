@@ -4,7 +4,9 @@ export const appointmentRequestSchema = z.object({
   firstName: z.string().min(2, "At least 2 characters"),
   lastName: z.string().min(2, "At least 2 characters"),
   email: z.string().email("Invalid email address"),
-  phone: z.string().min(7, "Enter a valid phone number"),
+  phone: z
+    .string()
+    .regex(/^\+?[0-9][0-9\s().-]{5,28}[0-9]$/, "Enter a valid phone number"),
   doctorProfileId: z.string().optional(),
   dateOfBirth: z.string().refine((val) => {
     const d = new Date(val);

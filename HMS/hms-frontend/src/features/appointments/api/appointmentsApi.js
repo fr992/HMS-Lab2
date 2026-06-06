@@ -71,7 +71,7 @@ export async function createEncounterFromAppointment(appointment) {
     doctorProfileId: Number(appointment.doctorProfileId),
     appointmentId: Number(appointment.id),
     encounterType: "outpatient",
-    startedAt: appointment.scheduledStart ?? new Date().toISOString(),
+    startedAt: new Date().toISOString(),
     notes: appointment.reason ?? null,
   };
 

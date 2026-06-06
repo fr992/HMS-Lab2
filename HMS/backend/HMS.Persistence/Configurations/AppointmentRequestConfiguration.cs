@@ -30,6 +30,9 @@ public sealed class AppointmentRequestConfiguration : IEntityTypeConfiguration<A
             .IsRequired()
             .HasMaxLength(300);
 
+        builder.Property(a => a.RejectionReason)
+            .HasMaxLength(500);
+
         builder.Property(a => a.Status)
             .HasConversion<string>()
             .IsRequired();

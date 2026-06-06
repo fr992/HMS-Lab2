@@ -179,7 +179,12 @@ function appointmentTypePill(raw) {
 
 function approvalPillForList(status) {
   const k = statusKey(status);
-  if (k === APPOINTMENT_STATUS.CONFIRMED || k === APPOINTMENT_STATUS.COMPLETED) {
+  if (
+    k === APPOINTMENT_STATUS.CONFIRMED ||
+    k === APPOINTMENT_STATUS.CHECKED_IN ||
+    k === APPOINTMENT_STATUS.IN_PROGRESS ||
+    k === APPOINTMENT_STATUS.COMPLETED
+  ) {
     return { label: "Approved", className: "bg-sky-50 text-sky-800 ring-sky-200/80" };
   }
   if (k === APPOINTMENT_STATUS.SCHEDULED) {
@@ -279,6 +284,20 @@ function matchesListSegment(appointment, segment) {
   if (segment === "completed") return k === APPOINTMENT_STATUS.COMPLETED;
   if (segment === "cancelled") {
     return k === APPOINTMENT_STATUS.CANCELLED || k === APPOINTMENT_STATUS.NO_SHOW;
+  }
+  if (k === APPOINTMENT_STATUS.CHECKED_IN) {
+    return {
+      label: "Ready for doctor",
+      Icon: Clock3,
+      className: "bg-violet-50 text-violet-800 ring-violet-200/80",
+    };
+  }
+  if (k === APPOINTMENT_STATUS.IN_PROGRESS) {
+    return {
+      label: "Encounter in progress",
+      Icon: Clock3,
+      className: "bg-teal-50 text-teal-800 ring-teal-200/80",
+    };
   }
   if (segment === "upcoming") {
     return isUpcomingAppointment(appointment);
