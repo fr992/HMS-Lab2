@@ -415,11 +415,15 @@ public sealed class AppointmentRequestService : IAppointmentRequestService
     {
         try
         {
-            var hospitalName = await _db.Query<Setting>()
+            var hospitalSettings = await _db.Query<Setting>()
                 .AsNoTracking()
-                .Where(setting => setting.Key == "hospital.name")
-                .Select(setting => setting.Value)
-                .FirstOrDefaultAsync(ct) ?? "Hospital";
+                .Where(setting =>
+                    setting.Key == "hospital.name" ||
+                    setting.Key == "hospital.email" ||
+                    setting.Key == "hospital.phone")
+                .ToDictionaryAsync(setting => setting.Key, setting => setting.Value, ct);
+
+            var hospitalName = hospitalSettings.GetValueOrDefault("hospital.name") ?? "Nexora Hospital";
 
             var doctor = request.DoctorProfileId.HasValue
                 ? await _db.Query<DoctorProfile>()
@@ -443,7 +447,9 @@ public sealed class AppointmentRequestService : IAppointmentRequestService
                     scheduledStart,
                     doctor?.Name,
                     doctor?.DepartmentName,
-                    reason),
+                    reason,
+                    hospitalSettings.GetValueOrDefault("hospital.email"),
+                    hospitalSettings.GetValueOrDefault("hospital.phone")),
                 ct);
         }
         catch (Exception exception) when (exception is not OperationCanceledException)

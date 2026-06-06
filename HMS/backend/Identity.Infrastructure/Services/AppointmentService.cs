@@ -113,10 +113,15 @@ public sealed class AppointmentService : IAppointmentService
                 ScheduledStart = a.ScheduledStart,
                 ScheduledEnd = a.ScheduledEnd,
 
-                Status = a.Status,
+                Status = a.Encounter != null && a.Encounter.Status == EncounterStatus.Completed
+                    ? AppointmentStatus.Completed
+                    : a.Encounter != null && a.Encounter.Status == EncounterStatus.Open
+                        ? AppointmentStatus.InProgress
+                        : a.Status,
                 IsOnlineRequest = a.AppointmentRequestId != null,
                 AppointmentRequestId = a.AppointmentRequestId,
                 EncounterId = a.Encounter != null ? a.Encounter.Id : null,
+                EncounterStatus = a.Encounter != null ? a.Encounter.Status : null,
                 AppointmentType = a.AppointmentType,
                 Reason = a.Reason,
             })
@@ -278,12 +283,26 @@ public sealed class AppointmentService : IAppointmentService
                 var now = DateTime.UtcNow;
                 query = query.Where(a =>
                     a.ScheduledStart >= now &&
+                    a.Encounter == null &&
                     (a.Status == AppointmentStatus.Scheduled || a.Status == AppointmentStatus.Confirmed));
             }
             else
             {
                 var normalizedStatus = AppointmentStatus.NormalizeToKnownStatus(status);
-                query = query.Where(a => a.Status == normalizedStatus);
+                query = normalizedStatus switch
+                {
+                    AppointmentStatus.Completed => query.Where(a =>
+                        a.Status == AppointmentStatus.Completed ||
+                        (a.Encounter != null && a.Encounter.Status == EncounterStatus.Completed)),
+                    AppointmentStatus.InProgress => query.Where(a =>
+                        a.Status == AppointmentStatus.InProgress ||
+                        (a.Encounter != null && a.Encounter.Status == EncounterStatus.Open)),
+                    _ => query.Where(a =>
+                        a.Status == normalizedStatus &&
+                        (a.Encounter == null ||
+                         (a.Encounter.Status != EncounterStatus.Open &&
+                          a.Encounter.Status != EncounterStatus.Completed)))
+                };
             }
         }
 
@@ -319,10 +338,15 @@ public sealed class AppointmentService : IAppointmentService
                 DepartmentName = a.Department != null ? a.Department.Name : null,
                 ScheduledStart = a.ScheduledStart,
                 ScheduledEnd = a.ScheduledEnd,
-                Status = a.Status,
+                Status = a.Encounter != null && a.Encounter.Status == EncounterStatus.Completed
+                    ? AppointmentStatus.Completed
+                    : a.Encounter != null && a.Encounter.Status == EncounterStatus.Open
+                        ? AppointmentStatus.InProgress
+                        : a.Status,
                 IsOnlineRequest = a.AppointmentRequestId != null,
                 AppointmentRequestId = a.AppointmentRequestId,
                 EncounterId = a.Encounter != null ? a.Encounter.Id : null,
+                EncounterStatus = a.Encounter != null ? a.Encounter.Status : null,
                 AppointmentType = a.AppointmentType,
                 Reason = a.Reason,
             })

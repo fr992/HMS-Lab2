@@ -177,28 +177,6 @@ function appointmentTypePill(raw) {
   };
 }
 
-function approvalPillForList(status) {
-  const k = statusKey(status);
-  if (
-    k === APPOINTMENT_STATUS.CONFIRMED ||
-    k === APPOINTMENT_STATUS.CHECKED_IN ||
-    k === APPOINTMENT_STATUS.IN_PROGRESS ||
-    k === APPOINTMENT_STATUS.COMPLETED
-  ) {
-    return { label: "Approved", className: "bg-sky-50 text-sky-800 ring-sky-200/80" };
-  }
-  if (k === APPOINTMENT_STATUS.SCHEDULED) {
-    return { label: "Pending", className: "bg-amber-50 text-amber-900 ring-amber-200/80" };
-  }
-  if (k === APPOINTMENT_STATUS.CANCELLED) {
-    return { label: "Cancelled", className: "bg-rose-50 text-rose-800 ring-rose-200/80" };
-  }
-  if (k === APPOINTMENT_STATUS.NO_SHOW) {
-    return { label: "No show", className: "bg-slate-100 text-slate-700 ring-slate-200/80" };
-  }
-  return null;
-}
-
 function visitStatusPillForList(appointment) {
   const k = statusKey(appointment.status);
   const now = Date.now();
@@ -953,7 +931,6 @@ export default function AppointmentsListPage() {
           <ul className="flex flex-col gap-3">
             {listPage.items.map((appointment) => {
               const typePill = appointmentTypePill(appointment.appointmentType);
-              const approval = approvalPillForList(appointment.status);
               const visitPill = visitStatusPillForList(appointment);
               const VisitIcon = visitPill.Icon;
               const mins = durationMinutes(
@@ -991,13 +968,6 @@ export default function AppointmentsListPage() {
                             className={`inline-flex rounded-full px-3 py-1 text-xs font-medium ring-1 ring-inset ${typePill.className}`}
                           >
                             {typePill.label}
-                          </span>
-                        )}
-                        {approval && (
-                          <span
-                            className={`inline-flex rounded-full px-3 py-1 text-xs font-medium ring-1 ring-inset ${approval.className}`}
-                          >
-                            {approval.label}
                           </span>
                         )}
                         <span

@@ -14,4 +14,6 @@ public sealed record AppointmentNotification(
     DateTime? ScheduledStart,
     string? DoctorName,
     string? DepartmentName,
-    string? Reason);
+    string? Reason,
+    string? HospitalEmail = null,
+    string? HospitalPhone = null);

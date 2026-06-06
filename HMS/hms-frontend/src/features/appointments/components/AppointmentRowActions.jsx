@@ -278,7 +278,11 @@ export default function AppointmentRowActions({
         <div className="flex flex-wrap items-center justify-end gap-2">
           {isVisited && (
             <Link
-              to={`/appointments/${appointment.id}`}
+              to={
+                appointment.encounterId
+                  ? `${encounterBasePath}/${appointment.encounterId}`
+                  : `/appointments/${appointment.id}`
+              }
               className="inline-flex h-9 items-center justify-center gap-2 rounded-lg border border-slate-200 bg-white px-3 text-sm font-medium text-slate-800 shadow-sm transition hover:bg-slate-50"
             >
               <FolderOpen className="h-4 w-4 shrink-0 text-slate-600" aria-hidden />

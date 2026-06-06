@@ -23,6 +23,7 @@ public sealed class SmtpEmailNotificationService : IEmailNotificationService
         string recipientEmail,
         string subject,
         string message,
+        bool isBodyHtml,
         CancellationToken cancellationToken)
     {
         if (!_settings.Enabled)
@@ -36,7 +37,7 @@ public sealed class SmtpEmailNotificationService : IEmailNotificationService
             From = new MailAddress(_settings.FromAddress, _settings.FromName),
             Subject = subject,
             Body = message,
-            IsBodyHtml = false
+            IsBodyHtml = isBodyHtml
         };
         mail.To.Add(recipientEmail);
 

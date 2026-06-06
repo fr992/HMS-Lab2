@@ -421,10 +421,10 @@ function RequestDetailsModal({ open, onClose, children }) {
 function RequestActionModal({
   action,
   request,
-  scheduledStart,
+  rescheduleDraft,
   rejectionReason,
   mutating,
-  onScheduledStartChange,
+  onRescheduleDraftChange,
   onRejectionReasonChange,
   onClose,
   onSubmit,
@@ -458,10 +458,13 @@ function RequestActionModal({
               <input
                 required
                 type="datetime-local"
-                value={scheduledStart}
-                onChange={(event) => onScheduledStartChange(event.target.value)}
+                value={rescheduleDraft}
+                onChange={(event) => onRescheduleDraftChange(event.target.value)}
                 className="mt-2 h-10 w-full rounded-lg border border-slate-200 px-3 text-sm outline-none focus:border-sky-500 focus:ring-2 focus:ring-sky-500/20"
               />
+              <span className="mt-2 block text-xs leading-5 text-slate-500">
+                This only selects the new time. You will return to the request details to assign a doctor and confirm.
+              </span>
             </label>
           ) : (
             <label className="block">
@@ -481,8 +484,8 @@ function RequestActionModal({
           <button type="button" onClick={onClose} disabled={mutating} className="h-10 rounded-lg border border-slate-200 px-4 text-sm font-semibold">
             Cancel
           </button>
-          <button type="submit" disabled={mutating || (isReschedule && !scheduledStart)} className={`h-10 rounded-lg px-4 text-sm font-semibold text-white disabled:opacity-50 ${isReschedule ? "bg-sky-600" : "bg-rose-600"}`}>
-            {mutating ? "Saving..." : isReschedule ? "Reschedule" : "Reject"}
+          <button type="submit" disabled={mutating || (isReschedule && !rescheduleDraft)} className={`h-10 rounded-lg px-4 text-sm font-semibold text-white disabled:opacity-50 ${isReschedule ? "bg-sky-600" : "bg-rose-600"}`}>
+            {mutating ? "Saving..." : isReschedule ? "Use new time" : "Reject"}
           </button>
         </div>
       </form>
@@ -510,6 +513,7 @@ export default function AppointmentRequestsPage() {
   const [selectedDoctors, setSelectedDoctors] = useState({});
   const [scheduledStarts, setScheduledStarts] = useState({});
   const [pendingAction, setPendingAction] = useState(null);
+  const [rescheduleDraft, setRescheduleDraft] = useState("");
   const [rejectionReason, setRejectionReason] = useState("");
 
   const load = useCallback(async () => {
@@ -870,7 +874,10 @@ export default function AppointmentRequestsPage() {
             onStatusChange={(nextStatus) => {
               if (selectedRequest) void updateStatus(selectedRequest, nextStatus);
             }}
-            onOpenAction={setPendingAction}
+            onOpenAction={(nextAction) => {
+              setPendingAction(nextAction);
+              setRescheduleDraft("");
+            }}
             onAppointmentStatusChange={(nextStatus) => {
               if (selectedRequest) void updateAppointmentStatus(selectedRequest, nextStatus);
             }}
@@ -881,23 +888,30 @@ export default function AppointmentRequestsPage() {
       <RequestActionModal
         action={pendingAction}
         request={selectedRequest}
-        scheduledStart={selectedRequest ? scheduledStarts[selectedRequest.id] || "" : ""}
+        rescheduleDraft={rescheduleDraft}
         rejectionReason={rejectionReason}
         mutating={selectedRequest ? mutatingId === selectedRequest.id : false}
-        onScheduledStartChange={(value) => {
-          if (selectedRequest) {
-            setScheduledStarts((current) => ({ ...current, [selectedRequest.id]: value }));
-          }
-        }}
+        onRescheduleDraftChange={setRescheduleDraft}
         onRejectionReasonChange={setRejectionReason}
         onClose={() => {
           setPendingAction(null);
+          setRescheduleDraft("");
           setRejectionReason("");
         }}
         onSubmit={() => {
           if (selectedRequest && pendingAction) {
+            if (pendingAction === APPOINTMENT_REQUEST_STATUS.RESCHEDULED) {
+              if (!rescheduleDraft) return;
+              setScheduledStarts((current) => ({
+                ...current,
+                [selectedRequest.id]: rescheduleDraft,
+              }));
+              setPendingAction(null);
+              setRescheduleDraft("");
+              showToast("New time selected. Assign a doctor and confirm the request to notify the patient.");
+              return;
+            }
             void updateStatus(selectedRequest, pendingAction, {
-              scheduledStart: scheduledStarts[selectedRequest.id] || "",
               rejectionReason,
             });
           }

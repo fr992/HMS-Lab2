@@ -144,5 +144,39 @@ public sealed class OnlineAppointmentWorkflowTests
         Assert.Equal(
             AppointmentRequestStatus.Completed,
             await db.AppointmentRequests.Where(a => a.Id == request.Id).Select(a => a.Status).SingleAsync());
+
+        var completedAppointment = await appointments.GetByIdAsync(checkedIn.Id, CancellationToken.None);
+        Assert.NotNull(completedAppointment);
+        Assert.Equal(AppointmentStatus.Completed, completedAppointment.Status);
+        Assert.Equal(encounter.Id, completedAppointment.EncounterId);
+        Assert.Equal(EncounterStatus.Completed, completedAppointment.EncounterStatus);
+
+        var storedAppointment = await db.Appointments.SingleAsync(a => a.Id == checkedIn.Id);
+        storedAppointment.Status = AppointmentStatus.Confirmed;
+        await db.SaveChangesAsync();
+
+        var upcoming = await appointments.GetAppointmentsAsync(
+            doctorUser.Id,
+            new[] { "Appointments.Read" },
+            null,
+            null,
+            null,
+            "upcoming",
+            new PaginationQuery(),
+            CancellationToken.None);
+        Assert.DoesNotContain(upcoming.Items, appointment => appointment.Id == checkedIn.Id);
+
+        var completed = await appointments.GetAppointmentsAsync(
+            doctorUser.Id,
+            new[] { "Appointments.Read" },
+            null,
+            null,
+            null,
+            AppointmentStatus.Completed,
+            new PaginationQuery(),
+            CancellationToken.None);
+        var reconciledAppointment = Assert.Single(completed.Items, appointment => appointment.Id == checkedIn.Id);
+        Assert.Equal(AppointmentStatus.Completed, reconciledAppointment.Status);
+        Assert.Equal(encounter.Id, reconciledAppointment.EncounterId);
     }
 }
