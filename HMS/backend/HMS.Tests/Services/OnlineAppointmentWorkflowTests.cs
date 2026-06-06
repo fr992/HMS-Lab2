@@ -13,8 +13,12 @@ namespace HMS.Tests.Services;
 
 public sealed class OnlineAppointmentWorkflowTests
 {
-    [Fact]
-    public async Task OnlineRequest_FollowsCheckInEncounterAndCompletionWorkflow()
+    [Theory]
+    [InlineData(false, "Confirmed")]
+    [InlineData(true, "Rescheduled")]
+    public async Task OnlineRequest_FollowsCheckInEncounterAndCompletionWorkflow(
+        bool isRescheduleConfirmation,
+        string expectedExternalNotificationStatus)
     {
         await using var db = HmsDbContextTestFactory.Create();
         var now = DateTime.UtcNow;
@@ -80,7 +84,8 @@ public sealed class OnlineAppointmentWorkflowTests
             {
                 Status = nameof(AppointmentRequestStatus.Confirmed),
                 DoctorProfileId = doctor.Id,
-                ScheduledStart = scheduledStart
+                ScheduledStart = scheduledStart,
+                IsRescheduleConfirmation = isRescheduleConfirmation
             },
             actorUserId: 99,
             CancellationToken.None);
@@ -92,7 +97,7 @@ public sealed class OnlineAppointmentWorkflowTests
                 It.Is<AppointmentNotification>(notification =>
                     notification.AppointmentRequestId == request.Id
                     && notification.Email == request.Email
-                    && notification.Status == "Confirmed"),
+                    && notification.Status == expectedExternalNotificationStatus),
                 It.IsAny<CancellationToken>()),
             Times.Once);
 

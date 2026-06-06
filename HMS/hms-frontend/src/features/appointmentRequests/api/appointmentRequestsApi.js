@@ -29,12 +29,20 @@ export async function fetchAppointmentRequests(filters = {}) {
  * @param {string} status
  * @param {number | null | undefined} doctorProfileId
  */
-export async function patchAppointmentRequestStatus(id, status, doctorProfileId, scheduledStart, rejectionReason) {
+export async function patchAppointmentRequestStatus(
+  id,
+  status,
+  doctorProfileId,
+  scheduledStart,
+  rejectionReason,
+  isRescheduleConfirmation = false
+) {
   const { data } = await api.patch(`/appointment-requests/${id}/status`, {
     status,
     doctorProfileId,
     scheduledStart,
     rejectionReason,
+    isRescheduleConfirmation,
   });
   return data;
 }

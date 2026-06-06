@@ -6,5 +6,6 @@ namespace HMS.Contracts.Identity
         public int? DoctorProfileId { get; set; }
         public DateTime? ScheduledStart { get; set; }
         public string? RejectionReason { get; set; }
+        public bool IsRescheduleConfirmation { get; set; }
     }
 }

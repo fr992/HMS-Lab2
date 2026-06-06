@@ -196,6 +196,9 @@ public sealed class AppointmentRequestService : IAppointmentRequestService
         if (nextStatus is not (AppointmentRequestStatus.Confirmed or AppointmentRequestStatus.Rescheduled or AppointmentRequestStatus.Cancelled))
             throw new BadRequestException("Online appointment requests can only be confirmed, rescheduled, or rejected.");
 
+        if (dto.IsRescheduleConfirmation && nextStatus != AppointmentRequestStatus.Confirmed)
+            throw new BadRequestException("A reschedule confirmation must confirm the appointment request.");
+
         if (nextStatus == AppointmentRequestStatus.Rescheduled && !dto.ScheduledStart.HasValue)
             throw new BadRequestException("Choose a new appointment date and time before rescheduling this request.");
 
@@ -244,7 +247,12 @@ public sealed class AppointmentRequestService : IAppointmentRequestService
             if (appointment != null)
             {
                 await NotifyConfirmedAsync(entity, appointment, ct);
-                emailNotificationSent = await NotifyExternalPatientAsync(entity, "Confirmed", appointment.ScheduledStart, null, ct);
+                emailNotificationSent = await NotifyExternalPatientAsync(
+                    entity,
+                    dto.IsRescheduleConfirmation ? "Rescheduled" : "Confirmed",
+                    appointment.ScheduledStart,
+                    null,
+                    ct);
             }
             else if (nextStatus == AppointmentRequestStatus.Cancelled)
             {

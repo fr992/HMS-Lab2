@@ -224,6 +224,7 @@ function RequestDetails({
   doctorSelection,
   selectedDoctor,
   scheduledStart,
+  isReschedulePending,
   onDoctorChange,
   onScheduledStartChange,
   onStatusChange,
@@ -231,7 +232,11 @@ function RequestDetails({
   onAppointmentStatusChange,
 }) {
   const name = getFullName(request) || `Request #${request.id}`;
-  const actions = getNextActions(request.status);
+  const actions = getNextActions(request.status).map((action) =>
+    action.status === APPOINTMENT_REQUEST_STATUS.CONFIRMED && isReschedulePending
+      ? { ...action, label: "Confirm Reschedule" }
+      : action
+  );
   const isPending = ["pending", "rescheduled"].includes(statusKey(request.status));
   const appointmentActions =
     request.appointmentStatus === APPOINTMENT_STATUS.CONFIRMED
@@ -340,6 +345,11 @@ function RequestDetails({
                 className="mt-1.5 h-10 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm text-slate-900 shadow-sm outline-none focus:border-sky-500 focus:ring-2 focus:ring-sky-500/20"
               />
             </label>
+          )}
+          {isReschedulePending && (
+            <p className="mt-3 rounded-lg border border-sky-200 bg-sky-50 px-3 py-2 text-sm text-sky-900">
+              The new time is staged. Assign a doctor and confirm the reschedule to notify the patient.
+            </p>
           )}
         </div>
 
@@ -514,6 +524,7 @@ export default function AppointmentRequestsPage() {
   const [scheduledStarts, setScheduledStarts] = useState({});
   const [pendingAction, setPendingAction] = useState(null);
   const [rescheduleDraft, setRescheduleDraft] = useState("");
+  const [rescheduleConfirmations, setRescheduleConfirmations] = useState({});
   const [rejectionReason, setRejectionReason] = useState("");
 
   const load = useCallback(async () => {
@@ -613,6 +624,8 @@ export default function AppointmentRequestsPage() {
       return;
     }
     const scheduledStart = options.scheduledStart ?? scheduledStarts[request.id] ?? `${request.preferredDate}T09:00`;
+    const isRescheduleConfirmation =
+      options.isRescheduleConfirmation ?? Boolean(rescheduleConfirmations[request.id]);
 
     setMutatingId(request.id);
     try {
@@ -621,18 +634,33 @@ export default function AppointmentRequestsPage() {
         nextStatus,
         doctorProfileId,
         nextStatus === APPOINTMENT_REQUEST_STATUS.CANCELLED ? null : scheduledStart,
-        options.rejectionReason
+        options.rejectionReason,
+        isRescheduleConfirmation
       );
       if (updated.emailNotificationSent === true) {
-        showToast("Request updated and confirmation email sent.");
+        showToast(
+          isRescheduleConfirmation
+            ? "Request confirmed and reschedule email sent."
+            : "Request updated and confirmation email sent."
+        );
       } else {
-        showToast("Request updated, but the confirmation email could not be sent.", "warning");
+        showToast(
+          isRescheduleConfirmation
+            ? "Request confirmed, but the reschedule email could not be sent."
+            : "Request updated, but the confirmation email could not be sent.",
+          "warning"
+        );
       }
       if (nextStatus === APPOINTMENT_REQUEST_STATUS.CONFIRMED || nextStatus === APPOINTMENT_REQUEST_STATUS.CANCELLED) {
         setSelectedRequestId(null);
       }
       setPendingAction(null);
       setRejectionReason("");
+      setRescheduleConfirmations((current) => {
+        const next = { ...current };
+        delete next[request.id];
+        return next;
+      });
       await load();
     } catch (e) {
       showToast(getApiErrorMessage(e), "error");
@@ -865,6 +893,7 @@ export default function AppointmentRequestsPage() {
                 ? String(selectedRequest.scheduledStart).slice(0, 16)
                 : `${selectedRequest.preferredDate}T09:00`)
             }
+            isReschedulePending={Boolean(rescheduleConfirmations[selectedRequest.id])}
             onScheduledStartChange={(value) =>
               setScheduledStarts((current) => ({ ...current, [selectedRequest.id]: value }))
             }
@@ -905,6 +934,10 @@ export default function AppointmentRequestsPage() {
               setScheduledStarts((current) => ({
                 ...current,
                 [selectedRequest.id]: rescheduleDraft,
+              }));
+              setRescheduleConfirmations((current) => ({
+                ...current,
+                [selectedRequest.id]: true,
               }));
               setPendingAction(null);
               setRescheduleDraft("");
