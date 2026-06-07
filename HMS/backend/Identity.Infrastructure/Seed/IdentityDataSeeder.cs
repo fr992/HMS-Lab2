@@ -135,6 +135,7 @@ public sealed class IdentityDataSeeder
         [
             "Patients.Register", "Patients.Read", "Patients.Update", "Patients.Delete",
             "Appointments.Read", "Appointments.Create", "Appointments.ManageStatus",
+            "Encounters.Read",
             "Invoices.Read", "Invoices.Create", "Invoices.Update", "Invoices.Cancel",
             "Payments.Read", "Payments.Create", "Payments.UpdateStatus", "Payments.ConfirmCash",
             "LabResults.Read",

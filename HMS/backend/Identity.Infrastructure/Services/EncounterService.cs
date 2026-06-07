@@ -273,8 +273,11 @@ public sealed class EncounterService : IEncounterService
         if (HasRole(roleList, "Admin") || HasRole(roleList, "SuperAdmin"))
             return requestedDoctorProfileId;
 
+        if (HasRole(roleList, "Receptionist"))
+            return requestedDoctorProfileId;
+
         if (!HasRole(roleList, "Doctor"))
-            throw new ForbiddenException("Only admins and doctors can list encounters.");
+            throw new ForbiddenException("Only admins, receptionists, and doctors can list encounters.");
 
         if (!actorUserId.HasValue)
             throw new UnauthorizedException("Authenticated user is required.");

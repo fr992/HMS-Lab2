@@ -59,7 +59,7 @@ export async function fetchPatientDashboardData() {
     }),
     labResults: apiClient.get("/me/lab-results"),
     encounters: apiClient.get("/encounters/patient"),
-    notifications: apiClient.get("/me/notifications"),
+    notifications: apiClient.get("/notifications/me"),
   });
 }
 
