@@ -75,7 +75,7 @@ export default function ClinicsSection() {
 
   return (
     <section id="clinics" className="bg-cyan-50/60 py-20 sm:py-24">
-      <div className="mx-auto max-w-7xl px-6 lg:px-8">
+      <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
         <div className="landing-reveal flex flex-col gap-5 md:flex-row md:items-end md:justify-between">
           <div className="max-w-2xl">
             <p className="text-sm font-semibold text-blue-600">{t("clinics.eyebrow")}</p>
@@ -139,7 +139,7 @@ function ClinicCard({ clinic, tone, index }) {
   const Icon = CLINIC_ICONS[clinic.icon] ?? HeartPulse;
 
   return (
-    <div className={`landing-reveal landing-delay-${Math.min(index + 1, 5)} group rounded-md border border-cyan-100 bg-white p-5 shadow-sm shadow-cyan-950/4 transition hover:-translate-y-1 hover:border-cyan-200 hover:shadow-xl hover:shadow-cyan-950/8`}>
+    <div className={`landing-reveal landing-delay-${Math.min(index + 1, 5)} group rounded-md border border-cyan-100 bg-white p-4 shadow-sm shadow-cyan-950/4 transition hover:-translate-y-1 hover:border-cyan-200 hover:shadow-xl hover:shadow-cyan-950/8 sm:p-5`}>
       <div className="flex items-start justify-between gap-4">
         <span className={`inline-flex size-11 items-center justify-center rounded-md ring-1 ${tone}`}>
           <Icon className="size-5" />

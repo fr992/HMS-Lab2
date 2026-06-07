@@ -20,15 +20,15 @@ export function DashboardFrame({
   children,
 }) {
   return (
-    <div className="min-h-full bg-slate-50">
+    <div className="min-h-full min-w-0 bg-slate-50">
       <header className="sticky top-0 z-30 rounded-t-lg border-b border-slate-200 bg-white/95 backdrop-blur">
-        <div className="flex flex-col gap-4 px-4 py-3.5 sm:px-5 lg:flex-row lg:items-center lg:justify-between lg:px-6">
-          <div className="flex items-center gap-4">
+        <div className="flex flex-col gap-4 px-3 py-3.5 sm:px-5 lg:flex-row lg:items-center lg:justify-between lg:px-6">
+          <div className="flex min-w-0 items-center gap-4">
             <div className="hidden size-11 items-center justify-center rounded-lg border border-slate-200 text-slate-500 lg:flex">
               <LayoutDashboard className="size-5" />
             </div>
-            <div>
-              <h1 className="text-xl font-semibold text-slate-950 sm:text-2xl">
+            <div className="min-w-0">
+              <h1 className="truncate text-xl font-semibold text-slate-950 sm:text-2xl">
                 {title}
               </h1>
               <p className="mt-1 text-sm text-slate-500">
@@ -37,9 +37,9 @@ export function DashboardFrame({
             </div>
           </div>
 
-          <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+          <div className="flex min-w-0 flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center sm:justify-end">
             {onSearchChange && (
-              <label className="relative block sm:w-100">
+              <label className="relative block w-full sm:w-100">
                 <Search className="pointer-events-none absolute left-4 top-1/2 size-5 -translate-y-1/2 text-slate-400" />
                 <input
                   type="search"
@@ -57,7 +57,7 @@ export function DashboardFrame({
         </div>
       </header>
 
-      <div className="space-y-6 p-4 sm:p-5 lg:p-6">{children}</div>
+      <div className="space-y-5 p-3 sm:space-y-6 sm:p-5 lg:p-6">{children}</div>
     </div>
   );
 }
@@ -80,7 +80,7 @@ export function MetricCard({
   compact = false,
 }) {
   return (
-    <article className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
+    <article className="min-w-0 rounded-lg border border-slate-200 bg-white p-4 shadow-sm sm:p-5">
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
           <p className="truncate text-xs font-medium uppercase tracking-wide text-slate-500">
@@ -111,8 +111,8 @@ export function MetricCard({
 
 export function CardShell({ title, action, children, id }) {
   return (
-    <section id={id} className="scroll-mt-24 rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
-      <div className="mb-5 flex items-start justify-between gap-4">
+    <section id={id} className="min-w-0 scroll-mt-24 rounded-lg border border-slate-200 bg-white p-4 shadow-sm sm:p-5">
+      <div className="mb-5 flex flex-wrap items-start justify-between gap-4">
         <h2 className="text-lg font-semibold text-slate-950">{title}</h2>
         {action}
       </div>

@@ -137,15 +137,15 @@ export default function AdminLayout() {
         clearSearch: () => setSearch(""),
       }}
     >
-    <div className="flex h-screen w-full max-w-full gap-2 overflow-hidden bg-slate-100 p-2 text-slate-900 sm:gap-3 sm:p-3">
+    <div className="flex h-screen w-full max-w-full gap-1 overflow-hidden bg-slate-100 p-1 text-slate-900 sm:gap-3 sm:p-3">
       <Sidebar />
       <main className="scrollbar-none min-h-0 min-w-0 flex-1 overflow-y-auto rounded-lg bg-slate-50">
-        <header className="sticky top-0 z-45 overflow-visible rounded-t-lg border-b border-slate-200 bg-white/95 px-4 py-3 backdrop-blur sm:px-5 lg:px-6">
+        <header className="sticky top-0 z-45 overflow-visible rounded-t-lg border-b border-slate-200 bg-white/95 px-3 py-3 backdrop-blur sm:px-5 lg:px-6">
           <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
             <h1 className="truncate text-xl font-semibold text-slate-950 sm:text-2xl">
               {pageTitle(pathname)}
             </h1>
-            <div className="flex min-w-0 flex-col gap-2 sm:flex-row sm:items-center">
+            <div className="flex min-w-0 flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center sm:justify-end">
               {showTopBarSearch && (
                 <label className="relative block w-full sm:w-[24rem]">
                   <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-slate-400" />
@@ -210,7 +210,7 @@ export default function AdminLayout() {
         <div
           className={[
             "mx-auto flex h-full min-h-full w-full max-w-480 flex-col",
-            isDashboard ? "" : "p-4 sm:p-5 lg:p-6",
+            isDashboard ? "" : "p-3 sm:p-5 lg:p-6",
           ].join(" ")}
         >
           <Outlet />

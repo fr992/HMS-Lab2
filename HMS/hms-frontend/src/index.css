@@ -10,11 +10,19 @@ body {
 }
 
 html {
+  max-width: 100%;
+  overflow-x: hidden;
   scroll-behavior: smooth;
+}
+
+body {
+  max-width: 100%;
+  overflow-x: hidden;
 }
 
 #root {
   min-height: 100svh;
+  max-width: 100%;
 }
 
 section[id] {

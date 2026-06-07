@@ -22,7 +22,7 @@ export default function EquipmentSection() {
 
   return (
     <section id="equipment" className="bg-white py-20 sm:py-24">
-      <div className="mx-auto grid max-w-7xl gap-10 px-6 lg:grid-cols-[0.8fr_1.4fr] lg:px-8">
+      <div className="mx-auto grid max-w-7xl gap-10 px-4 sm:px-6 lg:grid-cols-[0.8fr_1.4fr] lg:px-8">
         <div className="landing-reveal">
           <p className="text-sm font-semibold text-blue-600">{t("equipment.eyebrow")}</p>
           <h2 className="mt-3 max-w-md text-3xl font-semibold leading-tight text-cyan-950 sm:text-4xl">
@@ -32,7 +32,7 @@ export default function EquipmentSection() {
             {t("equipment.description")}
           </p>
 
-          <div className="mt-8 rounded-md border border-cyan-100 bg-cyan-50/70 p-5">
+          <div className="mt-8 rounded-md border border-cyan-100 bg-cyan-50/70 p-4 sm:p-5">
             <div className="flex items-center gap-3">
               <span className="inline-flex size-10 items-center justify-center rounded-md bg-blue-600 text-white">
                 <BadgeCheck className="size-4" />
@@ -66,7 +66,7 @@ function EquipmentRow({ item, index, t }) {
   const categoryLabel = t(`equipment.categories.${item.category}`);
 
   return (
-    <div className="grid gap-4 border-b border-cyan-100 p-5 last:border-b-0 sm:grid-cols-[auto_1fr_auto] sm:items-center">
+    <div className="grid gap-4 border-b border-cyan-100 p-4 last:border-b-0 sm:grid-cols-[auto_1fr_auto] sm:items-center sm:p-5">
       <span className="flex h-11 w-11 items-center justify-center rounded-md bg-blue-600 text-sm font-semibold text-white">
         {String(index + 1).padStart(2, "0")}
       </span>

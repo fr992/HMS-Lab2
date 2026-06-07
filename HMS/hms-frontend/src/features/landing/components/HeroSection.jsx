@@ -113,14 +113,14 @@ export default function HeroSection() {
 
   return (
     <section id="home" className="bg-[#f7fbfd]">
-      <div className="mx-auto grid min-h-[calc(100svh-5rem)] max-w-7xl items-center gap-12 px-6 py-20 lg:grid-cols-[1fr_0.95fr] lg:px-8 lg:py-24">
+      <div className="mx-auto grid min-h-[calc(100svh-5rem)] max-w-7xl items-center gap-10 px-4 py-16 sm:px-6 sm:py-20 lg:grid-cols-[1fr_0.95fr] lg:px-8 lg:py-24">
         <div className="landing-reveal">
           <div className="inline-flex items-center gap-2 rounded-full border border-blue-200 bg-blue-50 px-4 py-2 text-sm font-semibold text-blue-700">
             <Sparkles className="size-4" />
             {t("heroBadge")}
           </div>
 
-          <h1 className="mt-8 max-w-3xl text-5xl font-semibold leading-[1.05] text-cyan-950 sm:text-6xl">
+          <h1 className="mt-8 max-w-3xl text-4xl font-semibold leading-[1.05] text-cyan-950 sm:text-5xl lg:text-6xl">
             {heroTitle}
           </h1>
 
@@ -128,17 +128,17 @@ export default function HeroSection() {
             {heroSubtitle}
           </p>
 
-          <div className="mt-9 flex flex-wrap gap-3">
+          <div className="mt-9 flex flex-col gap-3 sm:flex-row sm:flex-wrap">
             <a
               href="#appointment"
-              className="inline-flex h-12 items-center gap-2 rounded-md bg-blue-600 px-6 text-sm font-semibold text-white shadow-lg shadow-blue-700/20 transition hover:-translate-y-0.5 hover:bg-blue-500"
+              className="inline-flex h-12 items-center justify-center gap-2 rounded-md bg-blue-600 px-6 text-sm font-semibold text-white shadow-lg shadow-blue-700/20 transition hover:-translate-y-0.5 hover:bg-blue-500"
             >
               {t("heroCta")}
               <ArrowRight className="size-4" />
             </a>
             <a
               href="/login"
-              className="inline-flex h-12 items-center gap-2 rounded-md border border-cyan-200 bg-white px-6 text-sm font-semibold text-cyan-950 transition hover:-translate-y-0.5 hover:border-blue-200 hover:bg-blue-50"
+              className="inline-flex h-12 items-center justify-center gap-2 rounded-md border border-cyan-200 bg-white px-6 text-sm font-semibold text-cyan-950 transition hover:-translate-y-0.5 hover:border-blue-200 hover:bg-blue-50"
             >
               {t("portalLogin")}
             </a>
@@ -170,7 +170,7 @@ function SummaryStat({ item, stats, t }) {
 
 function HospitalSnapshot({ stats, t }) {
   return (
-    <div className="landing-reveal landing-delay-2 rounded-md border border-cyan-100 bg-white p-5 shadow-2xl shadow-cyan-950/10 sm:p-7">
+    <div className="landing-reveal landing-delay-2 rounded-md border border-cyan-100 bg-white p-4 shadow-2xl shadow-cyan-950/10 sm:p-6 lg:p-7">
       <div className="mb-7 flex items-start justify-between gap-4">
         <div>
           <p className="text-sm font-medium text-cyan-800/60">{t("snapshot.eyebrow")}</p>
@@ -201,7 +201,7 @@ function SnapshotCard({ item, stats, t }) {
   const Icon = item.icon;
 
   return (
-    <div className="rounded-md border border-cyan-100 bg-[#fbfdff] p-4">
+    <div className="rounded-md border border-cyan-100 bg-[#fbfdff] p-4 sm:p-5">
       <span className={`inline-flex size-10 items-center justify-center rounded-md ${item.tone}`}>
         <Icon className="size-5" />
       </span>
