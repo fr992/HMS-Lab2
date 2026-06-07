@@ -95,7 +95,7 @@ Base path: `/api/admin/departments`
 
 | Parameter | Type | Description |
 |-----------|------|-------------|
-| `id` | string/int | Department identifier |
+| `id` | int | Department identifier |
 
 ---
 
@@ -122,7 +122,7 @@ Base path: `/api/admin/role-permissions`
 
 | Parameter | Type | Description |
 |-----------|------|-------------|
-| `roleId` | string/int | Role identifier |
+| `roleId` | int | Role identifier |
 
 ---
 
@@ -141,7 +141,7 @@ Base path: `/api/admin/roles`
 
 | Parameter | Type | Description |
 |-----------|------|-------------|
-| `id` | string/int | Role identifier |
+| `id` | int | Role identifier |
 
 ---
 
@@ -161,7 +161,7 @@ Base path: `/api/admin/settings`
 
 | Parameter | Type | Description |
 |-----------|------|-------------|
-| `id` | string/int | Setting identifier |
+| `id` | int | Setting identifier |
 
 ---
 
@@ -203,7 +203,7 @@ Base path: `/api/admin/users`
 
 | Parameter | Type | Description |
 |-----------|------|-------------|
-| `id` | string/int | User identifier |
+| `id` | int | User identifier |
 
 ---
 
@@ -225,7 +225,7 @@ Base path: `/api/admin/lab-tests`
 
 | Parameter | Type | Description |
 |-----------|------|-------------|
-| `id` | string/int | Lab test identifier |
+| `id` | int | Lab test identifier |
 | `format` | string | File format (e.g., `csv`, `xlsx`) |
 
 ---
@@ -248,7 +248,7 @@ Base path: `/api/admin/medications`
 
 | Parameter | Type | Description |
 |-----------|------|-------------|
-| `id` | string/int | Medication identifier |
+| `id` | int | Medication identifier |
 | `format` | string | File format (e.g., `csv`, `xlsx`) |
 
 ---
@@ -268,7 +268,7 @@ Base path: `/api/appointment-requests`
 
 | Parameter | Type | Description |
 |-----------|------|-------------|
-| `id` | string/int | Appointment request identifier |
+| `id` | int | Appointment request identifier |
 
 ---
 
@@ -290,7 +290,7 @@ Base path: `/api/receptionist/appointments`
 
 | Parameter | Type | Description |
 |-----------|------|-------------|
-| `id` | string/int | Appointment identifier |
+| `id` | int | Appointment identifier |
 | `format` | string | File format (e.g., `csv`, `xlsx`) |
 
 ---
@@ -309,7 +309,7 @@ Base path: `/api/bed-assignment-requests`
 
 | Parameter | Type | Description |
 |-----------|------|-------------|
-| `requestId` | string/int | Bed assignment request identifier |
+| `requestId` | int | Bed assignment request identifier |
 
 ---
 
@@ -335,9 +335,9 @@ Base path: `/api/beds`
 
 | Parameter | Type | Description |
 |-----------|------|-------------|
-| `id` | string/int | Bed identifier |
-| `bedId` | string/int | Bed identifier (for assignment actions) |
-| `assignmentId` | string/int | Bed assignment identifier |
+| `id` | int | Bed identifier |
+| `bedId` | int | Bed identifier (for assignment actions) |
+| `assignmentId` | int | Bed assignment identifier |
 | `format` | string | File format (e.g., `csv`, `xlsx`) |
 
 ---
@@ -417,7 +417,7 @@ Base path: `/api/encounters/{encounterId}/diagnoses`
 
 | Parameter | Type | Description |
 |-----------|------|-------------|
-| `encounterId` | string/int | Encounter identifier |
+| `encounterId` | int | Encounter identifier |
 
 ---
 
@@ -434,7 +434,7 @@ Base path: `/api/clinical/doctor/appointments`
 
 | Parameter | Type | Description |
 |-----------|------|-------------|
-| `id` | string/int | Appointment identifier |
+| `id` | int | Appointment identifier |
 
 ---
 
@@ -482,7 +482,7 @@ Base path: `/api/encounters/{encounterId}/bed-assignment-requests`
 
 | Parameter | Type | Description |
 |-----------|------|-------------|
-| `encounterId` | string/int | Encounter identifier |
+| `encounterId` | int | Encounter identifier |
 
 ---
 
@@ -500,8 +500,8 @@ Base path: `/api/encounters/{encounterId}/lab-requests`
 
 | Parameter | Type | Description |
 |-----------|------|-------------|
-| `encounterId` | string/int | Encounter identifier |
-| `labRequestId` | string/int | Lab request identifier |
+| `encounterId` | int | Encounter identifier |
+| `labRequestId` | int | Lab request identifier |
 
 ---
 
@@ -525,7 +525,7 @@ Base path: `/api/encounters`
 
 | Parameter | Type | Description |
 |-----------|------|-------------|
-| `id` | string/int | Encounter identifier |
+| `id` | int | Encounter identifier |
 
 ---
 
@@ -542,7 +542,7 @@ Base path: `/api/lab/requests`
 
 | Parameter | Type | Description |
 |-----------|------|-------------|
-| `id` | string/int | Lab request identifier |
+| `id` | int | Lab request identifier |
 
 ---
 
@@ -560,7 +560,7 @@ Base path: `/api/lab/results`
 
 | Parameter | Type | Description |
 |-----------|------|-------------|
-| `id` | string/int | Lab result identifier |
+| `id` | int | Lab result identifier |
 
 ---
 
@@ -590,8 +590,8 @@ Base path: `/api/nurse-tasks`
 
 | Parameter | Type | Description |
 |-----------|------|-------------|
-| `encounterId` | string/int | Encounter identifier |
-| `id` | string/int | Nurse task identifier |
+| `encounterId` | int | Encounter identifier |
+| `id` | int | Nurse task identifier |
 
 ---
 
@@ -608,7 +608,7 @@ Base path: `/api/patients/{patientId}/contacts`
 
 | Parameter | Type | Description |
 |-----------|------|-------------|
-| `patientId` | string/int | Patient identifier |
+| `patientId` | int | Patient identifier |
 
 ---
 
@@ -631,7 +631,7 @@ Base path: `/api/patients`
 
 | Parameter | Type | Description |
 |-----------|------|-------------|
-| `id` | string/int | Patient identifier |
+| `id` | int | Patient identifier |
 | `format` | string | File format (e.g., `csv`, `xlsx`) |
 
 ---
@@ -652,7 +652,7 @@ Base path: `/api/payments`
 
 | Parameter | Type | Description |
 |-----------|------|-------------|
-| `id` | string/int | Payment identifier |
+| `id` | int | Payment identifier |
 
 ---
 
@@ -671,8 +671,8 @@ Base path: `/api/encounters/{encounterId}/prescriptions`
 
 | Parameter | Type | Description |
 |-----------|------|-------------|
-| `encounterId` | string/int | Encounter identifier |
-| `prescriptionId` | string/int | Prescription identifier |
+| `encounterId` | int | Encounter identifier |
+| `prescriptionId` | int | Prescription identifier |
 
 ---
 
@@ -692,7 +692,7 @@ Base path: `/api/invoices`
 
 | Parameter | Type | Description |
 |-----------|------|-------------|
-| `id` | string/int | Invoice identifier |
+| `id` | int | Invoice identifier |
 
 ---
 
@@ -710,7 +710,7 @@ Base path: `/api/lab-results`
 
 | Parameter | Type | Description |
 |-----------|------|-------------|
-| `id` | string/int | Lab result identifier |
+| `id` | int | Lab result identifier |
 
 ---
 
@@ -747,7 +747,7 @@ Base path: `/api/me/lab-results`
 
 | Parameter | Type | Description |
 |-----------|------|-------------|
-| `id` | string/int | Lab result identifier |
+| `id` | int | Lab result identifier |
 
 ---
 
@@ -778,7 +778,7 @@ Base path: `/api/notifications/me`
 
 | Parameter | Type | Description |
 |-----------|------|-------------|
-| `id` | string/int | Notification identifier |
+| `id` | string | Notification identifier (MongoDB ObjectId) |
 
 ---
 
@@ -826,7 +826,7 @@ Base path: `/api/stripe`
 
 | Parameter | Type | Description |
 |-----------|------|-------------|
-| `paymentId` | string/int | Payment identifier |
+| `paymentId` | int | Payment identifier |
 
 ---
 
