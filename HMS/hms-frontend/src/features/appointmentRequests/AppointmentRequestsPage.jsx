@@ -9,7 +9,6 @@ import {
   MessageSquareText,
   Phone,
   RefreshCw,
-  RotateCcw,
   Search,
   Stethoscope,
   X,
@@ -27,10 +26,13 @@ import {
   getApiErrorMessage,
   patchAppointmentRequestStatus,
 } from "@/features/appointmentRequests/api/appointmentRequestsApi";
+import { patchAppointmentStatus } from "@/features/appointments/api/appointmentsApi";
+import { APPOINTMENT_STATUS } from "@/features/appointments/appointmentConstants";
 
 const STATUS_OPTIONS = [
   { value: "all", label: "All statuses" },
   { value: APPOINTMENT_REQUEST_STATUS.PENDING, label: "Pending" },
+  { value: APPOINTMENT_REQUEST_STATUS.RESCHEDULED, label: "Rescheduled" },
   { value: APPOINTMENT_REQUEST_STATUS.CONFIRMED, label: "Confirmed" },
   { value: APPOINTMENT_REQUEST_STATUS.COMPLETED, label: "Completed" },
   { value: APPOINTMENT_REQUEST_STATUS.CANCELLED, label: "Cancelled" },
@@ -41,6 +43,11 @@ const STATUS_META = {
     label: "Pending",
     icon: Clock3,
     badge: "bg-amber-50 text-amber-900 ring-amber-200",
+  },
+  rescheduled: {
+    label: "Rescheduled",
+    icon: CalendarClock,
+    badge: "bg-violet-50 text-violet-900 ring-violet-200",
   },
   confirmed: {
     label: "Confirmed",
@@ -137,22 +144,11 @@ function SummaryTile({ label, value, icon }) {
 
 function getNextActions(status) {
   const key = statusKey(status);
-  if (key === "pending") {
+  if (key === "pending" || key === "rescheduled") {
     return [
-      { label: "Save doctor", status: APPOINTMENT_REQUEST_STATUS.PENDING },
       { label: "Confirm", status: APPOINTMENT_REQUEST_STATUS.CONFIRMED, primary: true },
-      { label: "Cancel", status: APPOINTMENT_REQUEST_STATUS.CANCELLED, danger: true },
-    ];
-  }
-  if (key === "confirmed") {
-    return [
-      { label: "Complete", status: APPOINTMENT_REQUEST_STATUS.COMPLETED, primary: true },
-      { label: "Cancel", status: APPOINTMENT_REQUEST_STATUS.CANCELLED, danger: true },
-    ];
-  }
-  if (key === "cancelled" || key === "completed") {
-    return [
-      { label: "Reopen", status: APPOINTMENT_REQUEST_STATUS.PENDING, icon: RotateCcw },
+      { label: "Reschedule", status: APPOINTMENT_REQUEST_STATUS.RESCHEDULED },
+      { label: "Reject", status: APPOINTMENT_REQUEST_STATUS.CANCELLED, danger: true },
     ];
   }
   return [];
@@ -202,7 +198,7 @@ function RequestCard({ request, selected, onSelect }) {
             Preferred {formatDateOnly(request.preferredDate)}
           </p>
         </div>
-        <RequestStatusBadge status={request.status} />
+        <RequestStatusBadge status={request.appointmentStatus || request.status} />
       </div>
 
       <div className="mt-3 flex items-center gap-2 text-sm text-slate-600">
@@ -227,12 +223,28 @@ function RequestDetails({
   mutating,
   doctorSelection,
   selectedDoctor,
+  scheduledStart,
+  isReschedulePending,
   onDoctorChange,
+  onScheduledStartChange,
   onStatusChange,
+  onOpenAction,
+  onAppointmentStatusChange,
 }) {
   const name = getFullName(request) || `Request #${request.id}`;
-  const actions = getNextActions(request.status);
-  const isPending = statusKey(request.status) === "pending";
+  const actions = getNextActions(request.status).map((action) =>
+    action.status === APPOINTMENT_REQUEST_STATUS.CONFIRMED && isReschedulePending
+      ? { ...action, label: "Confirm Reschedule" }
+      : action
+  );
+  const isPending = ["pending", "rescheduled"].includes(statusKey(request.status));
+  const appointmentActions =
+    request.appointmentStatus === APPOINTMENT_STATUS.CONFIRMED
+      ? [
+          { label: "Check In Patient", status: APPOINTMENT_STATUS.CHECKED_IN, primary: true },
+          { label: "Cancel Appointment", status: APPOINTMENT_STATUS.CANCELLED, danger: true },
+        ]
+      : [];
 
   return (
     <section>
@@ -246,7 +258,7 @@ function RequestDetails({
               {name}
             </h2>
           </div>
-          <RequestStatusBadge status={request.status} />
+          <RequestStatusBadge status={request.appointmentStatus || request.status} />
         </div>
       </div>
 
@@ -271,7 +283,10 @@ function RequestDetails({
           />
           <InfoLine label="Preferred date" value={formatDateOnly(request.preferredDate)} />
           <InfoLine label="Submitted" value={formatDateTime(request.createdAt)} />
-          <InfoLine label="Current status" value={STATUS_META[statusKey(request.status)]?.label ?? request.status} />
+          <InfoLine
+            label="Current status"
+            value={request.appointmentStatus || STATUS_META[statusKey(request.status)]?.label || request.status}
+          />
         </div>
 
         <div className="rounded-lg border border-slate-200 bg-slate-50/70 p-4">
@@ -283,6 +298,13 @@ function RequestDetails({
             {request.reasonForVisit || "No reason provided."}
           </p>
         </div>
+
+        {request.rejectionReason && (
+          <div className="rounded-lg border border-rose-200 bg-rose-50 p-4">
+            <p className="text-xs font-semibold uppercase tracking-wide text-rose-700">Rejection reason</p>
+            <p className="mt-2 whitespace-pre-wrap text-sm leading-6 text-rose-900">{request.rejectionReason}</p>
+          </div>
+        )}
 
         <div className="rounded-lg border border-slate-200 p-4">
           <div className="flex items-start justify-between gap-3">
@@ -310,17 +332,42 @@ function RequestDetails({
               </p>
             )}
           </div>
+          {canManageStatus && isPending && (
+            <label className="mt-4 block">
+              <span className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                Appointment date and time
+              </span>
+              <input
+                type="datetime-local"
+                value={scheduledStart}
+                onChange={(event) => onScheduledStartChange(event.target.value)}
+                disabled={mutating}
+                className="mt-1.5 h-10 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm text-slate-900 shadow-sm outline-none focus:border-sky-500 focus:ring-2 focus:ring-sky-500/20"
+              />
+            </label>
+          )}
+          {isReschedulePending && (
+            <p className="mt-3 rounded-lg border border-sky-200 bg-sky-50 px-3 py-2 text-sm text-sky-900">
+              The new time is staged. Assign a doctor and confirm the reschedule to notify the patient.
+            </p>
+          )}
         </div>
 
-        {canManageStatus && actions.length > 0 && (
+        {canManageStatus && (actions.length > 0 || appointmentActions.length > 0) && (
           <div className="flex flex-wrap justify-end gap-2 border-t border-slate-100 pt-4">
-            {actions.map((action) => {
+            {[...actions, ...appointmentActions].map((action) => {
               const Icon = action.icon;
               return (
                 <button
                   key={action.status}
                   type="button"
-                  onClick={() => onStatusChange(action.status)}
+                  onClick={() =>
+                    appointmentActions.includes(action)
+                      ? onAppointmentStatusChange(action.status)
+                      : action.status === APPOINTMENT_REQUEST_STATUS.CONFIRMED
+                        ? onStatusChange(action.status)
+                        : onOpenAction(action.status)
+                  }
                   disabled={mutating}
                   className={[
                     "inline-flex h-10 items-center justify-center gap-2 rounded-lg px-4 text-sm font-semibold shadow-sm transition disabled:opacity-50",
@@ -381,6 +428,81 @@ function RequestDetailsModal({ open, onClose, children }) {
   );
 }
 
+function RequestActionModal({
+  action,
+  request,
+  rescheduleDraft,
+  rejectionReason,
+  mutating,
+  onRescheduleDraftChange,
+  onRejectionReasonChange,
+  onClose,
+  onSubmit,
+}) {
+  if (!action || !request) return null;
+  const isReschedule = action === APPOINTMENT_REQUEST_STATUS.RESCHEDULED;
+
+  return (
+    <div className="hms-modal-overlay" role="presentation">
+      <form
+        onSubmit={(event) => {
+          event.preventDefault();
+          onSubmit();
+        }}
+        className="w-full max-w-lg rounded-xl border border-slate-200 bg-white shadow-2xl"
+        role="dialog"
+        aria-modal="true"
+      >
+        <div className="hms-modal-header">
+          <h2 className="text-lg font-semibold text-slate-950">
+            {isReschedule ? "Reschedule appointment" : "Reject appointment"}
+          </h2>
+          <button type="button" onClick={onClose} className="rounded-lg border border-slate-200 p-2 text-slate-500">
+            <X className="h-4 w-4" aria-hidden />
+          </button>
+        </div>
+        <div className="p-5">
+          {isReschedule ? (
+            <label className="block">
+              <span className="text-sm font-medium text-slate-800">New appointment date and time</span>
+              <input
+                required
+                type="datetime-local"
+                value={rescheduleDraft}
+                onChange={(event) => onRescheduleDraftChange(event.target.value)}
+                className="mt-2 h-10 w-full rounded-lg border border-slate-200 px-3 text-sm outline-none focus:border-sky-500 focus:ring-2 focus:ring-sky-500/20"
+              />
+              <span className="mt-2 block text-xs leading-5 text-slate-500">
+                This only selects the new time. You will return to the request details to assign a doctor and confirm.
+              </span>
+            </label>
+          ) : (
+            <label className="block">
+              <span className="text-sm font-medium text-slate-800">Rejection reason (optional)</span>
+              <textarea
+                value={rejectionReason}
+                onChange={(event) => onRejectionReasonChange(event.target.value)}
+                maxLength={500}
+                rows={4}
+                placeholder="Add a short explanation for the patient"
+                className="mt-2 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm outline-none focus:border-sky-500 focus:ring-2 focus:ring-sky-500/20"
+              />
+            </label>
+          )}
+        </div>
+        <div className="flex justify-end gap-2 border-t border-slate-100 p-4">
+          <button type="button" onClick={onClose} disabled={mutating} className="h-10 rounded-lg border border-slate-200 px-4 text-sm font-semibold">
+            Cancel
+          </button>
+          <button type="submit" disabled={mutating || (isReschedule && !rescheduleDraft)} className={`h-10 rounded-lg px-4 text-sm font-semibold text-white disabled:opacity-50 ${isReschedule ? "bg-sky-600" : "bg-rose-600"}`}>
+            {mutating ? "Saving..." : isReschedule ? "Use new time" : "Reject"}
+          </button>
+        </div>
+      </form>
+    </div>
+  );
+}
+
 export default function AppointmentRequestsPage() {
   const auth = useAuth();
   const canManageStatus = auth.hasPermission("Appointments.ManageStatus");
@@ -399,6 +521,11 @@ export default function AppointmentRequestsPage() {
   const [selectedRequestId, setSelectedRequestId] = useState(null);
   const [doctorSelections, setDoctorSelections] = useState({});
   const [selectedDoctors, setSelectedDoctors] = useState({});
+  const [scheduledStarts, setScheduledStarts] = useState({});
+  const [pendingAction, setPendingAction] = useState(null);
+  const [rescheduleDraft, setRescheduleDraft] = useState("");
+  const [rescheduleConfirmations, setRescheduleConfirmations] = useState({});
+  const [rejectionReason, setRejectionReason] = useState("");
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -455,6 +582,7 @@ export default function AppointmentRequestsPage() {
       confirmed: 0,
       completed: 0,
       cancelled: 0,
+      rescheduled: 0,
     };
     for (const item of items) {
       const key = statusKey(item.status);
@@ -488,18 +616,70 @@ export default function AppointmentRequestsPage() {
     [selectedDoctors]
   );
 
-  const updateStatus = async (request, nextStatus) => {
+  const updateStatus = async (request, nextStatus, options = {}) => {
     if (!request || !canManageStatus || mutatingId != null) return;
     const doctorProfileId = selectedDoctorIdFor(request);
     if (nextStatus === APPOINTMENT_REQUEST_STATUS.CONFIRMED && !doctorProfileId) {
       showToast("Assign a doctor before confirming this request.", "warning");
       return;
     }
+    const scheduledStart = options.scheduledStart ?? scheduledStarts[request.id] ?? `${request.preferredDate}T09:00`;
+    const isRescheduleConfirmation =
+      options.isRescheduleConfirmation ?? Boolean(rescheduleConfirmations[request.id]);
 
     setMutatingId(request.id);
     try {
-      await patchAppointmentRequestStatus(request.id, nextStatus, doctorProfileId);
-      showToast("Request status updated.");
+      const updated = await patchAppointmentRequestStatus(
+        request.id,
+        nextStatus,
+        doctorProfileId,
+        nextStatus === APPOINTMENT_REQUEST_STATUS.CANCELLED ? null : scheduledStart,
+        options.rejectionReason,
+        isRescheduleConfirmation
+      );
+      if (updated.emailNotificationSent === true) {
+        showToast(
+          isRescheduleConfirmation
+            ? "Request confirmed and reschedule email sent."
+            : "Request updated and confirmation email sent."
+        );
+      } else {
+        showToast(
+          isRescheduleConfirmation
+            ? "Request confirmed, but the reschedule email could not be sent."
+            : "Request updated, but the confirmation email could not be sent.",
+          "warning"
+        );
+      }
+      if (nextStatus === APPOINTMENT_REQUEST_STATUS.CONFIRMED || nextStatus === APPOINTMENT_REQUEST_STATUS.CANCELLED) {
+        setSelectedRequestId(null);
+      }
+      setPendingAction(null);
+      setRejectionReason("");
+      setRescheduleConfirmations((current) => {
+        const next = { ...current };
+        delete next[request.id];
+        return next;
+      });
+      await load();
+    } catch (e) {
+      showToast(getApiErrorMessage(e), "error");
+    } finally {
+      setMutatingId(null);
+    }
+  };
+
+  const updateAppointmentStatus = async (request, nextStatus) => {
+    if (!request?.appointmentId || !canManageStatus || mutatingId != null) return;
+    setMutatingId(request.id);
+    try {
+      await patchAppointmentStatus(request.appointmentId, {
+        status: nextStatus,
+        ...(nextStatus === APPOINTMENT_STATUS.CANCELLED
+          ? { cancellationReason: "Cancelled by reception" }
+          : {}),
+      });
+      showToast(nextStatus === APPOINTMENT_STATUS.CHECKED_IN ? "Patient checked in." : "Appointment cancelled.");
       await load();
     } catch (e) {
       showToast(getApiErrorMessage(e), "error");
@@ -707,15 +887,69 @@ export default function AppointmentRequestsPage() {
             selectedDoctor={
               selectedRequest ? selectedDoctorFor(selectedRequest) : null
             }
+            scheduledStart={
+              scheduledStarts[selectedRequest.id] ||
+              (selectedRequest.scheduledStart
+                ? String(selectedRequest.scheduledStart).slice(0, 16)
+                : `${selectedRequest.preferredDate}T09:00`)
+            }
+            isReschedulePending={Boolean(rescheduleConfirmations[selectedRequest.id])}
+            onScheduledStartChange={(value) =>
+              setScheduledStarts((current) => ({ ...current, [selectedRequest.id]: value }))
+            }
             onDoctorChange={(nextValue, doctor) => {
               if (selectedRequest) updateDoctorSelection(selectedRequest.id, nextValue, doctor);
             }}
             onStatusChange={(nextStatus) => {
               if (selectedRequest) void updateStatus(selectedRequest, nextStatus);
             }}
+            onOpenAction={(nextAction) => {
+              setPendingAction(nextAction);
+              setRescheduleDraft("");
+            }}
+            onAppointmentStatusChange={(nextStatus) => {
+              if (selectedRequest) void updateAppointmentStatus(selectedRequest, nextStatus);
+            }}
           />
         )}
       </RequestDetailsModal>
+
+      <RequestActionModal
+        action={pendingAction}
+        request={selectedRequest}
+        rescheduleDraft={rescheduleDraft}
+        rejectionReason={rejectionReason}
+        mutating={selectedRequest ? mutatingId === selectedRequest.id : false}
+        onRescheduleDraftChange={setRescheduleDraft}
+        onRejectionReasonChange={setRejectionReason}
+        onClose={() => {
+          setPendingAction(null);
+          setRescheduleDraft("");
+          setRejectionReason("");
+        }}
+        onSubmit={() => {
+          if (selectedRequest && pendingAction) {
+            if (pendingAction === APPOINTMENT_REQUEST_STATUS.RESCHEDULED) {
+              if (!rescheduleDraft) return;
+              setScheduledStarts((current) => ({
+                ...current,
+                [selectedRequest.id]: rescheduleDraft,
+              }));
+              setRescheduleConfirmations((current) => ({
+                ...current,
+                [selectedRequest.id]: true,
+              }));
+              setPendingAction(null);
+              setRescheduleDraft("");
+              showToast("New time selected. Assign a doctor and confirm the request to notify the patient.");
+              return;
+            }
+            void updateStatus(selectedRequest, pendingAction, {
+              rejectionReason,
+            });
+          }
+        }}
+      />
     </div>
   );
 }

@@ -70,4 +70,15 @@ public sealed class AppointmentRepository : EfRepository<Appointment>, IAppointm
             .Select(doctor => doctor.StaffProfile.Person.UserId)
             .FirstOrDefaultAsync(cancellationToken);
     }
+
+    public async Task<int?> GetDoctorProfileIdByUserIdAsync(
+        int userId,
+        CancellationToken cancellationToken = default)
+    {
+        return await _db.DoctorProfiles
+            .AsNoTracking()
+            .Where(doctor => doctor.StaffProfile.Person.UserId == userId)
+            .Select(doctor => (int?)doctor.Id)
+            .FirstOrDefaultAsync(cancellationToken);
+    }
 }

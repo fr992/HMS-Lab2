@@ -58,12 +58,39 @@ const byStatus = {
   ],
 };
 
+const onlineByStatus = {
+  [APPOINTMENT_STATUS.CONFIRMED]: [
+    { id: "check_in", label: "Check In Patient", kind: "status", target: APPOINTMENT_STATUS.CHECKED_IN },
+    { id: "cancel", label: "Cancel", kind: "cancel" },
+    { id: "view", label: "View Details", kind: "view" },
+  ],
+  [APPOINTMENT_STATUS.CHECKED_IN]: [
+    { id: "view", label: "View Details", kind: "view" },
+    { id: "visit", label: "Start Encounter", kind: "visit" },
+  ],
+  [APPOINTMENT_STATUS.IN_PROGRESS]: [
+    { id: "view", label: "View Details", kind: "view" },
+    { id: "visit", label: "Continue Encounter", kind: "visit" },
+  ],
+  [APPOINTMENT_STATUS.COMPLETED]: [
+    { id: "view", label: "View Details", kind: "view" },
+    { id: "visit", label: "View Encounter", kind: "visit" },
+  ],
+  [APPOINTMENT_STATUS.CANCELLED]: [
+    { id: "view", label: "View Details", kind: "view" },
+  ],
+  [APPOINTMENT_STATUS.NO_SHOW]: [
+    { id: "view", label: "View Details", kind: "view" },
+  ],
+};
+
 /**
  * @param {string} status
  * @returns {AppointmentRowAction[]}
  */
-export function getAppointmentRowActions(status) {
+export function getAppointmentRowActions(status, isOnlineRequest = false) {
   const key = String(status ?? "").trim().toLowerCase();
+  if (isOnlineRequest) return onlineByStatus[key] ?? [{ id: "view", label: "View Details", kind: "view" }];
   return byStatus[key] ?? [{ id: "view", label: "View", kind: "view" }];
 }
 

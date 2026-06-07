@@ -45,12 +45,14 @@ public sealed class EncounterService : IEncounterService
         if (!doctorExists)
             throw new NotFoundException("Doctor profile does not exist.");
 
+        Appointment? linkedAppointment = null;
         if (request.AppointmentId.HasValue)
         {
-            await ValidateAppointmentLinkAsync(
+            linkedAppointment = await ValidateAppointmentLinkAsync(
                 request.AppointmentId.Value,
                 request.PatientProfileId,
                 request.DoctorProfileId,
+                actorUserId,
                 cancellationToken);
         }
 
@@ -79,6 +81,12 @@ public sealed class EncounterService : IEncounterService
         };
 
         _db.Add<Encounter>(encounter);
+        if (linkedAppointment?.AppointmentRequestId.HasValue == true)
+        {
+            linkedAppointment.Status = AppointmentStatus.InProgress;
+            linkedAppointment.UpdatedAt = now;
+            linkedAppointment.UpdatedById = actorUserId;
+        }
         await _unitOfWork.SaveChangesAsync(cancellationToken);
 
         return await GetByIdAsync(encounter.Id, cancellationToken)
@@ -367,6 +375,7 @@ public sealed class EncounterService : IEncounterService
         CancellationToken cancellationToken)
     {
         var appointment = await _db.Query<Appointment>()
+            .Include(a => a.AppointmentRequest)
             .FirstOrDefaultAsync(a => a.Id == appointmentId, cancellationToken);
 
         if (appointment == null)
@@ -379,9 +388,31 @@ public sealed class EncounterService : IEncounterService
             || string.Equals(appointment.Status, AppointmentStatus.NoShow, StringComparison.Ordinal))
             return;
 
+        if (appointment.AppointmentRequestId.HasValue)
+        {
+            if (!actorUserId.HasValue)
+                throw new UnauthorizedException("Authenticated doctor is required.");
+
+            var assignedDoctorUserId = await _db.Query<DoctorProfile>()
+                .Where(d => d.Id == appointment.DoctorProfileId)
+                .Select(d => d.StaffProfile.Person.UserId)
+                .FirstOrDefaultAsync(cancellationToken);
+            if (assignedDoctorUserId != actorUserId)
+                throw new ForbiddenException("Only the assigned doctor can complete this online appointment encounter.");
+
+            if (!string.Equals(appointment.Status, AppointmentStatus.InProgress, StringComparison.Ordinal))
+                throw new ConflictException("The online appointment must be in progress before its encounter can be completed.");
+        }
+
         appointment.Status = AppointmentStatus.Completed;
         appointment.UpdatedAt = DateTime.UtcNow;
         appointment.UpdatedById = actorUserId;
+        if (appointment.AppointmentRequest != null)
+        {
+            appointment.AppointmentRequest.Status = AppointmentRequestStatus.Completed;
+            appointment.AppointmentRequest.UpdatedAt = DateTime.UtcNow;
+            appointment.AppointmentRequest.UpdatedById = actorUserId;
+        }
     }
 
     public async Task<EncounterPanelDto?> GetPanelAsync(
@@ -703,14 +734,14 @@ public sealed class EncounterService : IEncounterService
             .Where(e => e.PatientProfile.Person.UserId == currentUserId);
     }
 
-    private async Task ValidateAppointmentLinkAsync(
+    private async Task<Appointment> ValidateAppointmentLinkAsync(
         int appointmentId,
         int patientProfileId,
         int doctorProfileId,
+        int? actorUserId,
         CancellationToken cancellationToken)
     {
         var appointment = await _db.Query<Appointment>()
-            .AsNoTracking()
             .FirstOrDefaultAsync(a => a.Id == appointmentId, cancellationToken);
 
         if (appointment == null)
@@ -722,12 +753,30 @@ public sealed class EncounterService : IEncounterService
         if (appointment.DoctorProfileId != doctorProfileId)
             throw new BadRequestException("Appointment does not belong to this doctor.");
 
+        if (appointment.AppointmentRequestId.HasValue)
+        {
+            if (!actorUserId.HasValue)
+                throw new UnauthorizedException("Authenticated doctor is required.");
+
+            var assignedDoctorUserId = await _db.Query<DoctorProfile>()
+                .Where(d => d.Id == doctorProfileId)
+                .Select(d => d.StaffProfile.Person.UserId)
+                .FirstOrDefaultAsync(cancellationToken);
+            if (assignedDoctorUserId != actorUserId)
+                throw new ForbiddenException("Only the assigned doctor can start this online appointment encounter.");
+
+            if (!string.Equals(appointment.Status, AppointmentStatus.CheckedIn, StringComparison.Ordinal))
+                throw new ConflictException("The patient must be checked in before the encounter can start.");
+        }
+
         var encounterAlreadyExists = await _db.Query<Encounter>().AnyAsync(
             e => e.AppointmentId == appointmentId,
             cancellationToken);
 
         if (encounterAlreadyExists)
             throw new ConflictException("This appointment already has an encounter.");
+
+        return appointment;
     }
 
     private static void EnsureEncounterEditable(string currentStatus)

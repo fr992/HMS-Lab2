@@ -51,7 +51,7 @@ export default function AppointmentRowActions({
   const nudgedForOpenRef = useRef(false);
 
   const perms = { canManageStatus, canEdit, canVisit };
-  const allActions = getAppointmentRowActions(appointment.status);
+  const allActions = getAppointmentRowActions(appointment.status, appointment.isOnlineRequest);
   const actions = allActions.filter((a) => isAppointmentActionVisible(a, perms));
   const visitAction = allActions.find((a) => a.kind === "visit");
   const visitAllowed =
@@ -249,10 +249,7 @@ export default function AppointmentRowActions({
         )
       : null;
 
-  const visitDisabled =
-    mutating ||
-    appointment.status === APPOINTMENT_STATUS.SCHEDULED ||
-    !visitAllowed;
+  const visitDisabled = mutating || appointment.status === APPOINTMENT_STATUS.SCHEDULED || !visitAllowed;
   const appointmentStatusKey = String(appointment.status ?? "").toLowerCase();
   const isVisited = appointmentStatusKey === APPOINTMENT_STATUS.COMPLETED;
 
@@ -281,7 +278,11 @@ export default function AppointmentRowActions({
         <div className="flex flex-wrap items-center justify-end gap-2">
           {isVisited && (
             <Link
-              to={`/appointments/${appointment.id}`}
+              to={
+                appointment.encounterId
+                  ? `${encounterBasePath}/${appointment.encounterId}`
+                  : `/appointments/${appointment.id}`
+              }
               className="inline-flex h-9 items-center justify-center gap-2 rounded-lg border border-slate-200 bg-white px-3 text-sm font-medium text-slate-800 shadow-sm transition hover:bg-slate-50"
             >
               <FolderOpen className="h-4 w-4 shrink-0 text-slate-600" aria-hidden />
@@ -306,7 +307,7 @@ export default function AppointmentRowActions({
                 className="inline-flex h-9 items-center justify-center gap-2 rounded-lg bg-sky-600 px-3 text-sm font-medium text-white shadow-sm transition hover:bg-sky-700 disabled:cursor-not-allowed disabled:bg-sky-400/70 disabled:opacity-90"
               >
                 <Stethoscope className="h-4 w-4 shrink-0" aria-hidden />
-                Visit
+              {visitAction.label}
               </button>
             </span>
           )}

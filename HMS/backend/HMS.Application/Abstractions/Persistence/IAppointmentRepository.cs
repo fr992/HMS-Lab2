@@ -26,4 +26,8 @@ public interface IAppointmentRepository : IRepository<Appointment>
     Task<int?> GetDoctorUserIdAsync(
         int doctorProfileId,
         CancellationToken cancellationToken = default);
+
+    Task<int?> GetDoctorProfileIdByUserIdAsync(
+        int userId,
+        CancellationToken cancellationToken = default);
 }

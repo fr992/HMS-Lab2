@@ -460,3 +460,36 @@ npm test
 ---
 
 *For API endpoint reference, see [apidocumentation.md](./apidocumentation.md).*
+# Appointment confirmation email
+
+Online appointment confirmation, reschedule, and rejection emails use SMTP configuration.
+Keep credentials outside source control and configure them with environment variables:
+
+```powershell
+$env:Notifications__Email__Enabled="true"
+$env:Notifications__Email__Host="smtp.example.com"
+$env:Notifications__Email__Port="587"
+$env:Notifications__Email__UseSsl="true"
+$env:Notifications__Email__UserName="smtp-user"
+$env:Notifications__Email__Password="smtp-password"
+$env:Notifications__Email__FromAddress="oltarrahmanii@gmail.com"
+$env:Notifications__Email__FromName="Nexora Hospital"
+```
+
+Restart the API after changing these values. Reception will see whether the email was
+successfully sent; an email failure does not undo the appointment status change.
+
+For local development, credentials can instead be stored with .NET user secrets:
+
+```powershell
+dotnet user-secrets set "Notifications:Email:Enabled" "true" --project backend/HMS.Api
+dotnet user-secrets set "Notifications:Email:Host" "smtp.gmail.com" --project backend/HMS.Api
+dotnet user-secrets set "Notifications:Email:Port" "587" --project backend/HMS.Api
+dotnet user-secrets set "Notifications:Email:UseSsl" "true" --project backend/HMS.Api
+dotnet user-secrets set "Notifications:Email:UserName" "sender@example.com" --project backend/HMS.Api
+dotnet user-secrets set "Notifications:Email:Password" "provider-app-password" --project backend/HMS.Api
+dotnet user-secrets set "Notifications:Email:FromAddress" "oltarrahmanii@gmail.com" --project backend/HMS.Api
+dotnet user-secrets set "Notifications:Email:FromName" "Nexora Hospital" --project backend/HMS.Api
+```
+
+For Gmail, use a Google App Password rather than the normal account password.

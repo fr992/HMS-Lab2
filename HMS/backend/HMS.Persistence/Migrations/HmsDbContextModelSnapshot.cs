@@ -887,6 +887,9 @@ namespace HMS.Persistence.Migrations
 
                     SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
 
+                    b.Property<int?>("AppointmentRequestId")
+                        .HasColumnType("int");
+
                     b.Property<string>("AppointmentType")
                         .HasColumnType("nvarchar(max)");
 
@@ -898,6 +901,9 @@ namespace HMS.Persistence.Migrations
 
                     b.Property<int?>("CancelledByUserId")
                         .HasColumnType("int");
+
+                    b.Property<DateTime?>("CheckedInAt")
+                        .HasColumnType("datetime2");
 
                     b.Property<DateTime?>("ConfirmedAt")
                         .HasColumnType("datetime2");
@@ -937,6 +943,10 @@ namespace HMS.Persistence.Migrations
                         .HasColumnType("int");
 
                     b.HasKey("Id");
+
+                    b.HasIndex("AppointmentRequestId")
+                        .IsUnique()
+                        .HasFilter("[AppointmentRequestId] IS NOT NULL");
 
                     b.HasIndex("CancelledByUserId");
 
@@ -996,10 +1006,17 @@ namespace HMS.Persistence.Migrations
                     b.Property<DateOnly>("PreferredDate")
                         .HasColumnType("date");
 
+                    b.Property<DateTime?>("ProposedStart")
+                        .HasColumnType("datetime2");
+
                     b.Property<string>("ReasonForVisit")
                         .IsRequired()
                         .HasMaxLength(300)
                         .HasColumnType("nvarchar(300)");
+
+                    b.Property<string>("RejectionReason")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
 
                     b.Property<string>("Status")
                         .IsRequired()
@@ -2205,6 +2222,11 @@ namespace HMS.Persistence.Migrations
 
             modelBuilder.Entity("Identity.Domain.Entities.Appointment", b =>
                 {
+                    b.HasOne("Identity.Domain.Entities.AppointmentRequest", "AppointmentRequest")
+                        .WithOne("Appointment")
+                        .HasForeignKey("Identity.Domain.Entities.Appointment", "AppointmentRequestId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
                     b.HasOne("Identity.Domain.Entities.User", "CancelledByUser")
                         .WithMany()
                         .HasForeignKey("CancelledByUserId");
@@ -2224,6 +2246,8 @@ namespace HMS.Persistence.Migrations
                         .HasForeignKey("PatientProfileId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
+
+                    b.Navigation("AppointmentRequest");
 
                     b.Navigation("CancelledByUser");
 
@@ -2276,7 +2300,7 @@ namespace HMS.Persistence.Migrations
             modelBuilder.Entity("Identity.Domain.Entities.Encounter", b =>
                 {
                     b.HasOne("Identity.Domain.Entities.Appointment", "Appointment")
-                        .WithOne()
+                        .WithOne("Encounter")
                         .HasForeignKey("Identity.Domain.Entities.Encounter", "AppointmentId")
                         .OnDelete(DeleteBehavior.SetNull);
 
@@ -2503,6 +2527,16 @@ namespace HMS.Persistence.Migrations
                     b.Navigation("DoctorProfile");
 
                     b.Navigation("NurseProfile");
+                });
+
+            modelBuilder.Entity("Identity.Domain.Entities.Appointment", b =>
+                {
+                    b.Navigation("Encounter");
+                });
+
+            modelBuilder.Entity("Identity.Domain.Entities.AppointmentRequest", b =>
+                {
+                    b.Navigation("Appointment");
                 });
 
             modelBuilder.Entity("Identity.Domain.Entities.Encounter", b =>

@@ -261,19 +261,21 @@ export default function AppointmentDetailPage() {
 
   const editable =
     row &&
+    !row.isOnlineRequest &&
     (row.status === APPOINTMENT_STATUS.SCHEDULED ||
       row.status === APPOINTMENT_STATUS.CONFIRMED);
   const canStartEncounter =
     canReadEncounters &&
     canCreateEncounters &&
     row &&
-    row.status !== APPOINTMENT_STATUS.CANCELLED &&
-    row.status !== APPOINTMENT_STATUS.NO_SHOW;
+    (!row.isOnlineRequest || row.status === APPOINTMENT_STATUS.CHECKED_IN);
   const canUseEncounterButton = linkedEncounter?.id
     ? canReadEncounters
     : canStartEncounter;
   const encounterButtonLabel = linkedEncounter?.id
-    ? "Open Encounter"
+    ? row.status === APPOINTMENT_STATUS.COMPLETED
+      ? "View Encounter"
+      : "Continue Encounter"
     : "Start Encounter";
 
   const handleStartEncounter = async () => {
@@ -351,9 +353,12 @@ export default function AppointmentDetailPage() {
     row.status !== APPOINTMENT_STATUS.CANCELLED &&
     row.status !== APPOINTMENT_STATUS.COMPLETED;
   const canConfirm =
-    canManageStatus && row.status === APPOINTMENT_STATUS.SCHEDULED;
+    canManageStatus && !row.isOnlineRequest && row.status === APPOINTMENT_STATUS.SCHEDULED;
+  const canCheckIn =
+    canManageStatus && row.isOnlineRequest && row.status === APPOINTMENT_STATUS.CONFIRMED;
   const canMarkNoShow =
     canManageStatus &&
+    !row.isOnlineRequest &&
     (row.status === APPOINTMENT_STATUS.SCHEDULED ||
       row.status === APPOINTMENT_STATUS.CONFIRMED);
 
@@ -432,6 +437,17 @@ export default function AppointmentDetailPage() {
                     role="menuitem"
                   >
                     Confirm appointment
+                  </button>
+                )}
+                {canCheckIn && (
+                  <button
+                    type="button"
+                    className="w-full px-3 py-2 text-left text-sm text-violet-700 transition hover:bg-violet-50 disabled:cursor-not-allowed disabled:opacity-50"
+                    disabled={mutatingAction}
+                    onClick={() => updateStatus(APPOINTMENT_STATUS.CHECKED_IN)}
+                    role="menuitem"
+                  >
+                    Check in patient
                   </button>
                 )}
                 {canCancel && (

@@ -3,6 +3,7 @@ export { getApiErrorMessage } from "@/features/patients/patientsApi";
 
 export const APPOINTMENT_REQUEST_STATUS = {
   PENDING: "Pending",
+  RESCHEDULED: "Rescheduled",
   CONFIRMED: "Confirmed",
   CANCELLED: "Cancelled",
   COMPLETED: "Completed",
@@ -28,10 +29,20 @@ export async function fetchAppointmentRequests(filters = {}) {
  * @param {string} status
  * @param {number | null | undefined} doctorProfileId
  */
-export async function patchAppointmentRequestStatus(id, status, doctorProfileId) {
+export async function patchAppointmentRequestStatus(
+  id,
+  status,
+  doctorProfileId,
+  scheduledStart,
+  rejectionReason,
+  isRescheduleConfirmation = false
+) {
   const { data } = await api.patch(`/appointment-requests/${id}/status`, {
     status,
     doctorProfileId,
+    scheduledStart,
+    rejectionReason,
+    isRescheduleConfirmation,
   });
   return data;
 }

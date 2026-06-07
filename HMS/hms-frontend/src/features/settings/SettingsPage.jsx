@@ -64,7 +64,6 @@ const SETTING_SECTIONS = [
     icon: Bell,
     keys: [
       "notifications.emailEnabled",
-      "notifications.smsEnabled",
       "notifications.systemAlertsEnabled",
       "pharmacy.lowStockAlertsEnabled",
     ],
@@ -216,11 +215,6 @@ const SETTING_META = {
   "notifications.emailEnabled": {
     label: "Email notifications",
     description: "Send patient and staff updates by email.",
-    type: "boolean",
-  },
-  "notifications.smsEnabled": {
-    label: "SMS notifications",
-    description: "Send operational updates by text message.",
     type: "boolean",
   },
   "notifications.systemAlertsEnabled": {

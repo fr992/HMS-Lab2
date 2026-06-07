@@ -39,14 +39,18 @@ export function useDashboardRealtime(onDashboardChanged, { debounceMs = 500 } = 
       }, debounceMs);
     });
 
-    connection.start().catch(() => {});
+    let disposed = false;
+    const startPromise = connection.start().catch(() => {});
 
     return () => {
+      disposed = true;
       window.clearTimeout(timeoutRef.current);
       connection.off("dashboardChanged");
-      if (connection.state !== signalR.HubConnectionState.Disconnected) {
-        void connection.stop();
-      }
+      void startPromise.finally(() => {
+        if (disposed && connection.state !== signalR.HubConnectionState.Disconnected) {
+          void connection.stop();
+        }
+      });
     };
   }, [auth.accessToken, canConnect, debounceMs]);
 }

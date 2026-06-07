@@ -51,7 +51,7 @@ function AppointmentActions({
   const [cancelOpen, setCancelOpen] = useState(false);
   const [cancelError, setCancelError] = useState("");
 
-  const actions = getAppointmentRowActions(appointment.status).filter((action) =>
+  const actions = getAppointmentRowActions(appointment.status, appointment.isOnlineRequest).filter((action) =>
     isAppointmentActionVisible(action, { canManageStatus, canEdit, canVisit })
   );
 

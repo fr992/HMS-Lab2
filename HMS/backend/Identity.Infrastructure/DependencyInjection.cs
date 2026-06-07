@@ -3,6 +3,7 @@ using System.Security.Claims;
 using HMS.Application.Abstractions.Identity;
 using Identity.Domain.Entities;
 using Identity.Infrastructure.Jwt;
+using Identity.Infrastructure.Notifications;
 using Identity.Infrastructure.Seed;
 using Identity.Infrastructure.Services;
 using Identity.Infrastructure.Services.Patients;
@@ -21,6 +22,7 @@ public static class DependencyInjection
     {
         services.Configure<JwtSettings>(configuration.GetSection(JwtSettings.SectionName));
         services.Configure<SeedSettings>(configuration.GetSection(SeedSettings.SectionName));
+        services.Configure<EmailNotificationSettings>(configuration.GetSection(EmailNotificationSettings.SectionName));
 
         services.AddSingleton<IPasswordHasher<User>, PasswordHasher<User>>();
         services.AddSingleton<IJwtTokenGenerator, JwtTokenGenerator>();
@@ -144,6 +146,8 @@ public static class DependencyInjection
         services.AddScoped<IRoleAdministrationService, RoleAdministrationService>();
         services.AddScoped<IAuditLogQueryService, AuditLogQueryService>();
         services.AddScoped<INotificationService, MongoNotificationService>();
+        services.AddScoped<IEmailNotificationService, SmtpEmailNotificationService>();
+        services.AddScoped<IAppointmentNotificationService, AppointmentNotificationService>();
         return services;
     }
 }

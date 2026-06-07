@@ -207,7 +207,6 @@ public sealed class IdentityDataSeeder
         ("landing.footerText.sq", "Copyright 2026. Të gjitha të drejtat e rezervuara.", "Public website footer text in Albanian."),
         ("landing.footerText.en", "Copyright 2026. All rights reserved.", "Public website footer text in English."),
         ("notifications.emailEnabled", "true", "Enables outbound email notifications."),
-        ("notifications.smsEnabled", "false", "Enables outbound SMS notifications."),
         ("notifications.systemAlertsEnabled", "true", "Enables administrative system alert notifications."),
         ("pharmacy.lowStockAlertsEnabled", "true", "Enables pharmacy low-stock alerts."),
         ("appointments.defaultDurationMinutes", "30", "Default appointment duration in minutes."),

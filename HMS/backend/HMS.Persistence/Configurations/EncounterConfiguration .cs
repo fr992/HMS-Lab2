@@ -58,7 +58,7 @@ public sealed class EncounterConfiguration : IEntityTypeConfiguration<Encounter>
             .OnDelete(DeleteBehavior.Restrict);
 
         builder.HasOne(e => e.Appointment)
-            .WithOne()
+            .WithOne(a => a.Encounter)
             .HasForeignKey<Encounter>(e => e.AppointmentId)
             .OnDelete(DeleteBehavior.SetNull);
     }

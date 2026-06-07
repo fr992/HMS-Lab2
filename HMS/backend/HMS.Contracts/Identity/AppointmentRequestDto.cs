@@ -12,7 +12,14 @@ namespace HMS.Contracts.Identity
         public int? DoctorProfileId { get; set; }
         public string? DoctorName { get; set; }
         public string ReasonForVisit { get; set; } = string.Empty;
+        public string? RejectionReason { get; set; }
         public string Status { get; set; } = string.Empty;
+        public int? AppointmentId { get; set; }
+        public string? AppointmentStatus { get; set; }
+        public int? EncounterId { get; set; }
+        public DateTime? ScheduledStart { get; set; }
+        public DateTime? ScheduledEnd { get; set; }
+        public bool? EmailNotificationSent { get; set; }
         public DateTime CreatedAt { get; set; }
         public DateTime UpdatedAt { get; set; }
     }

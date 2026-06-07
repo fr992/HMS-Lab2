@@ -4,6 +4,8 @@ const STYLES = {
   [APPOINTMENT_STATUS.SCHEDULED]:
     "bg-slate-100 text-slate-800 ring-slate-200/80",
   [APPOINTMENT_STATUS.CONFIRMED]: "bg-sky-100 text-sky-900 ring-sky-200/80",
+  [APPOINTMENT_STATUS.CHECKED_IN]: "bg-violet-100 text-violet-900 ring-violet-200/80",
+  [APPOINTMENT_STATUS.IN_PROGRESS]: "bg-teal-100 text-teal-900 ring-teal-200/80",
   [APPOINTMENT_STATUS.COMPLETED]:
     "bg-emerald-100 text-emerald-900 ring-emerald-200/80",
   [APPOINTMENT_STATUS.CANCELLED]: "bg-rose-100 text-rose-900 ring-rose-200/80",
@@ -13,6 +15,8 @@ const STYLES = {
 const LABELS = {
   [APPOINTMENT_STATUS.SCHEDULED]: "Scheduled",
   [APPOINTMENT_STATUS.CONFIRMED]: "Confirmed",
+  [APPOINTMENT_STATUS.CHECKED_IN]: "Checked in",
+  [APPOINTMENT_STATUS.IN_PROGRESS]: "In progress",
   [APPOINTMENT_STATUS.COMPLETED]: "Completed",
   [APPOINTMENT_STATUS.CANCELLED]: "Cancelled",
   [APPOINTMENT_STATUS.NO_SHOW]: "No show",
