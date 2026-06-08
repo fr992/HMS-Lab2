@@ -48,6 +48,7 @@ function AppointmentActions({
 }) {
   const navigate = useNavigate();
   const [mutating, setMutating] = useState(false);
+  const [pendingActionId, setPendingActionId] = useState(null);
   const [cancelOpen, setCancelOpen] = useState(false);
   const [cancelError, setCancelError] = useState("");
 
@@ -55,9 +56,10 @@ function AppointmentActions({
     isAppointmentActionVisible(action, { canManageStatus, canEdit, canVisit })
   );
 
-  const patchStatus = async (target) => {
+  const patchStatus = async (actionId, target) => {
     if (mutating) return;
     setMutating(true);
+    setPendingActionId(actionId);
     try {
       await patchAppointmentStatus(appointment.id, { status: target });
       onToast("Status updated.", "success");
@@ -66,12 +68,14 @@ function AppointmentActions({
       onToast(getApiErrorMessage(error), "error");
     } finally {
       setMutating(false);
+      setPendingActionId(null);
     }
   };
 
   const submitCancel = async (reason) => {
     if (mutating) return;
     setMutating(true);
+    setPendingActionId("cancel");
     setCancelError("");
     try {
       await patchAppointmentStatus(appointment.id, {
@@ -85,6 +89,7 @@ function AppointmentActions({
       setCancelError(getApiErrorMessage(error));
     } finally {
       setMutating(false);
+      setPendingActionId(null);
     }
   };
 
@@ -103,6 +108,7 @@ function AppointmentActions({
       void (async () => {
         if (mutating) return;
         setMutating(true);
+        setPendingActionId(action.id);
         try {
           const encounter = await openOrCreateEncounterFromAppointment(appointment);
           onClose();
@@ -111,6 +117,7 @@ function AppointmentActions({
           onToast(getApiErrorMessage(error), "error");
         } finally {
           setMutating(false);
+          setPendingActionId(null);
         }
       })();
       return;
@@ -121,7 +128,7 @@ function AppointmentActions({
       return;
     }
     if (action.kind === "status" && action.target) {
-      void patchStatus(action.target);
+      void patchStatus(action.id, action.target);
     }
   };
 
@@ -142,7 +149,7 @@ function AppointmentActions({
                 : "rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-800 transition hover:bg-slate-50 disabled:opacity-50"
             }
           >
-            {mutating ? "Saving..." : action.label}
+            {pendingActionId === action.id ? "Saving..." : action.label}
           </button>
         ))}
       </div>

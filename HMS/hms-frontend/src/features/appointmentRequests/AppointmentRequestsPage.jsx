@@ -221,6 +221,7 @@ function RequestDetails({
   request,
   canManageStatus,
   mutating,
+  mutatingActionKey,
   doctorSelection,
   selectedDoctor,
   scheduledStart,
@@ -357,15 +358,17 @@ function RequestDetails({
           <div className="flex flex-wrap justify-end gap-2 border-t border-slate-100 pt-4">
             {[...actions, ...appointmentActions].map((action) => {
               const Icon = action.icon;
+              const isAppointmentAction = appointmentActions.includes(action);
+              const actionKey = `${isAppointmentAction ? "appointment" : "request"}:${action.status}`;
               return (
                 <button
-                  key={action.status}
+                  key={actionKey}
                   type="button"
                   onClick={() =>
-                    appointmentActions.includes(action)
-                      ? onAppointmentStatusChange(action.status)
+                    isAppointmentAction
+                      ? onAppointmentStatusChange(action.status, actionKey)
                       : action.status === APPOINTMENT_REQUEST_STATUS.CONFIRMED
-                        ? onStatusChange(action.status)
+                        ? onStatusChange(action.status, actionKey)
                         : onOpenAction(action.status)
                   }
                   disabled={mutating}
@@ -379,7 +382,7 @@ function RequestDetails({
                   ].join(" ")}
                 >
                   {Icon && <Icon className="h-4 w-4" aria-hidden />}
-                  {mutating ? "Saving..." : action.label}
+                  {mutatingActionKey === actionKey ? "Saving..." : action.label}
                 </button>
               );
             })}
@@ -517,6 +520,7 @@ export default function AppointmentRequestsPage() {
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState(null);
   const [mutatingId, setMutatingId] = useState(null);
+  const [mutatingActionKey, setMutatingActionKey] = useState(null);
   const [page, setPage] = useState(1);
   const [selectedRequestId, setSelectedRequestId] = useState(null);
   const [doctorSelections, setDoctorSelections] = useState({});
@@ -628,6 +632,7 @@ export default function AppointmentRequestsPage() {
       options.isRescheduleConfirmation ?? Boolean(rescheduleConfirmations[request.id]);
 
     setMutatingId(request.id);
+    setMutatingActionKey(options.actionKey ?? `request:${nextStatus}`);
     try {
       const updated = await patchAppointmentRequestStatus(
         request.id,
@@ -666,12 +671,14 @@ export default function AppointmentRequestsPage() {
       showToast(getApiErrorMessage(e), "error");
     } finally {
       setMutatingId(null);
+      setMutatingActionKey(null);
     }
   };
 
-  const updateAppointmentStatus = async (request, nextStatus) => {
+  const updateAppointmentStatus = async (request, nextStatus, actionKey) => {
     if (!request?.appointmentId || !canManageStatus || mutatingId != null) return;
     setMutatingId(request.id);
+    setMutatingActionKey(actionKey ?? `appointment:${nextStatus}`);
     try {
       await patchAppointmentStatus(request.appointmentId, {
         status: nextStatus,
@@ -685,6 +692,7 @@ export default function AppointmentRequestsPage() {
       showToast(getApiErrorMessage(e), "error");
     } finally {
       setMutatingId(null);
+      setMutatingActionKey(null);
     }
   };
 
@@ -881,6 +889,11 @@ export default function AppointmentRequestsPage() {
             request={selectedRequest}
             canManageStatus={canManageStatus}
             mutating={selectedRequest ? mutatingId === selectedRequest.id : false}
+            mutatingActionKey={
+              selectedRequest && mutatingId === selectedRequest.id
+                ? mutatingActionKey
+                : null
+            }
             doctorSelection={
               selectedRequest ? doctorSelections[selectedRequest.id] : undefined
             }
@@ -900,15 +913,15 @@ export default function AppointmentRequestsPage() {
             onDoctorChange={(nextValue, doctor) => {
               if (selectedRequest) updateDoctorSelection(selectedRequest.id, nextValue, doctor);
             }}
-            onStatusChange={(nextStatus) => {
-              if (selectedRequest) void updateStatus(selectedRequest, nextStatus);
+            onStatusChange={(nextStatus, actionKey) => {
+              if (selectedRequest) void updateStatus(selectedRequest, nextStatus, { actionKey });
             }}
             onOpenAction={(nextAction) => {
               setPendingAction(nextAction);
               setRescheduleDraft("");
             }}
-            onAppointmentStatusChange={(nextStatus) => {
-              if (selectedRequest) void updateAppointmentStatus(selectedRequest, nextStatus);
+            onAppointmentStatusChange={(nextStatus, actionKey) => {
+              if (selectedRequest) void updateAppointmentStatus(selectedRequest, nextStatus, actionKey);
             }}
           />
         )}
