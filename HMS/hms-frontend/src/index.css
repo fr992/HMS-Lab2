@@ -438,37 +438,49 @@ section[id] {
   }
 
   .dark [class~="hover:bg-slate-50"]:hover,
+  .dark [class~="hover:bg-slate-50/70"]:hover,
+  .dark [class~="hover:bg-slate-50/90"]:hover,
   .dark [class~="hover:bg-slate-100"]:hover,
+  .dark [class~="hover:bg-slate-200"]:hover,
+  .dark [class~="hover:bg-slate-200/80"]:hover,
   .dark [class~="hover:bg-white"]:hover,
+  .dark [class~="hover:bg-white/60"]:hover,
   .dark [class~="hover:bg-white/70"]:hover,
   .dark [class~="hover:bg-white/80"]:hover,
   .dark [class~="hover:bg-white/90"]:hover,
   .dark [class~="hover:bg-white/95"]:hover {
-    background-color: #1e293b !important;
+    background-color: #162033 !important;
   }
 
   .dark [class~="hover:bg-sky-50"]:hover,
+  .dark [class~="hover:bg-sky-50/60"]:hover,
   .dark [class~="hover:bg-sky-50/80"]:hover,
   .dark [class~="hover:bg-blue-50"]:hover,
+  .dark [class~="hover:bg-blue-50/30"]:hover,
   .dark [class~="hover:bg-blue-100"]:hover,
   .dark [class~="hover:bg-cyan-50"]:hover,
   .dark [class~="hover:bg-teal-50"]:hover {
-    background-color: rgb(14 116 144 / 0.28) !important;
+    background-color: rgb(14 116 144 / 0.16) !important;
   }
 
   .dark [class~="hover:bg-emerald-50"]:hover,
   .dark [class~="hover:bg-emerald-100"]:hover {
-    background-color: rgb(16 185 129 / 0.26) !important;
+    background-color: rgb(16 185 129 / 0.16) !important;
   }
 
   .dark [class~="hover:bg-amber-50"]:hover,
   .dark [class~="hover:bg-amber-100"]:hover {
-    background-color: rgb(245 158 11 / 0.26) !important;
+    background-color: rgb(245 158 11 / 0.16) !important;
   }
 
   .dark [class~="hover:bg-rose-50"]:hover,
+  .dark [class~="hover:bg-rose-50/40"]:hover,
   .dark [class~="hover:bg-rose-100"]:hover {
-    background-color: rgb(244 63 94 / 0.26) !important;
+    background-color: rgb(244 63 94 / 0.16) !important;
+  }
+
+  .dark [class~="hover:bg-violet-50"]:hover {
+    background-color: rgb(139 92 246 / 0.16) !important;
   }
 
   .dark [class~="hover:text-slate-950"]:hover,
@@ -519,7 +531,7 @@ section[id] {
   }
 
   .dark .hms-modal-close:hover {
-    background-color: #1e293b !important;
+    background-color: #162033 !important;
     color: #ffffff !important;
   }
 
@@ -538,7 +550,7 @@ section[id] {
   }
 
   .dark .dark-alert-row:hover {
-    background-color: #1e293b !important;
+    background-color: #162033 !important;
   }
 
   .dark [role="dialog"] input:not([type="checkbox"]):not([type="radio"]),

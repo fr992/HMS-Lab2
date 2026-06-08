@@ -183,7 +183,35 @@
   }
 }
 
-.toaster li>button>svg{
-color: white !important;
-stroke-width: 1.5px !important; 
+.toaster [data-sonner-toast] [data-close-button],
+.toaster li > button {
+  background: #ffffff !important;
+  border-color: #cbd5e1 !important;
+  color: #0f172a !important;
+}
+
+.toaster [data-sonner-toast] [data-close-button]:hover,
+.toaster li > button:hover {
+  background: #e2e8f0 !important;
+  color: #020617 !important;
+}
+
+.toaster [data-sonner-toast] [data-close-button] svg,
+.toaster li > button > svg {
+  color: currentColor !important;
+  stroke: currentColor !important;
+  stroke-width: 1.75px !important;
+}
+
+.dark .toaster [data-sonner-toast] [data-close-button],
+.dark .toaster li > button {
+  background: #0f172a !important;
+  border-color: #475569 !important;
+  color: #ffffff !important;
+}
+
+.dark .toaster [data-sonner-toast] [data-close-button]:hover,
+.dark .toaster li > button:hover {
+  background: #162033 !important;
+  color: #ffffff !important;
 }
