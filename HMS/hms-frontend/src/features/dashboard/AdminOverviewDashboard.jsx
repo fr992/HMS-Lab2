@@ -860,7 +860,7 @@ export default function AdminOverviewDashboard() {
                 ) : filteredNotifications.map((n, i) => {
                   const Icon = n.icon;
                   return (
-                    <div key={`${n.title}-${i}`} className="flex gap-3">
+                    <div key={`${n.title}-${i}`} className="dark-alert-row flex gap-3 rounded-lg p-1 transition hover:bg-slate-50">
                       <div className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-lg ${n.color}`}>
                         <Icon className="h-4 w-4" />
                       </div>

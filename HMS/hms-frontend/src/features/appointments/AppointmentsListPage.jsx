@@ -881,7 +881,7 @@ export default function AppointmentsListPage() {
         onCalendarViewChange={handleCalendarViewChange}
       />
 
-      <div className="min-h-0 flex-1">
+      <div className="appointment-content-frame min-h-0 flex-1 rounded-xl border border-slate-200 bg-slate-50/70 p-2 sm:p-3">
         {loading ? (
           <div className="flex min-h-[18rem] items-center justify-center rounded-lg border border-slate-200 bg-white text-sm text-slate-500 shadow-sm">
             Loading appointments...

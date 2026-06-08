@@ -709,7 +709,7 @@ function WeekCalendar({
 }) {
   return (
     <Card className="rounded-lg bg-white p-0 shadow-sm">
-      <div className="grid grid-cols-[repeat(7,minmax(260px,1fr))] gap-3 overflow-x-auto pb-1">
+      <div className="grid grid-cols-[repeat(7,minmax(260px,1fr))] gap-3 overflow-x-auto p-3 scroll-p-3">
         {days.map((day) => (
           <WeekDayCard
             key={dateKey(day)}

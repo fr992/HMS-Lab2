@@ -1061,7 +1061,7 @@ function AlertRow({ alert }) {
   const Icon = style.icon;
 
   return (
-    <div className="flex min-w-0 gap-3 rounded-lg border border-slate-100 bg-slate-50/50 p-3">
+    <div className="dark-alert-row flex min-w-0 gap-3 rounded-lg border border-slate-100 bg-slate-50/50 p-3">
       <span className={`inline-flex size-9 shrink-0 items-center justify-center rounded-lg ring-1 ring-inset ${style.classes}`}>
         <Icon className="size-4" aria-hidden />
       </span>

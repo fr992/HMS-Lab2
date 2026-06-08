@@ -669,7 +669,7 @@ function LiveAlerts() {
         {alerts.map((alert) => {
           const Icon = alert.icon;
           return (
-            <div key={alert.title} className="flex gap-3 rounded-lg p-1 transition hover:bg-slate-50">
+            <div key={alert.title} className="dark-alert-row flex gap-3 rounded-lg p-1 transition hover:bg-slate-50">
               <span className={`inline-flex size-10 shrink-0 items-center justify-center rounded-lg ${alert.tone}`}>
                 <Icon className="size-4" />
               </span>

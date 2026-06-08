@@ -1012,7 +1012,7 @@ export default function AppointmentForm({
           </div>
 
           <aside className="xl:sticky xl:top-0 xl:self-start">
-            <div className="rounded-xl border border-sky-100 bg-gradient-to-b from-sky-50 to-white p-4 shadow-sm">
+            <div className="appointment-summary rounded-xl border border-sky-100 bg-gradient-to-b from-sky-50 to-white p-4 shadow-sm">
               <div className="flex items-center gap-2">
                 <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-white text-sky-700 shadow-sm ring-1 ring-sky-100">
                   <Clock3 className="h-4 w-4" aria-hidden />
@@ -1090,7 +1090,7 @@ export default function AppointmentForm({
 
 function PreviewItem({ icon, label, value, meta }) {
   return (
-    <div className="rounded-lg border border-white/80 bg-white/80 p-3">
+    <div className="appointment-summary-item rounded-lg border border-white/80 bg-white/80 p-3">
       <dt className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-slate-500">
         {icon}
         {label}
