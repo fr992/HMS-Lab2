@@ -270,7 +270,10 @@ public sealed class StripeService : IStripeService
         if (!string.IsNullOrWhiteSpace(configured))
             return configured;
 
-        var frontendBaseUrl = _configuration["Frontend:BaseUrl"] ?? "http://localhost:5173";
+        var frontendBaseUrl = _configuration["Frontend:BaseUrl"];
+        if (string.IsNullOrWhiteSpace(frontendBaseUrl))
+            throw new InvalidOperationException("Frontend:BaseUrl is required.");
+
         return $"{frontendBaseUrl.TrimEnd('/')}{fallbackPath}";
     }
 

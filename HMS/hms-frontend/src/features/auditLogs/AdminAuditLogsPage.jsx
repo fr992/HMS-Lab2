@@ -13,6 +13,7 @@ import {
   fetchSystemAuditLogs,
   getApiErrorMessage,
 } from "@/features/auditLogs/api/auditLogsApi";
+import { SEQ_URL } from "@/config/environment";
 import { getPagedItems, getPagination, PaginationBar } from "@/lib/pagination.jsx";
 
 const LEVEL_OPTIONS = [
@@ -119,7 +120,7 @@ export default function AdminAuditLogsPage() {
   }
 
   function openSeq() {
-    window.open("http://localhost:5341", "_blank", "noopener,noreferrer");
+    window.open(SEQ_URL, "_blank", "noopener,noreferrer");
   }
 
   return (

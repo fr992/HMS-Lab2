@@ -1,10 +1,8 @@
 import axios from "axios";
-
-const baseURL =
-  import.meta.env.VITE_API_BASE_URL || "https://localhost:7297/api";
+import { API_BASE_URL } from "@/config/environment";
 
 const publicApi = axios.create({
-  baseURL,
+  baseURL: API_BASE_URL,
 });
 
 export async function fetchPublicSettings() {

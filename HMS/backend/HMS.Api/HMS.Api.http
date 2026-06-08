@@ -1,4 +1,4 @@
-@HMS.Api_HostAddress = http://localhost:5127
+@HMS.Api_HostAddress = {{$dotenv HMS_API_BASE_URL}}
 
 GET {{HMS.Api_HostAddress}}/weatherforecast/
 Accept: application/json

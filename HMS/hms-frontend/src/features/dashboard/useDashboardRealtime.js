@@ -1,13 +1,11 @@
 import { useEffect, useRef } from "react";
 import * as signalR from "@microsoft/signalr";
 import { useAuth } from "@/auth/AuthContext";
+import { API_BASE_URL } from "@/config/environment";
 import { isTokenExpired } from "@/auth/permissions";
 
-const apiBaseUrl =
-  import.meta.env.VITE_API_BASE_URL || "https://localhost:7297/api";
-
 function getDashboardHubUrl() {
-  return `${apiBaseUrl.replace(/\/api\/?$/, "")}/hubs/dashboard`;
+  return `${API_BASE_URL.replace(/\/api\/?$/, "")}/hubs/dashboard`;
 }
 
 export function useDashboardRealtime(onDashboardChanged, { debounceMs = 500 } = {}) {

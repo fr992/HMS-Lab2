@@ -4,13 +4,11 @@ import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { useAuth } from "@/auth/AuthContext";
 import { isTokenExpired } from "@/auth/permissions";
+import { API_BASE_URL } from "@/config/environment";
 import { notificationQueryKeys } from "@/features/notifications/hooks";
 
-const apiBaseUrl =
-  import.meta.env.VITE_API_BASE_URL || "https://localhost:7297/api";
-
 function getNotificationsHubUrl() {
-  return `${apiBaseUrl.replace(/\/api\/?$/, "")}/hubs/notifications`;
+  return `${API_BASE_URL.replace(/\/api\/?$/, "")}/hubs/notifications`;
 }
 
 export function useNotificationRealtime() {

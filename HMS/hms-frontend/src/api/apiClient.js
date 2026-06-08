@@ -1,11 +1,9 @@
 import axios from "axios";
 import { clearSession, getAccessToken } from "../auth/session";
-
-const baseURL =
-  import.meta.env.VITE_API_BASE_URL || "https://localhost:7297/api";
+import { API_BASE_URL } from "@/config/environment";
 
 const apiClient = axios.create({
-  baseURL,
+  baseURL: API_BASE_URL,
 });
 
 const STATUS_MESSAGES = {

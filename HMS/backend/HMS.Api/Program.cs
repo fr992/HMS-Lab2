@@ -8,6 +8,7 @@ using HMS.Application;
 using HMS.Application.Abstractions.Identity;
 using HMS.Contracts.Identity;
 using HMS.Persistence;
+using HMS.Persistence.Configuration;
 using HMS.Persistence.Mongo;
 using Identity.Domain.Entities;
 using Identity.Infrastructure;
@@ -25,7 +26,10 @@ using Serilog.Events;
 using Serilog.Sinks.MSSqlServer;
 using System.Security.Claims;
 
+DotEnvLoader.Load();
+
 var builder = WebApplication.CreateBuilder(args);
+var corsAllowedOrigins = GetRequiredCsvConfigurationValue(builder.Configuration, "CORS_ALLOWED_ORIGINS");
 
 builder.Logging.ClearProviders();
 builder.Host.UseSerilog((context, services, loggerConfiguration) =>
@@ -39,11 +43,7 @@ builder.Services.AddCors(options =>
         policy =>
         {
             policy
-                .WithOrigins(
-                    "http://localhost:5173",
-                    "http://localhost:5174",
-                    "http://127.0.0.1:5173",
-                    "http://127.0.0.1:5174")
+                .WithOrigins(corsAllowedOrigins)
                 .AllowAnyHeader()
                 .AllowAnyMethod()
                 .AllowCredentials();
@@ -261,6 +261,19 @@ static string GetRequiredConfigurationValue(IConfiguration configuration, string
     }
 
     return value;
+}
+
+static string[] GetRequiredCsvConfigurationValue(IConfiguration configuration, string key)
+{
+    var values = configuration[key]?
+        .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+        .Distinct(StringComparer.OrdinalIgnoreCase)
+        .ToArray();
+
+    if (values is not { Length: > 0 })
+        throw new InvalidOperationException($"{key} must contain at least one value.");
+
+    return values;
 }
 
 static string? CurrentUserId(ClaimsPrincipal user)
